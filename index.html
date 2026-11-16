@@ -48,9 +48,11 @@
     .footer-policies button:hover, .footer-policies button:focus-visible { text-decoration:underline; }
     #policyText { white-space:pre-wrap; overflow-wrap:anywhere; max-height:45vh; overflow:auto; }
     #policyEditor { width:100%; min-height:180px; }
-    .tradingview-widget-copyright { padding: 2px 12px; }
-    .tradingview-widget-copyright a { color: inherit; }
-    .ticker-bar { background-color: #0f172a; color: #cbd5e1; font-size: 11px; padding: 6px 0; border-bottom: 1px solid #1e293b; overflow: hidden; white-space: nowrap; }
+    .ticker-bar { background-color:#0f172a; color:#cbd5e1; font-size:11px; padding:6px 0; border-bottom:1px solid #1e293b; }
+    .ticker-bar > .tradingview-widget-container { overflow:hidden; }
+    .ticker-bar .yen-reference { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:center; gap:2px 7px; padding-block:4px; font-size:13px; line-height:1.4; }
+    .yen-reference strong, .yen-reference-date { white-space:nowrap; }
+    .yen-reference-date:empty { display:none; }
 
     .top-bar { background-color: var(--bg-dark); color: #f3f4f6; font-size: 13px; padding: 8px 0; }
     .top-bar .container { display: flex; justify-content: space-between; align-items: center; }
@@ -245,12 +247,13 @@
   <section class="ticker-bar" aria-label="환율과 가상화폐 시장 시세">
     <div class="tradingview-widget-container">
       <div class="tradingview-widget-container__widget"></div>
-      <div class="tradingview-widget-copyright">
-        <a href="https://kr.tradingview.com/markets/" target="_blank" rel="noopener noreferrer">TradingView 시장 시세</a> · <span id="yenReference">100엔 참고 환율 조회 중…</span>
-      </div>
       <script src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
         {"symbols": [{"proName": "FX_IDC:USDKRW", "description": "달러·원"}, {"proName": "FX_IDC:JPYKRW", "description": "엔·원 (1엔)"}, {"proName": "UPBIT:BTCKRW", "description": "BTC"}, {"proName": "UPBIT:ETHKRW", "description": "ETH"}, {"proName": "UPBIT:XRPKRW", "description": "XRP"}], "showSymbolLogo": false, "isTransparent": false, "displayMode": "regular", "colorTheme": "dark", "locale": "kr"}
       </script>
+    </div>
+    <div class="container yen-reference">
+      <strong id="yenReference">100엔 참고 환율 조회 중…</strong>
+      <span class="yen-reference-date" id="yenReferenceDate"></span>
     </div>
   </section>
 
@@ -577,6 +580,7 @@
 
     async function updateYenReference() {
       const label = document.getElementById("yenReference");
+      const dateLabel = document.getElementById("yenReferenceDate");
       try {
         const response = await fetch("https://api.frankfurter.dev/v1/latest?base=JPY&symbols=KRW", {
           cache: "no-store",
@@ -586,9 +590,15 @@
         const {rates, date} = await response.json();
         if (!Number.isFinite(rates?.KRW) || rates.KRW <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("환율 응답 오류");
         const amount = (rates.KRW * 100).toLocaleString("ko-KR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        label.textContent = `100엔 = ${amount}원 (참고 환율 기준일 ${date})`;
+        label.textContent = `100엔 = ${amount}원`;
+        label.title = "";
+        dateLabel.textContent = `참고 환율 기준일 ${date}`;
       } catch {
-        label.textContent = "100엔 참고 환율 조회 불가";
+        if (dateLabel.textContent) {
+          label.title = "마지막으로 조회한 참고 환율입니다.";
+        } else {
+          label.textContent = "100엔 참고 환율 조회 불가";
+        }
       }
     }
 
