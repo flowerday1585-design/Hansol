@@ -62,8 +62,9 @@
         display:flex; flex:none; align-items:baseline; gap:8px;
         padding:6px 14px; border-right:1px solid #334155; white-space:nowrap;
       }
-      .mobile-tape-item span { font-size:13px; font-weight:700; }
-      .mobile-tape-item strong { color:#fff; font-size:21px; line-height:1.2; font-weight:800; font-variant-numeric:tabular-nums; }
+      .mobile-tape-item span { color:#cbd5e1; font-size:13px; font-weight:700; }
+      .mobile-tape-item strong { color:#a7f3d0; font-size:21px; line-height:1.2; font-weight:800; font-variant-numeric:tabular-nums; }
+      .mobile-tape-item.is-fx strong { color:#fde68a; }
       .mobile-tape:focus-within .mobile-tape-track { animation-play-state:paused; }
     }
     @keyframes market-tape-scroll { to { transform:translateX(-50%); } }
@@ -72,9 +73,12 @@
       .mobile-tape-track { animation:none; }
       .mobile-tape-group[aria-hidden="true"] { display:none; }
     }
-    .ticker-bar .yen-reference { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:center; gap:2px 7px; padding-block:4px; font-size:13px; line-height:1.4; }
-    .yen-reference strong, .yen-reference-date { white-space:nowrap; }
-    .yen-reference-date:empty { display:none; }
+    .ticker-bar .yen-reference { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:4px 12px; padding-block:6px; line-height:1.35; }
+    .yen-reference-value { display:inline-flex; align-items:baseline; gap:7px; padding:3px 10px; border:1px solid #4d422e; border-radius:7px; background:#1e293b; white-space:nowrap; }
+    .yen-reference-unit { color:#d8e0eb; font-size:12px; font-weight:700; }
+    .yen-reference-value strong { color:#fde68a; font-size:20px; font-weight:800; font-variant-numeric:tabular-nums; }
+    .yen-reference-date, .yen-reference-status { color:#cbd5e1; font-size:12px; white-space:nowrap; }
+    .yen-reference-date:empty, .yen-reference-status:empty { display:none; }
     .top-bar { background-color: var(--bg-dark); color: #f3f4f6; font-size: 13px; padding: 8px 0; }
     .top-bar .container { display: flex; justify-content: space-between; align-items: center; }
     .top-bar-badge { background: #374151; padding: 2px 8px; border-radius: 4px; font-weight: 600; color: #fbbf24; margin-right: 6px; }
@@ -172,7 +176,9 @@
     .product-name { font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
     .product-desc { font-size: 13px; color: var(--text-sub); margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .price-row { display: flex; align-items: baseline; justify-content: space-between; margin-top: auto; border-top: 1px solid #f3f4f6; padding-top: 12px; }
-    .price-krw { font-size: 18px; font-weight: 800; color: var(--text-main); }
+    .price-krw { font-size: 18px; font-weight: 800; color: #1d4ed8; font-variant-numeric: tabular-nums; }
+    .price-subtotal { color:#475569; font-variant-numeric:tabular-nums; }
+    .price-subtotal strong { color:#1e293b; }
     
     /* 카드 내 수량 조절 및 장바구니 담기 컨트롤 영역 */
     .card-cart-control { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
@@ -223,7 +229,7 @@
     .product-info { padding: 12px; min-width: 0; overflow-wrap: anywhere; }
     .product-desc:empty { display: none; }
     .price-row { flex-wrap: wrap; gap: 2px 8px; padding-top: 8px; }
-    .price-row > span:last-child { font-size: 12px; }
+    .price-subtotal { font-size: 12px; }
     @media (max-width: 1024px) {
       .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
     }
@@ -286,7 +292,7 @@
       .product-desc { font-size: 10px; line-height: 1.3; -webkit-line-clamp: 1; margin-bottom: 3px; }
       .price-row { padding-top: 4px; }
       .price-krw { font-size: 15px; }
-      .price-row > span:last-child { font-size: 10px; }
+      .price-subtotal { font-size: 10px; }
       .card-cart-control { flex-wrap: wrap; gap: 3px; margin-top: 4px; }
       .qty-btn { min-width: 25px; min-height: 28px; padding: 0 4px; }
       .qty-display { min-width: 20px; padding-inline: 3px; font-size: 11px; }
@@ -309,8 +315,9 @@
       </div>
     </div>
     <div class="container yen-reference">
-      <strong id="yenReference">100엔 참고 환율 조회 중…</strong>
+      <div class="yen-reference-value"><span class="yen-reference-unit">100엔</span><strong id="yenReference">—</strong></div>
       <span class="yen-reference-date" id="yenReferenceDate"></span>
+      <span class="yen-reference-status" id="yenReferenceStatus">환율 조회 중…</span>
     </div>
   </section>
 
@@ -709,8 +716,10 @@
 
       const items = tapeSymbols.map(([symbol, label]) => {
         const price = tapePrices[symbol].toLocaleString("ko-KR", {maximumFractionDigits: symbol === "JPY" ? 3 : 2});
-        const source = coinSymbols.includes(symbol) ? "업비트 원화 마켓" : "Manana 시장 환율";
-        return '<span class="mobile-tape-item" title="' + source + '"><span>' + label + '</span><strong>' + price + '</strong></span>';
+        const isCoin = coinSymbols.includes(symbol);
+        const source = isCoin ? "업비트 원화 마켓" : "Manana 시장 환율";
+        const className = isCoin ? "mobile-tape-item" : "mobile-tape-item is-fx";
+        return '<span class="' + className + '" title="' + source + '"><span>' + label + '</span><strong>' + price + '</strong></span>';
       }).join("");
       document.getElementById("mobileTapeQuotes").innerHTML = items;
       document.getElementById("mobileTapeRepeat").innerHTML = items;
@@ -751,6 +760,7 @@
     async function updateYenReference() {
       const label = document.getElementById("yenReference");
       const dateLabel = document.getElementById("yenReferenceDate");
+      const status = document.getElementById("yenReferenceStatus");
       const today = new Date(Date.now() + koreaOffsetMs).toISOString().slice(0, 10);
       dateLabel.textContent = "환율 조회일 " + today;
       if (yenFetchPending) return;
@@ -766,19 +776,15 @@
         const dollarRate = quotes.find(quote => quote.name === "USDKRW=X")?.rate;
         if (!Number.isFinite(yenRate) || yenRate <= 0) throw new Error("환율 응답 오류");
         const amount = (yenRate * 100).toLocaleString("ko-KR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        label.textContent = "100엔 = " + amount + "원";
+        label.textContent = amount + "원";
+        status.textContent = "";
         label.title = "Manana 시장 참고 환율";
         hasYenRate = true;
         tapePrices.JPY = yenRate;
         tapePrices.USD = dollarRate;
         renderMobileTape();
       } catch {
-        if (hasYenRate) {
-          label.title = "환율 조회가 지연되어 마지막 조회값을 표시합니다.";
-          if (!label.textContent.endsWith(" (최근 조회값)")) label.textContent += " (최근 조회값)";
-        } else {
-          label.textContent = "100엔 참고 환율 조회 불가";
-        }
+        status.textContent = hasYenRate ? "최근 조회값" : "환율 조회 불가";
       } finally {
         yenFetchPending = false;
       }
@@ -1371,7 +1377,7 @@
             <p class="product-desc">${item.desc || ''}</p>
             <div class="price-row">
               <span class="price-krw">${item.price.toLocaleString()}원</span>
-              ${soldOut ? "" : `<span>소계 <strong id="card-total-${item.id}">${won(item.price * cardQuantities[item.id])}</strong></span>`}
+              ${soldOut ? "" : `<span class="price-subtotal">소계 <strong id="card-total-${item.id}">${won(item.price * cardQuantities[item.id])}</strong></span>`}
             </div>
             
             ${soldOut ? "" : `
