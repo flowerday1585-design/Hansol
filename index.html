@@ -53,6 +53,37 @@
     .ticker-bar .yen-reference { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:center; gap:2px 7px; padding-block:4px; font-size:13px; line-height:1.4; }
     .yen-reference strong, .yen-reference-date { white-space:nowrap; }
     .yen-reference-date:empty { display:none; }
+    .yen-reference-basis { color:#aabbd1; font-size:11px; }
+    .mobile-market-quotes { display:none; }
+    @media (max-width:768px) {
+      .ticker-bar > .tradingview-widget-container { display:none; }
+      .mobile-market-quotes {
+        display:flex;
+        align-items:center;
+        gap:8px;
+        overflow-x:auto;
+        padding:3px 12px 7px;
+        scrollbar-width:thin;
+      }
+      .mobile-market-quote {
+        display:flex;
+        flex:none;
+        align-items:baseline;
+        gap:6px;
+        white-space:nowrap;
+        padding:5px 9px;
+        border:1px solid #334155;
+        border-radius:6px;
+      }
+      .mobile-market-price {
+        color:#fff;
+        font-size:18px;
+        font-weight:800;
+        line-height:1.25;
+        font-variant-numeric:tabular-nums;
+      }
+      .mobile-market-price[data-unavailable] { font-size:12px; color:#cbd5e1; }
+    }
 
     .top-bar { background-color: var(--bg-dark); color: #f3f4f6; font-size: 13px; padding: 8px 0; }
     .top-bar .container { display: flex; justify-content: space-between; align-items: center; }
@@ -81,14 +112,15 @@
     .hero-main { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); color: #ffffff; border-radius: 14px; padding: 40px; box-shadow: var(--shadow-md); }
     .hero-content { display:flex; align-items:center; gap:28px; }
     .hero-copy { min-width:0; flex:1; overflow-wrap:anywhere; }
-    .hero-copy h1, .hero-copy p { white-space:pre-line; }
+    .hero-copy h1, .hero-copy h2, .hero-copy p { white-space:pre-line; }
     .hero-photo { display:block; width:38%; max-width:440px; max-height:320px; object-fit:contain; border-radius:10px; }
     .hero-photo[hidden], .hero-edit[hidden] { display:none; }
     .hero-style-fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .hero-style-fields input[type="color"] { height:42px; padding:4px; }
     @media(max-width:600px) { .hero-content { flex-direction:column; align-items:stretch; } .hero-photo { width:100%; align-self:center; } }
     .hero-tag { display: inline-block; background: rgba(255, 255, 255, 0.15); color: #93c5fd; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 4px; margin-bottom: 14px; }
-    .hero-main h1 { font-size: var(--banner-title-size, 32px); font-weight: 800; line-height: 1.25; margin-bottom: 12px; }
+    .hero-main + .hero-main { margin-top: 16px; }
+    .hero-main :is(h1, h2) { font-size: var(--banner-title-size, 32px); font-weight: 800; line-height: 1.25; margin-bottom: 12px; }
     .hero-main p { font-size: 15px; color: #cbd5e1; margin-bottom: 24px; max-width: 520px; }
     
     .catalog-section { padding: 28px 0 60px; }
@@ -103,6 +135,28 @@
     .thumb-open, .product-title-open { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
     .thumb-open { display: block; width: 100%; height: 100%; cursor: zoom-in; }
     .product-title-open { text-align: left; }
+    .sold-out-overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      background: rgb(15 23 42 / 28%);
+    }
+    .sold-out-badge {
+      background: #111827;
+      color: #fff;
+      border: 1px solid rgb(255 255 255 / 55%);
+      border-radius: 8px;
+      padding: .32em .78em;
+      font-size: clamp(18px, 2.6vw, 30px);
+      font-weight: 800;
+      line-height: 1.2;
+      white-space: nowrap;
+      box-shadow: 0 4px 14px rgb(15 23 42 / 35%);
+    }
+    .form-group .stock-toggle { display: flex; align-items: center; gap: 8px; }
+    .form-group .stock-toggle input { width: auto; }
     #prodDesc { height: 150px; }
     .product-detail { position: fixed; inset: 0; margin: auto; width: min(92vw, 680px); max-height: 90dvh; padding: 16px; border: 0; border-radius: 12px; color: var(--text-main); background: #fff; overflow-y: auto; }
     .product-detail::backdrop { background: #0f172acc; }
@@ -156,6 +210,11 @@
     .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
     .modal-btns button { flex: 1; padding: 10px; border-radius: 6px; font-weight: 700; border: none; cursor: pointer; }
     .btn-submit { background: var(--primary); color: #fff; }
+    #signupSubmit:disabled { background: #e5e7eb; color: #4b5563; cursor: not-allowed; }
+    .signup-age-box { margin-top:16px; padding:12px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; }
+    .signup-age-label { display:flex; align-items:flex-start; gap:8px; font-size:14px; font-weight:700; cursor:pointer; }
+    .signup-age-label input { flex:none; width:17px; height:17px; margin-top:2px; accent-color:var(--primary); }
+    .signup-age-box p { margin-top:6px; font-size:12px; color:var(--text-sub); line-height:1.55; word-break:keep-all; }
     .btn-cancel { background: #e5e7eb; color: #374151; }
     
     /* 장바구니 모달 스타일 */
@@ -201,7 +260,7 @@
       .logo-sub { display: none; }
       .hero-section { padding-top: 14px; }
       .hero-main { padding: 19px 16px; }
-      .hero-main h1 { font-size: clamp(18px, var(--banner-title-size, 5.8vw), 34px); line-height: 1.3; letter-spacing: -0.035em; word-break: keep-all; margin-bottom: 8px; }
+      .hero-main :is(h1, h2) { font-size: clamp(18px, var(--banner-title-size, 5.8vw), 34px); line-height: 1.3; letter-spacing: -0.035em; word-break: keep-all; margin-bottom: 8px; }
       .hero-main p { font-size: 12px; line-height: 1.55; word-break: keep-all; margin-bottom: 0; }
       .hero-tag { margin-bottom: 9px; font-size: 10px; }
       .catalog-section { padding-top: 15px; }
@@ -251,9 +310,17 @@
         {"symbols": [{"proName": "FX_IDC:USDKRW", "description": "달러·원"}, {"proName": "FX_IDC:JPYKRW", "description": "엔·원 (1엔)"}, {"proName": "UPBIT:BTCKRW", "description": "BTC"}, {"proName": "UPBIT:ETHKRW", "description": "ETH"}, {"proName": "UPBIT:XRPKRW", "description": "XRP"}], "showSymbolLogo": false, "isTransparent": false, "displayMode": "regular", "colorTheme": "dark", "locale": "kr"}
       </script>
     </div>
+    <div class="mobile-market-quotes" role="region" aria-label="모바일 원화 시세, 가로로 스크롤" tabindex="0">
+      <div class="mobile-market-quote" title="Frankfurter 달러 참고 환율"><span>달러·원</span><strong class="mobile-market-price" id="marketUSD">—</strong></div>
+      <div class="mobile-market-quote" title="Frankfurter 1엔 참고 환율"><span>엔·원</span><strong class="mobile-market-price" id="marketJPY">—</strong></div>
+      <div class="mobile-market-quote" title="업비트 원화 마켓"><span>BTC</span><strong class="mobile-market-price" id="marketBTC">—</strong></div>
+      <div class="mobile-market-quote" title="업비트 원화 마켓"><span>ETH</span><strong class="mobile-market-price" id="marketETH">—</strong></div>
+      <div class="mobile-market-quote" title="업비트 원화 마켓"><span>XRP</span><strong class="mobile-market-price" id="marketXRP">—</strong></div>
+    </div>
     <div class="container yen-reference">
       <strong id="yenReference">100엔 참고 환율 조회 중…</strong>
       <span class="yen-reference-date" id="yenReferenceDate"></span>
+      <span class="yen-reference-date yen-reference-basis" id="yenReferenceBasis"></span>
     </div>
   </section>
 
@@ -263,7 +330,7 @@
       <div class="market-links">
         <div class="store-buttons">
           <a class="store-link store-naver" href="https://smartstore.naver.com/hansolarchive" target="_blank" rel="noopener noreferrer">네이버 스마트스토어</a>
-          <a class="store-link store-coupang" href="https://www.coupang.com/np/search?q=%EC%9B%90%ED%94%BC%EC%8A%A4%EC%B9%B4%EB%93%9C" target="_blank" rel="noopener noreferrer"><img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Coupang_logo.svg" alt="Coupang"></a>
+          <a class="store-link store-coupang" href="https://shop.coupang.com/hansolarchive" target="_blank" rel="noopener noreferrer"><img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Coupang_logo.svg" alt="Coupang"></a>
         </div>
         <span id="userInfoDisplay">방문객 모드</span>
         <button class="cart-badge-btn" onclick="openCartModal()">🛒 장바구니 <span class="cart-count" id="cartBadgeCount">0</span></button>
@@ -283,7 +350,7 @@
       </div>
       <div class="header-actions" id="headerActions">
         <button class="auth-btn" onclick="openModal('loginModal')">로그인</button>
-        <button class="auth-btn primary" onclick="openModal('signupModal')">회원가입</button>
+        <button class="auth-btn primary" onclick="openSignupModal()">회원가입</button>
       </div>
     </div>
   </header>
@@ -310,6 +377,17 @@
             <p id="bannerDescription">100% 일본 내수용 정품 및 안전한 포장 배송을 약속드립니다.</p>
           </div>
           <img class="hero-photo" id="bannerPhoto" alt="한솔아카이브 배너 사진" hidden>
+        </div>
+      </div>
+      <div class="hero-main" id="noticeBanner">
+        <button type="button" class="auth-btn hero-edit" id="noticeBannerEditButton" onclick="openBannerEditor('notice')" hidden>공지 배너 편집</button>
+        <div class="hero-content">
+          <div class="hero-copy">
+            <span class="hero-tag" id="noticeTag">공지사항</span>
+            <h2 id="noticeTitle">입고 및 업데이트 소식</h2>
+            <p id="noticeDescription">상품 입고와 재입고 소식을 이곳에서 확인하실 수 있습니다.</p>
+          </div>
+          <img class="hero-photo" id="noticePhoto" alt="입고 및 업데이트 공지 이미지" hidden>
         </div>
       </div>
     </div>
@@ -461,8 +539,15 @@
         <input type="text" id="signupAddrDetailEnglish" aria-describedby="signupEnglishDetailHint" placeholder="예: Building 302, Unit 802" />
         <small id="signupEnglishDetailHint" style="display:block; margin-top:4px; color:var(--text-sub);">동·호수나 층이 있으면 영문으로 입력해 주세요.</small>
       </div>
+      <div class="signup-age-box">
+        <label class="signup-age-label" for="signupAgeConfirmed">
+          <input type="checkbox" id="signupAgeConfirmed" aria-describedby="signupAgeHint" required />
+          <span>[필수] 만 15세 이상임을 확인합니다.</span>
+        </label>
+        <p id="signupAgeHint">한솔아카이브는 만 15세부터 가입하실 수 있습니다. 연령을 사실과 다르게 확인한 경우 회원 이용이 제한될 수 있습니다. 구매와 관련한 권리와 책임은 관계 법령에 따릅니다.</p>
+      </div>
       <div class="modal-btns">
-        <button class="btn-submit" onclick="handleSignup()">가입완료</button>
+        <button type="button" class="btn-submit" id="signupSubmit" onclick="handleSignup()" disabled>가입완료</button>
         <button class="btn-cancel" onclick="closeModal('signupModal')">취소</button>
       </div>
     </div>
@@ -483,6 +568,7 @@
       </div>
       <div class="form-group"><label>코드/시리즈</label><input type="text" id="prodCode" placeholder="예: M3 / MUNIKIS ZERO" /></div>
       <div class="form-group"><label>가격 (원)</label><input type="number" id="prodPrice" placeholder="예: 78000" /></div>
+      <div class="form-group"><label class="stock-toggle"><input type="checkbox" id="prodSoldOut" /> 품절</label></div>
       <div class="form-group"><label>상품 상세 설명</label><textarea id="prodDesc" placeholder="상품 상태, 구성품, 배송 안내 등 상세 내용을 적어주세요."></textarea></div>
       
       <div class="form-group">
@@ -505,6 +591,7 @@
         <button class="btn-submit" onclick="saveProduct()">저장하기</button>
         <button class="btn-cancel" onclick="closeModal('productModal')">취소</button>
       </div>
+      <p id="productSaveStatus" role="status"></p>
     </div>
   </div>
 
@@ -545,6 +632,8 @@
     </form>
   </div>
   <script type="application/json" id="publishedBanner">{}</script>
+  <script type="application/json" id="publishedNoticeBanner">{}</script>
+  <script type="application/json" id="publishedCatalog">null</script>
   <!-- 카카오 주소 API -->
   <script src="https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
   <script>
@@ -554,20 +643,52 @@
       title: "일본 현지 정품 TCG\n미개봉 박스 & 컬렉션 아카이브",
       description: "100% 일본 내수용 정품 및 안전한 포장 배송을 약속드립니다."
     };
-    const publishedBanner = JSON.parse(document.getElementById("publishedBanner").textContent);
-    const bannerStorageKey = "hansol_banner:" + JSON.stringify(publishedBanner).slice(0, 1000);
-    let bannerSettings = { ...bannerDefaults, ...publishedBanner };
-    try {
-      Object.assign(bannerSettings, JSON.parse(localStorage.getItem(bannerStorageKey)));
-    } catch {
-      // The published banner remains available when local storage is blocked.
+    function loadBanner(publishedId, storagePrefix, defaults) {
+      const published = JSON.parse(document.getElementById(publishedId).textContent);
+      const storageKey = storagePrefix + JSON.stringify(published).slice(0, 1000);
+      const settings = { ...defaults, ...published };
+      try {
+        Object.assign(settings, JSON.parse(localStorage.getItem(storageKey)));
+      } catch {
+        // Keep the published settings when local storage is unavailable.
+      }
+      return { publishedId, storageKey, settings };
     }
 
-    let products = JSON.parse(localStorage.getItem('hansol_products')) || [
+    const banners = {
+      home: {
+        ...loadBanner("publishedBanner", "hansol_banner:", bannerDefaults),
+        containerId: "homeBanner", elementPrefix: "banner", editorTitle: "홈 배너 편집"
+      },
+      notice: {
+        ...loadBanner("publishedNoticeBanner", "hansol_notice_banner:", {
+          tag: "공지사항",
+          title: "입고 및 업데이트 소식",
+          description: "상품 입고와 재입고 소식을 이곳에서 확인하실 수 있습니다."
+        }),
+        containerId: "noticeBanner", elementPrefix: "notice", editorTitle: "공지 배너 편집"
+      }
+    };
+    let editingBanner = banners.home;
+
+    const defaultProducts = [
       { id: 1, category: "pokemon", categoryName: "포켓몬 카드", code: "M3 / MUNIKIS ZERO", name: "일본판 포켓몬 카드 무니키스 제로 1BOX", price: 78000, desc: "일본 내수용 정품 미개봉 박스입니다. 안전하게 포장되어 발송됩니다.", imgs: ["", "", ""] },
       { id: 2, category: "onepiece", categoryName: "원피스 카드", code: "OP-13 / 계승되는 의지", name: "일본판 원피스 카드 OP-13 부스터 1BOX", price: 69000, desc: "원피스 카드게임 신규 탄베스 박스, 미개봉 정품입니다.", imgs: ["", "", ""] },
       { id: 3, category: "supply", categoryName: "보관용품", code: "TOPLOADER 35PT", name: "고투명 TCG 카드 탑로더 35PT (25매)", price: 6500, desc: "소중한 카드 보관을 위한 고투명 탑로더 세트입니다.", imgs: ["", "", ""] }
     ];
+
+    const publishedCatalog = JSON.parse(document.getElementById("publishedCatalog").textContent);
+    const productStorageKey = publishedCatalog ? "hansol_catalog_draft" : "hansol_products";
+    const savedCatalog = JSON.parse(localStorage.getItem(productStorageKey));
+    let products = publishedCatalog
+      ? (savedCatalog?.revision === publishedCatalog.revision ? savedCatalog.items : publishedCatalog.items)
+      : (savedCatalog || defaultProducts);
+
+    function storeProducts(nextProducts) {
+      const value = publishedCatalog ? { revision: publishedCatalog.revision, items: nextProducts } : nextProducts;
+      localStorage.setItem(productStorageKey, JSON.stringify(value));
+      products = nextProducts;
+    }
 
     let currentUser = JSON.parse(localStorage.getItem('hansol_current_user')) || null;
     let adminPw = localStorage.getItem('hansol_admin_pw') || "whdudfo77@";
@@ -578,11 +699,47 @@
     let cartCharges = JSON.parse(localStorage.getItem("hansol_cart_charges")) || {shipping: 0, fee: 0};
     const won = amount => amount.toLocaleString("ko-KR") + "원";
 
+    const koreaOffsetMs = 9 * 60 * 60 * 1000;
+    const dayMs = 24 * 60 * 60 * 1000;
+    const mobileMarket = window.matchMedia("(max-width: 768px)");
+    const cryptoSymbols = ["BTC", "ETH", "XRP"];
+    let yenFetchPending = false;
+    let lastRateDate = "";
+    let lastCryptoAttempt = -Infinity;
+
+    function scheduleKoreanMidnight() {
+      const elapsedToday = (Date.now() + koreaOffsetMs) % dayMs;
+      setTimeout(() => {
+        updateYenReference();
+        scheduleKoreanMidnight();
+      }, dayMs - elapsedToday);
+    }
+
+    function setMarketPrice(symbol, value, maxDecimals = 2) {
+      const price = document.getElementById("market" + symbol);
+      if (Number.isFinite(value) && value > 0) {
+        price.textContent = value.toLocaleString("ko-KR", { maximumFractionDigits: maxDecimals });
+        price.removeAttribute("data-unavailable");
+        price.title = "";
+      } else if (price.textContent === "—" || price.hasAttribute("data-unavailable")) {
+        price.textContent = "조회 불가";
+        price.setAttribute("data-unavailable", "");
+      } else {
+        price.title = "마지막으로 조회한 시세";
+      }
+    }
+
     async function updateYenReference() {
       const label = document.getElementById("yenReference");
       const dateLabel = document.getElementById("yenReferenceDate");
+      const basisLabel = document.getElementById("yenReferenceBasis");
+      const today = new Date(Date.now() + koreaOffsetMs).toISOString().slice(0, 10);
+      dateLabel.textContent = "환율 조회일 " + today;
+      basisLabel.textContent = lastRateDate && lastRateDate !== today ? "적용 기준일 " + lastRateDate : "";
+      if (yenFetchPending) return;
+      yenFetchPending = true;
       try {
-        const response = await fetch("https://api.frankfurter.dev/v1/latest?base=JPY&symbols=KRW", {
+        const response = await fetch("https://api.frankfurter.dev/v1/latest?base=JPY&symbols=KRW,USD", {
           cache: "no-store",
           signal: AbortSignal.timeout(8000)
         });
@@ -590,19 +747,49 @@
         const {rates, date} = await response.json();
         if (!Number.isFinite(rates?.KRW) || rates.KRW <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("환율 응답 오류");
         const amount = (rates.KRW * 100).toLocaleString("ko-KR", {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        label.textContent = `100엔 = ${amount}원`;
-        label.title = "";
-        dateLabel.textContent = `참고 환율 기준일 ${date}`;
+        label.textContent = "100엔 = " + amount + "원";
+        label.title = "참고 환율 기준일 " + date;
+        lastRateDate = date;
+        const currentDay = new Date(Date.now() + koreaOffsetMs).toISOString().slice(0, 10);
+        dateLabel.textContent = "환율 조회일 " + currentDay;
+        basisLabel.textContent = date === currentDay ? "" : "적용 기준일 " + date;
+        setMarketPrice("JPY", rates.KRW, 3);
+        setMarketPrice("USD", rates.KRW / rates.USD);
       } catch {
-        if (dateLabel.textContent) {
+        if (lastRateDate) {
           label.title = "마지막으로 조회한 참고 환율입니다.";
         } else {
           label.textContent = "100엔 참고 환율 조회 불가";
         }
+        setMarketPrice("JPY");
+        setMarketPrice("USD");
+      } finally {
+        yenFetchPending = false;
+      }
+    }
+
+    async function updateMobileCryptoQuotes() {
+      if (!mobileMarket.matches || document.hidden || Date.now() - lastCryptoAttempt < 15000) return;
+      lastCryptoAttempt = Date.now();
+      try {
+        const response = await fetch("https://api.upbit.com/v1/ticker?markets=KRW-BTC,KRW-ETH,KRW-XRP", {
+          cache: "no-store",
+          signal: AbortSignal.timeout(8000)
+        });
+        if (!response.ok) throw new Error("시세 조회 실패");
+        const quotes = await response.json();
+        for (const symbol of cryptoSymbols) {
+          const quote = quotes.find(item => item.market === "KRW-" + symbol);
+          setMarketPrice(symbol, quote?.trade_price);
+        }
+      } catch {
+        for (const symbol of cryptoSymbols) setMarketPrice(symbol);
       }
     }
 
     function adjustCardQty(productId, delta) {
+      const product = products.find(item => item.id === productId);
+      if (!product || product.soldOut) return;
       if (!cardQuantities[productId]) cardQuantities[productId] = 1;
       cardQuantities[productId] += delta;
       if (cardQuantities[productId] < 1) cardQuantities[productId] = 1;
@@ -610,14 +797,13 @@
       const span = document.getElementById(`qty-num-${productId}`);
       if (span) span.textContent = cardQuantities[productId];
       const price = document.getElementById(`card-total-${productId}`);
-      const product = products.find(item => item.id === productId);
-      if (price && product) price.textContent = won(product.price * cardQuantities[productId]);
+      if (price) price.textContent = won(product.price * cardQuantities[productId]);
     }
 
     function addCardToCart(productId) {
       const qty = cardQuantities[productId] || 1;
       const p = products.find(x => x.id === productId);
-      if(!p) return;
+      if (!p || p.soldOut) return;
 
       let item = cart.find(x => x.id === productId);
       if(item) {
@@ -631,11 +817,17 @@
     }
 
     function updateCartBadge() {
+      const availableCart = cart.filter(line => !products.some(product => product.id === line.id && product.soldOut));
+      if (availableCart.length !== cart.length) {
+        cart = availableCart;
+        localStorage.setItem("hansol_cart", JSON.stringify(cart));
+      }
       const totalCnt = cart.reduce((sum, item) => sum + item.qty, 0);
       document.getElementById("cartBadgeCount").textContent = totalCnt;
     }
 
     function openCartModal() {
+      updateCartBadge();
       const listContainer = document.getElementById("cartItemsList");
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
       const {shipping, fee} = cart.length ? cartCharges : {shipping: 0, fee: 0};
@@ -672,7 +864,12 @@
     }
 
     function changeCartQty(idx, val) {
-      if (!cart[idx] || !Number.isSafeInteger(val)) return;
+      const line = cart[idx];
+      if (!line || !Number.isSafeInteger(val)) return;
+      if (products.some(product => product.id === line.id && product.soldOut)) {
+        openCartModal();
+        return;
+      }
       cart[idx].qty = Math.max(1, val);
       localStorage.setItem('hansol_cart', JSON.stringify(cart));
       updateCartBadge();
@@ -703,6 +900,7 @@
 
     function updateUI() {
       document.getElementById("bannerEditButton").hidden = currentUser?.id !== "flowerday1585";
+      document.getElementById("noticeBannerEditButton").hidden = document.getElementById("bannerEditButton").hidden;
       const reviewForm = document.getElementById("reviewForm");
       reviewForm.hidden = !currentUser;
       document.getElementById("reviewLogin").hidden = Boolean(currentUser);
@@ -722,6 +920,7 @@
           `;
           adminContainer.innerHTML = `
             <button onclick="openProductModal()" style="padding:10px 16px; background:var(--primary); color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">+ 새 상품 등록</button>
+            <button type="button" class="auth-btn" onclick="downloadBannerSite()">배포용 HTML 받기</button>
           `;
         } else {
           headerActions.innerHTML = `<button class="auth-btn" onclick="handleLogout()">로그아웃</button>`;
@@ -731,7 +930,7 @@
         userInfoDisplay.textContent = "방문객 모드";
         headerActions.innerHTML = `
           <button class="auth-btn" onclick="openModal('loginModal')">로그인</button>
-          <button class="auth-btn primary" onclick="openModal('signupModal')">회원가입</button>
+          <button class="auth-btn primary" onclick="openSignupModal()">회원가입</button>
         `;
         adminContainer.innerHTML = "";
       }
@@ -748,12 +947,12 @@
       titleSize: "editBannerTitleSize", descriptionSize: "editBannerDescriptionSize"
     };
 
-    function renderBanner() {
-      const { tag, title, description, color, background, titleSize, descriptionSize, photo } = bannerSettings;
-      const banner = document.getElementById("homeBanner");
-      const label = document.getElementById("bannerTag");
-      const heading = document.getElementById("bannerTitle");
-      const detail = document.getElementById("bannerDescription");
+    function renderBanner(entry) {
+      const { tag, title, description, color, background, titleSize, descriptionSize, photo } = entry.settings;
+      const banner = document.getElementById(entry.containerId);
+      const label = document.getElementById(entry.elementPrefix + "Tag");
+      const heading = document.getElementById(entry.elementPrefix + "Title");
+      const detail = document.getElementById(entry.elementPrefix + "Description");
       label.textContent = tag;
       label.style.display = tag ? "" : "none";
       heading.textContent = title;
@@ -764,16 +963,19 @@
       for (const el of [label, heading, detail]) el.style.color = color || "";
       banner.style.setProperty("--banner-title-size", titleSize ? titleSize + "px" : "");
       detail.style.fontSize = descriptionSize ? descriptionSize + "px" : "";
-      const image = document.getElementById("bannerPhoto");
+      const image = document.getElementById(entry.elementPrefix + "Photo");
       image.hidden = !photo;
       if (photo) image.src = photo;
       else image.removeAttribute("src");
     }
 
-    function openBannerEditor() {
-      if (currentUser?.id !== "flowerday1585") return;
-      document.getElementById("bannerForm").reset();
-      const values = { color: "#ffffff", background: "#1e3a8a", ...bannerSettings };
+    function openBannerEditor(key = "home") {
+      const form = document.getElementById("bannerForm");
+      if (currentUser?.id !== "flowerday1585" || form.querySelector('[type="submit"]').disabled) return;
+      editingBanner = banners[key];
+      form.reset();
+      document.getElementById("bannerEditorTitle").textContent = editingBanner.editorTitle;
+      const values = { color: "#ffffff", background: "#1e3a8a", ...editingBanner.settings };
       for (const [key, id] of Object.entries(bannerFields)) {
         document.getElementById(id).value = values[key] ?? "";
       }
@@ -788,7 +990,8 @@
       const form = event.currentTarget;
       const submit = form.querySelector('[type="submit"]');
       const status = document.getElementById("bannerEditorStatus");
-      const settings = { ...bannerSettings };
+      const entry = editingBanner;
+      const settings = { ...entry.settings };
       const file = document.getElementById("editBannerPhoto").files[0];
       for (const [key, id] of Object.entries(bannerFields)) {
         const value = document.getElementById(id).value.trim();
@@ -815,9 +1018,9 @@
           await image.decode();
         }
         if (currentUser?.id !== "flowerday1585") return;
-        localStorage.setItem(bannerStorageKey, JSON.stringify(settings));
-        bannerSettings = settings;
-        renderBanner();
+        localStorage.setItem(entry.storageKey, JSON.stringify(settings));
+        entry.settings = settings;
+        renderBanner(entry);
         document.getElementById("editBannerPhoto").value = "";
         document.getElementById("removeBannerPhoto").checked = false;
         status.textContent = "저장했습니다. 고객에게도 보이게 하려면 배포용 HTML을 받아 사이트에 올려 주세요.";
@@ -830,11 +1033,17 @@
 
     function downloadBannerSite() {
       if (currentUser?.id !== "flowerday1585") return;
-      const config = JSON.stringify(bannerSettings).replace(/</g, "\\u003c");
-      const output = bannerSource.replace(
-        /(<script type="application\/json" id="publishedBanner">)[\s\S]*?(<\/script>)/,
-        (_, start, end) => start + config + end
-      );
+      const entries = [
+        ...Object.values(banners),
+        { publishedId: "publishedCatalog", settings: { revision: new Date().toISOString(), items: products } }
+      ];
+      const output = entries.reduce((source, entry) => {
+        const config = JSON.stringify(entry.settings).replace(/</g, "\\u003c");
+        const opening = '<script type="application/json" id="' + entry.publishedId + '">';
+        const start = source.indexOf(opening) + opening.length;
+        const end = source.indexOf("</" + "script>", start);
+        return source.slice(0, start) + config + source.slice(end);
+      }, bannerSource);
       const href = URL.createObjectURL(new Blob(["<!doctype html>\n", output], { type: "text/html" }));
       const download = document.createElement("a");
       download.href = href;
@@ -877,7 +1086,19 @@
       updateUI();
     }
 
+    function openSignupModal() {
+      document.getElementById("signupAgeConfirmed").checked = false;
+      document.getElementById("signupSubmit").disabled = true;
+      openModal("signupModal");
+    }
+
     function handleSignup() {
+      const ageConfirmation = document.getElementById("signupAgeConfirmed");
+      if (!ageConfirmation.checked) {
+        alert("만 15세 이상임을 확인해 주세요.");
+        ageConfirmation.focus();
+        return;
+      }
       const id = document.getElementById("signupId").value.trim();
       const pw = document.getElementById("signupPw").value.trim();
       const name = document.getElementById("signupName").value.trim();
@@ -1111,6 +1332,7 @@
     }
 
     function getProductCardHtml(item, isAdmin) {
+      const soldOut = Boolean(item.soldOut);
       let imgs = item.imgs || ["", "", ""];
       let validImgs = imgs.filter(url => url && url.trim() !== "");
       
@@ -1120,7 +1342,7 @@
 
       if (validImgs.length > 0) {
         imgHtml = validImgs.map((url, idx) => `<img src="${url}" class="${idx === 0 ? 'active' : ''}" alt="상품이미지" />`).join("");
-        if (validImgs.length > 1) {
+        if (!soldOut && validImgs.length > 1) {
           arrowsHtml = `
             <button class="thumb-arrow prev" type="button" aria-label="이전 상품 사진" onclick="stepThumb(event, ${item.id}, -1)">‹</button>
             <button class="thumb-arrow next" type="button" aria-label="다음 상품 사진" onclick="stepThumb(event, ${item.id}, 1)">›</button>`;
@@ -1139,22 +1361,23 @@
       if (!cardQuantities[item.id]) cardQuantities[item.id] = 1;
 
       return `
-        <article class="product-card" id="card-${item.id}" data-category="${item.category}">
+        <article class="product-card${soldOut ? ' is-sold-out' : ''}" id="card-${item.id}" data-category="${item.category}">
           <div class="product-thumb">
-            ${validImgs.length ? `<button type="button" class="thumb-open" aria-label="상품 사진 확대" onclick="openProductDetail(${item.id})">${imgHtml}</button>` : imgHtml}
+            ${validImgs.length && !soldOut ? `<button type="button" class="thumb-open" aria-label="상품 사진 확대" onclick="openProductDetail(${item.id})">${imgHtml}</button>` : imgHtml}
             ${dotsHtml}
             ${arrowsHtml}
+            ${soldOut ? '<div class="sold-out-overlay"><span class="sold-out-badge">품절</span></div>' : ""}
           </div>
           <div class="product-info">
             <div class="product-category">${item.categoryName || '분류'}</div>
-            <h2 class="product-name"><button type="button" class="product-title-open" onclick="openProductDetail(${item.id})">${item.name}</button></h2>
+            <h2 class="product-name">${soldOut ? item.name : `<button type="button" class="product-title-open" onclick="openProductDetail(${item.id})">${item.name}</button>`}</h2>
             <p class="product-desc">${item.desc || ''}</p>
             <div class="price-row">
               <span class="price-krw">${item.price.toLocaleString()}원</span>
-              <span>소계 <strong id="card-total-${item.id}">${won(item.price * cardQuantities[item.id])}</strong></span>
+              ${soldOut ? "" : `<span>소계 <strong id="card-total-${item.id}">${won(item.price * cardQuantities[item.id])}</strong></span>`}
             </div>
             
-            <!-- 수량 조절 버튼 및 장바구니 담기 -->
+            ${soldOut ? "" : `
             <div class="card-cart-control">
               <div class="qty-btn-group">
                 <button class="qty-btn" onclick="adjustCardQty(${item.id}, -1)">-</button>
@@ -1162,7 +1385,7 @@
                 <button class="qty-btn" onclick="adjustCardQty(${item.id}, 1)">+</button>
               </div>
               <button class="btn-card-add" onclick="addCardToCart(${item.id})" aria-label="장바구니 담기"><span class="cart-button-text">장바구니 담기</span><span class="cart-button-icon" aria-hidden="true">🛒</span></button>
-            </div>
+            </div>`}
 
             ${isAdmin ? `
               <div class="admin-controls">
@@ -1182,7 +1405,7 @@
 
     function openProductDetail(itemId) {
       const item = products.find(product => product.id === itemId);
-      if (!item) return;
+      if (!item || item.soldOut) return;
       const thumbnails = [...document.querySelectorAll(`#card-${itemId} .product-thumb img`)];
       detailPhotos = thumbnails.map(image => image.src);
       detailIndex = Math.max(0, thumbnails.findIndex(image => image.classList.contains("active")));
@@ -1261,6 +1484,11 @@
     }
 
     function openProductModal(id = null, category = currentCategory) {
+      if (currentUser?.id !== "flowerday1585") return;
+      const product = id ? products.find(item => item.id === id) : null;
+      if (id && !product) return;
+      document.getElementById("prodSoldOut").checked = Boolean(product?.soldOut);
+      document.getElementById("productSaveStatus").textContent = "";
       document.getElementById("editProductIdx").value = id ? id : "";
       document.getElementById("productModalTitle").textContent = id ? "상품 수정" : "새 상품 등록";
       
@@ -1271,8 +1499,8 @@
       document.getElementById("preview2Name").textContent = "";
       document.getElementById("preview3Name").textContent = "";
 
-      if (id) {
-        let p = products.find(x => x.id === id);
+      if (product) {
+        const p = product;
         document.getElementById("prodName").value = p.name;
         document.getElementById("prodCategory").value = p.category;
         document.getElementById("prodCode").value = p.code;
@@ -1294,12 +1522,14 @@
     }
 
     function saveProduct() {
+      if (currentUser?.id !== "flowerday1585") return;
       const editId = document.getElementById("editProductIdx").value;
       const name = document.getElementById("prodName").value.trim();
       const category = document.getElementById("prodCategory").value;
       const code = document.getElementById("prodCode").value.trim();
       const price = Number(document.getElementById("prodPrice").value);
       const desc = document.getElementById("prodDesc").value.trim();
+      const soldOut = document.getElementById("prodSoldOut").checked;
       const catNames = { pokemon: "포켓몬 카드", onepiece: "원피스 카드", supply: "보관용품" };
 
       if (!name || !price) {
@@ -1307,29 +1537,30 @@
         return;
       }
 
+      const details = { category, categoryName: catNames[category], code, name, price, desc, imgs: [...tempImages], soldOut };
+      let nextProducts;
       if (editId) {
-        let p = products.find(x => x.id == editId);
-        p.name = name;
-        p.category = category;
-        p.categoryName = catNames[category];
-        p.code = code;
-        p.price = price;
-        p.desc = desc;
-        p.imgs = [...tempImages];
+        nextProducts = products.map(product => product.id === Number(editId) ? { ...product, ...details } : product);
       } else {
-        const newId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
-        products.push({ id: newId, category, categoryName: catNames[category], code, name, price, desc, imgs: [...tempImages] });
+        const newId = products.length > 0 ? Math.max(...products.map(product => product.id)) + 1 : 1;
+        nextProducts = [...products, { id: newId, ...details }];
       }
 
-      localStorage.setItem('hansol_products', JSON.stringify(products));
+      try {
+        storeProducts(nextProducts);
+      } catch {
+        document.getElementById("productSaveStatus").textContent = "상품 정보를 저장하지 못했습니다. 브라우저 저장 공간을 확인해 주세요.";
+        return;
+      }
+      updateCartBadge();
       closeModal('productModal');
       setCategory(currentCategory === 'all' ? 'all' : category);
     }
 
     function deleteProduct(id) {
+      if (currentUser?.id !== "flowerday1585") return;
       if (confirm("정말 이 상품을 삭제하시겠습니까?")) {
-        products = products.filter(p => p.id !== id);
-        localStorage.setItem('hansol_products', JSON.stringify(products));
+        storeProducts(products.filter(product => product.id !== id));
         filterProducts();
       }
     }
@@ -1353,8 +1584,11 @@
       closeModal('adminModal');
     }
 
+    document.getElementById("signupAgeConfirmed").addEventListener("change", event => {
+      document.getElementById("signupSubmit").disabled = !event.currentTarget.checked;
+    });
     document.getElementById("bannerForm").addEventListener("submit", saveBanner);
-    renderBanner();
+    Object.values(banners).forEach(renderBanner);
 
     setupProductDetail();
 
@@ -1363,9 +1597,15 @@
     setupCustomerFeedback();
     updateUI();
     updateYenReference();
+    scheduleKoreanMidnight();
+    updateMobileCryptoQuotes();
     setInterval(updateYenReference, 300000);
+    setInterval(updateMobileCryptoQuotes, 30000);
+    mobileMarket.addEventListener("change", updateMobileCryptoQuotes);
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) updateYenReference();
+      if (document.hidden) return;
+      updateYenReference();
+      updateMobileCryptoQuotes();
     });
   </script>
 </body>
