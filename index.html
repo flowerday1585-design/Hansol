@@ -400,7 +400,7 @@
         <div id="adminActionContainer"></div>
       </div>
       
-      <div id="productSectionsContainer"></div>
+      <input id="catalogImport" type="file" accept=".html,.htm" hidden onchange="importCatalog(this)"><p id="catalogSyncStatus" role="status" hidden></p><div id="productSectionsContainer"></div>
       <section id="customerFeedback" class="customer-feedback" aria-label="고객 리뷰 및 문의">
         <div class="feedback-card">
           <h2>고객 리뷰</h2>
@@ -490,8 +490,8 @@
   <div class="modal" id="loginModal">
     <div class="modal-content">
       <h3>로그인</h3>
-      <div class="form-group"><label>아이디</label><input type="text" id="loginId" placeholder="아이디 입력" /></div>
-      <div class="form-group"><label>비밀번호</label><input type="password" id="loginPw" placeholder="비밀번호 입력" /></div>
+      <div class="form-group"><label for="loginId">회원 아이디 또는 관리자 이메일</label><input type="text" id="loginId" placeholder="회원 아이디 또는 관리자 이메일" autocomplete="username" /></div>
+      <div class="form-group"><label>비밀번호</label><input type="password" id="loginPw" placeholder="비밀번호 입력" autocomplete="current-password" /></div>
       <div class="modal-btns">
         <button class="btn-submit" onclick="handleLogin()">로그인</button>
         <button class="btn-cancel" onclick="closeModal('loginModal')">취소</button>
@@ -597,7 +597,6 @@
       <h3>관리자 설정</h3>
       <div class="form-group"><label for="adminShipping">주문당 배송비 (원)</label><input type="number" id="adminShipping" min="0" step="1" /></div>
       <div class="form-group"><label for="adminFee">주문당 수수료 (원)</label><input type="number" id="adminFee" min="0" step="1" /></div>
-      <div class="form-group"><label>새 관리자 비밀번호</label><input type="password" id="newAdminPw" placeholder="변경할 비밀번호 입력" /></div>
       <div class="modal-btns">
         <button class="btn-submit" onclick="saveAdminSettings()">변경하기</button>
         <button class="btn-cancel" onclick="closeModal('adminModal')">닫기</button>
@@ -632,6 +631,79 @@
   <script type="application/json" id="publishedCatalog">null</script>
   <!-- 카카오 주소 API -->
   <script src="https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+  <script>
+window.hansolCatalogConfig = {
+  url: "",
+  publishableKey: ""
+};
+
+(() => {
+  const {url = "", publishableKey = ""} = window.hansolCatalogConfig || {};
+  const base = url.replace(/\/$/, "");
+  const enabled = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(base)
+    && /^sb_publishable_[\w-]+$/.test(publishableKey);
+  const catalogPath = "/rest/v1/hansol_catalog?id=eq.1&select=revision,next_id,items";
+  let session = null;
+
+  async function request(path, {method = "GET", body, token, prefer} = {}) {
+    if (!enabled) throw new Error("상품 서버 설정이 필요합니다.");
+    const headers = {apikey: publishableKey};
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    if (token) headers.Authorization = "Bearer " + token;
+    if (prefer) headers.Prefer = prefer;
+    const response = await fetch(base + path, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      const error = new Error("상품 서버 요청에 실패했습니다.");
+      error.status = response.status;
+      throw error;
+    }
+    return response.status === 204 ? null : response.json();
+  }
+
+  window.hansolCatalog = {
+    enabled,
+    async login(email, password) {
+      const account = await request("/auth/v1/token?grant_type=password", {
+        method: "POST", body: {email, password}
+      });
+      const token = account.access_token;
+      if (!token || await request("/rest/v1/rpc/hansol_is_catalog_admin", {
+        method: "POST", body: {}, token
+      }) !== true) throw new Error("상품 관리자 권한이 없습니다.");
+      session = token;
+    },
+    logout() {
+      session = null;
+    },
+    async read() {
+      const [row] = await request(catalogPath);
+      if (!row) throw new Error("상품 목록을 찾을 수 없습니다.");
+      return row;
+    },
+    async write(previous, items, nextId) {
+      if (!session) throw new Error("관리자로 다시 로그인해 주세요.");
+      const [row] = await request(catalogPath + "&revision=eq." + previous.revision, {
+        method: "PATCH",
+        body: {revision: previous.revision + 1, next_id: nextId, items},
+        token: session,
+        prefer: "return=representation"
+      });
+      if (!row) {
+        const error = new Error("다른 기기에서 상품이 변경되었습니다. 최신 목록을 확인한 후 다시 시도해 주세요.");
+        error.conflict = true;
+        throw error;
+      }
+      return row;
+    }
+  };
+})();
+
+  </script>
   <script>
     const bannerSource = document.documentElement.outerHTML;
     const bannerDefaults = {
@@ -674,20 +746,108 @@
     ];
 
     const publishedCatalog = JSON.parse(document.getElementById("publishedCatalog").textContent);
-    const productStorageKey = publishedCatalog ? "hansol_catalog_draft" : "hansol_products";
-    const savedCatalog = JSON.parse(localStorage.getItem(productStorageKey));
-    let products = publishedCatalog
-      ? (savedCatalog?.revision === publishedCatalog.revision ? savedCatalog.items : publishedCatalog.items)
-      : (savedCatalog || defaultProducts);
+    const catalogApi = window.hansolCatalog;
+    let catalogRow = null;
+    let catalogFetching = false;
+    let catalogWriting = false;
+    let editingRevision = null;
+    let products = publishedCatalog?.items || defaultProducts;
+    let currentUser = JSON.parse(localStorage.getItem('hansol_current_user') || "null");
+    if (currentUser?.id === "flowerday1585") currentUser = null;
 
-    function storeProducts(nextProducts) {
-      const value = publishedCatalog ? { revision: publishedCatalog.revision, items: nextProducts } : nextProducts;
-      localStorage.setItem(productStorageKey, JSON.stringify(value));
-      products = nextProducts;
+    function escapeCatalogHtml(value) {
+      const escapes = {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"};
+      return String(value ?? "").replace(/[&<>"']/g, character => escapes[character]);
     }
 
-    let currentUser = JSON.parse(localStorage.getItem('hansol_current_user')) || null;
-    let adminPw = localStorage.getItem('hansol_admin_pw') || "whdudfo77@";
+    function showCatalogStatus(message) {
+      const status = document.getElementById("catalogSyncStatus");
+      status.textContent = message;
+      status.hidden = !message;
+    }
+
+    function displayCatalog(row) {
+      const changed = catalogRow?.revision !== row.revision;
+      catalogRow = row;
+      products = row.items ?? publishedCatalog?.items ?? defaultProducts;
+      if (changed) {
+        filterProducts();
+        updateCartBadge();
+      }
+    }
+
+    async function refreshCatalog() {
+      if (!catalogApi.enabled || catalogFetching || catalogWriting) return;
+      catalogFetching = true;
+      try {
+        const row = await catalogApi.read();
+        if (!catalogWriting && row.revision >= (catalogRow?.revision ?? 0)) {
+          displayCatalog(row);
+          showCatalogStatus("");
+        }
+      } catch {
+        showCatalogStatus("공용 상품 목록을 연결하지 못했습니다. 잠시 후 다시 확인해 주세요.");
+      } finally {
+        catalogFetching = false;
+      }
+    }
+
+    async function commitCatalog(previous, items, nextId) {
+      if (!previous || previous.revision !== catalogRow?.revision) {
+        const error = new Error("최신 상품 목록에서 다시 시도해 주세요.");
+        error.conflict = true;
+        throw error;
+      }
+      catalogWriting = true;
+      try {
+        displayCatalog(await catalogApi.write(previous, items, nextId));
+      } finally {
+        catalogWriting = false;
+      }
+    }
+
+    function nextCatalogId() {
+      return products.reduce((next, product) => Math.max(next, product.id + 1), catalogRow.next_id);
+    }
+
+    async function importCatalog(input) {
+      const file = input.files[0];
+      input.value = "";
+      if (!file || currentUser?.id !== "flowerday1585" || catalogWriting || !catalogRow) return;
+      const previous = catalogRow;
+      try {
+        if (file.size > 20000000) throw new Error();
+        const source = await file.text();
+        const snapshot = source.match(/<script type="application\/json" id="publishedCatalog">([\s\S]*?)<\/script>/);
+        const items = JSON.parse(snapshot?.[1] || "null")?.items;
+        if (!Array.isArray(items) || !items.every(product =>
+          product && Number.isSafeInteger(product.id) && product.id > 0 &&
+          ["pokemon", "onepiece", "supply"].includes(product.category) &&
+          typeof product.name === "string" && typeof product.code === "string" &&
+          Number.isSafeInteger(product.price) && product.price > 0 &&
+          Array.isArray(product.imgs) && product.imgs.every(image => typeof image === "string")
+        ) || new Set(items.map(product => product.id)).size !== items.length) throw new Error();
+        if (!confirm(`현재 공용 목록을 이 파일의 상품 ${items.length}개로 교체하시겠습니까?`)) return;
+        const nextId = items.reduce((next, item) => Math.max(next, item.id + 1), previous.next_id);
+        await commitCatalog(previous, items.map(({id, category, categoryName, name, code, price, desc, imgs, soldOut}) =>
+          ({id, category, categoryName: String(categoryName || ""), name, code, price, desc: String(desc || ""), imgs, soldOut: Boolean(soldOut)})
+        ), nextId);
+        alert("공용 상품 목록을 저장했습니다.");
+      } catch (error) {
+        alert(error.status || error.conflict ? catalogWriteError(error) : "기존 관리자 화면에서 받은 배포용 HTML 파일을 선택해 주세요.");
+      }
+    }
+
+    function catalogWriteError(error) {
+      if ([401, 403].includes(error.status)) {
+        handleLogout();
+        return "관리자로 다시 로그인해 주세요.";
+      }
+      if (error.conflict) refreshCatalog();
+      return error.status === 413 ? "사진 용량을 줄여 다시 시도해 주세요."
+        : error.conflict ? error.message : "상품 변경을 저장하지 못했습니다. 연결 상태를 확인해 주세요.";
+    }
+
     let currentCategory = "all";
     let tempImages = ["", "", ""];
     let cart = JSON.parse(localStorage.getItem('hansol_cart')) || [];
@@ -820,7 +980,10 @@
     }
 
     function updateCartBadge() {
-      const availableCart = cart.filter(line => !products.some(product => product.id === line.id && product.soldOut));
+      const availableCart = cart.filter(line => {
+        const product = products.find(item => item.id === line.id);
+        return product ? !product.soldOut : catalogRow === null;
+      });
       if (availableCart.length !== cart.length) {
         cart = availableCart;
         localStorage.setItem("hansol_cart", JSON.stringify(cart));
@@ -848,7 +1011,7 @@
           html += `
             <div class="cart-item-row">
               <div>
-                <div style="font-weight:700; font-size:14px;">${item.name}</div>
+                <div style="font-weight:700; font-size:14px;">${escapeCatalogHtml(item.name)}</div>
                 <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">단가: ${item.price.toLocaleString()}원</div>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
@@ -923,7 +1086,8 @@
           `;
           adminContainer.innerHTML = `
             <button onclick="openProductModal()" style="padding:10px 16px; background:var(--primary); color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">+ 새 상품 등록</button>
-            <button type="button" class="auth-btn" onclick="downloadBannerSite()">배포용 HTML 받기</button>
+            <button type="button" class="auth-btn" onclick="document.getElementById('catalogImport').click()">이전 상품 목록 가져오기</button>
+             <button type="button" class="auth-btn" onclick="downloadBannerSite()">배포용 HTML 받기</button>
           `;
         } else {
           headerActions.innerHTML = `<button class="auth-btn" onclick="handleLogout()">로그아웃</button>`;
@@ -1056,36 +1220,45 @@
     }
 
     function openAdminModal() {
-      document.getElementById("newAdminPw").value = "";
       document.getElementById("adminShipping").value = cartCharges.shipping;
       document.getElementById("adminFee").value = cartCharges.fee;
       openModal('adminModal');
     }
 
-    function handleLogin() {
+    async function handleLogin() {
       const id = document.getElementById("loginId").value.trim();
-      const pw = document.getElementById("loginPw").value.trim();
-
-      if (id === "flowerday1585" && pw === adminPw) {
-        currentUser = { id: "flowerday1585", name: "관리자 (조영래)" };
-      } else {
-        let users = JSON.parse(localStorage.getItem('hansol_users')) || [];
-        let found = users.find(u => u.id === id && u.pw === pw);
-        if (found) {
-          currentUser = found;
+      const passwordField = document.getElementById("loginPw");
+      const password = passwordField.value;
+      const submit = document.querySelector("#loginModal .btn-submit");
+      submit.disabled = true;
+      try {
+        const users = JSON.parse(localStorage.getItem("hansol_users") || "[]");
+        const customer = id === "flowerday1585" ? null : users.find(user => user.id === id && user.pw === password.trim());
+        if (customer) {
+          currentUser = customer;
+          localStorage.setItem("hansol_current_user", JSON.stringify(currentUser));
+        } else if (id.includes("@")) {
+          await catalogApi.login(id, password);
+          currentUser = {id: "flowerday1585", name: "관리자"};
+          await refreshCatalog();
         } else {
-          alert("아이디 또는 비밀번호가 일치하지 않습니다.");
+          alert("회원 정보가 일치하지 않습니다. 상품 관리자는 등록된 이메일로 로그인해 주세요.");
           return;
         }
+        passwordField.value = "";
+        closeModal("loginModal");
+        updateUI();
+      } catch {
+        alert(catalogApi.enabled ? "관리자 이메일, 비밀번호 또는 권한을 확인해 주세요." : "관리자 로그인을 사용하려면 상품 서버 연결이 필요합니다.");
+      } finally {
+        submit.disabled = false;
       }
-      localStorage.setItem('hansol_current_user', JSON.stringify(currentUser));
-      closeModal('loginModal');
-      updateUI();
     }
 
     function handleLogout() {
+      catalogApi.logout();
       currentUser = null;
-      localStorage.removeItem('hansol_current_user');
+      localStorage.removeItem("hansol_current_user");
       updateUI();
     }
 
@@ -1337,14 +1510,14 @@
     function getProductCardHtml(item, isAdmin) {
       const soldOut = Boolean(item.soldOut);
       let imgs = item.imgs || ["", "", ""];
-      let validImgs = imgs.filter(url => url && url.trim() !== "");
+      let validImgs = imgs.filter(url => typeof url === "string" && /^(https:\/\/|data:image\/(jpeg|png|webp|gif);base64,)/i.test(url));
       
       let imgHtml = "";
       let dotsHtml = "";
       let arrowsHtml = "";
 
       if (validImgs.length > 0) {
-        imgHtml = validImgs.map((url, idx) => `<img src="${url}" class="${idx === 0 ? 'active' : ''}" alt="상품이미지" />`).join("");
+        imgHtml = validImgs.map((url, idx) => `<img src="${escapeCatalogHtml(url)}" class="${idx === 0 ? 'active' : ''}" alt="상품이미지" />`).join("");
         if (!soldOut && validImgs.length > 1) {
           arrowsHtml = `
             <button class="thumb-arrow prev" type="button" aria-label="이전 상품 사진" onclick="stepThumb(event, ${item.id}, -1)">‹</button>
@@ -1355,8 +1528,8 @@
       } else {
         imgHtml = `
           <div class="thumb-placeholder">
-            <div>${item.categoryName || 'TCG'}</div>
-            <div class="thumb-code">${item.code}</div>
+            <div>${escapeCatalogHtml(item.categoryName || 'TCG')}</div>
+            <div class="thumb-code">${escapeCatalogHtml(item.code)}</div>
           </div>
         `;
       }
@@ -1372,9 +1545,9 @@
             ${soldOut ? '<div class="sold-out-overlay"><span class="sold-out-badge">품절</span></div>' : ""}
           </div>
           <div class="product-info">
-            <div class="product-category">${item.categoryName || '분류'}</div>
-            <h2 class="product-name">${soldOut ? item.name : `<button type="button" class="product-title-open" onclick="openProductDetail(${item.id})">${item.name}</button>`}</h2>
-            <p class="product-desc">${item.desc || ''}</p>
+            <div class="product-category">${escapeCatalogHtml(item.categoryName || '분류')}</div>
+            <h2 class="product-name">${soldOut ? item.name : `<button type="button" class="product-title-open" onclick="openProductDetail(${item.id})">${escapeCatalogHtml(item.name)}</button>`}</h2>
+            <p class="product-desc">${escapeCatalogHtml(item.desc || '')}</p>
             <div class="price-row">
               <span class="price-krw">${item.price.toLocaleString()}원</span>
               ${soldOut ? "" : `<span class="price-subtotal">소계 <strong id="card-total-${item.id}">${won(item.price * cardQuantities[item.id])}</strong></span>`}
@@ -1488,10 +1661,13 @@
 
     function openProductModal(id = null, category = currentCategory) {
       if (currentUser?.id !== "flowerday1585") return;
+      if (!catalogRow) { alert("공용 상품 목록을 먼저 불러와 주세요."); return; }
+      editingRevision = catalogRow.revision;
       const product = id ? products.find(item => item.id === id) : null;
       if (id && !product) return;
       document.getElementById("prodSoldOut").checked = Boolean(product?.soldOut);
       document.getElementById("productSaveStatus").textContent = "";
+      document.querySelector("#productModal .btn-submit").disabled = false;
       document.getElementById("editProductIdx").value = id ? id : "";
       document.getElementById("productModalTitle").textContent = id ? "상품 수정" : "새 상품 등록";
       
@@ -1524,7 +1700,7 @@
       openModal('productModal');
     }
 
-    function saveProduct() {
+    async function saveProduct() {
       if (currentUser?.id !== "flowerday1585") return;
       const editId = document.getElementById("editProductIdx").value;
       const name = document.getElementById("prodName").value.trim();
@@ -1535,38 +1711,47 @@
       const soldOut = document.getElementById("prodSoldOut").checked;
       const catNames = { pokemon: "포켓몬 카드", onepiece: "원피스 카드", supply: "보관용품" };
 
-      if (!name || !price) {
+      if (!name || !Number.isSafeInteger(price) || price <= 0) {
         alert("상품명과 가격을 정확히 입력해주세요.");
         return;
       }
 
       const details = { category, categoryName: catNames[category], code, name, price, desc, imgs: [...tempImages], soldOut };
-      let nextProducts;
-      if (editId) {
-        nextProducts = products.map(product => product.id === Number(editId) ? { ...product, ...details } : product);
-      } else {
-        const newId = products.length > 0 ? Math.max(...products.map(product => product.id)) + 1 : 1;
-        nextProducts = [...products, { id: newId, ...details }];
-      }
-
-      try {
-        storeProducts(nextProducts);
-      } catch {
-        document.getElementById("productSaveStatus").textContent = "상품 정보를 저장하지 못했습니다. 브라우저 저장 공간을 확인해 주세요.";
+      if (catalogWriting || !catalogRow) return;
+      const formStatus = document.getElementById("productSaveStatus");
+      const submit = document.querySelector("#productModal .btn-submit");
+      if (editingRevision !== catalogRow.revision) {
+        formStatus.textContent = "목록이 변경되었습니다. 창을 닫은 뒤 상품을 다시 열어 주세요.";
+        submit.disabled = true;
         return;
       }
-      updateCartBadge();
-      closeModal('productModal');
-      setCategory(currentCategory === 'all' ? 'all' : category);
-    }
 
-    function deleteProduct(id) {
-      if (currentUser?.id !== "flowerday1585") return;
-      if (confirm("정말 이 상품을 삭제하시겠습니까?")) {
-        storeProducts(products.filter(product => product.id !== id));
-        filterProducts();
+      const previous = catalogRow;
+      const nextId = nextCatalogId();
+      const items = editId
+        ? products.map(product => product.id === Number(editId) ? {...product, ...details} : product)
+        : [...products, {id: nextId, ...details}];
+      submit.disabled = true;
+      try {
+        await commitCatalog(previous, items, editId ? nextId : nextId + 1);
+        closeModal("productModal");
+        setCategory(currentCategory === "all" ? "all" : category);
+      } catch (error) {
+        formStatus.textContent = catalogWriteError(error);
+        submit.disabled = Boolean(error.conflict);
       }
     }
+
+    async function deleteProduct(id) {
+      if (currentUser?.id !== "flowerday1585" || catalogWriting || !catalogRow) return;
+      if (!confirm("이 상품을 공용 상품 목록에서 삭제하시겠습니까?")) return;
+      try {
+        await commitCatalog(catalogRow, products.filter(product => product.id !== id), nextCatalogId());
+      } catch (error) {
+        alert(catalogWriteError(error));
+      }
+    }
+
 
     function saveAdminSettings() {
       if (currentUser?.id !== "flowerday1585") return;
@@ -1578,12 +1763,6 @@
       }
       cartCharges = {shipping, fee};
       localStorage.setItem("hansol_cart_charges", JSON.stringify(cartCharges));
-      const newPw = document.getElementById("newAdminPw").value.trim();
-      if (newPw) {
-        adminPw = newPw;
-        localStorage.setItem('hansol_admin_pw', adminPw);
-        alert("관리자 비밀번호가 변경되었습니다!");
-      }
       closeModal('adminModal');
     }
 
@@ -1599,6 +1778,10 @@
     renderPolicyLinks();
     setupCustomerFeedback();
     updateUI();
+    refreshCatalog();
+    setInterval(() => { if (!document.hidden) refreshCatalog(); }, 20000);
+    window.addEventListener("pageshow", refreshCatalog);
+    window.addEventListener("focus", refreshCatalog);
     updateYenReference();
     scheduleKoreanMidnight();
     updateMobileCoinQuotes();
