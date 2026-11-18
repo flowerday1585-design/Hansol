@@ -139,6 +139,12 @@
     .form-group .stock-toggle { display: flex; align-items: center; gap: 8px; }
     .form-group .stock-toggle input { width: auto; }
     #prodDesc { height: 150px; }
+    .product-photo-tools { display:flex; align-items:center; gap:10px; margin:6px 0; }
+    .product-photo-tools img { width:84px; height:84px; object-fit:contain; border:1px solid var(--border); border-radius:6px; }
+    .product-photo-tools img[hidden] { display:none; }
+    .product-photo-remove { color:#b91c1c; }
+    .product-photo-remove:disabled { opacity:.48; cursor:default; }
+    .product-photo-status { color:var(--text-sub); font-size:12px; margin-top:4px; overflow-wrap:anywhere; }
     .product-detail { position: fixed; inset: 0; margin: auto; width: min(92vw, 680px); max-height: 90dvh; padding: 16px; border: 0; border-radius: 12px; color: var(--text-main); background: #fff; overflow-y: auto; }
     .product-detail::backdrop { background: #0f172acc; }
     .detail-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
@@ -740,20 +746,32 @@
       <div class="form-group"><label class="stock-toggle"><input type="checkbox" id="prodSoldOut"> 품절</label></div>
       <div class="form-group"><label>상품 상세 설명</label><textarea id="prodDesc" placeholder="상품 상태, 구성품, 배송 안내 등 상세 내용을 적어주세요."></textarea></div>
       
-      <div class="form-group">
-        <label>상품 사진 1 (내 PC에서 선택)</label>
-        <input type="file" id="prodFile1" accept="image/*" onchange="previewFile(1)">
-        <div id="preview1Name" style="font-size:12px; color:var(--text-sub); margin-top:2px;"></div>
+      <div class="form-group product-photo-slot">
+        <label for="prodFile1">상품 사진 1</label>
+        <div class="product-photo-tools">
+          <img id="prodPreview1" alt="상품 사진 1 미리보기" hidden>
+          <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 1 삭제" onclick="removeProductPhoto(1)" disabled>사진 삭제</button>
+        </div>
+        <input type="file" id="prodFile1" accept="image/jpeg,image/png,image/webp,image/gif" onchange="previewFile(1)">
+        <p id="preview1Name" class="product-photo-status" role="status"></p>
       </div>
-      <div class="form-group">
-        <label>상품 사진 2 (선택)</label>
-        <input type="file" id="prodFile2" accept="image/*" onchange="previewFile(2)">
-        <div id="preview2Name" style="font-size:12px; color:var(--text-sub); margin-top:2px;"></div>
+      <div class="form-group product-photo-slot">
+        <label for="prodFile2">상품 사진 2</label>
+        <div class="product-photo-tools">
+          <img id="prodPreview2" alt="상품 사진 2 미리보기" hidden>
+          <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 2 삭제" onclick="removeProductPhoto(2)" disabled>사진 삭제</button>
+        </div>
+        <input type="file" id="prodFile2" accept="image/jpeg,image/png,image/webp,image/gif" onchange="previewFile(2)">
+        <p id="preview2Name" class="product-photo-status" role="status"></p>
       </div>
-      <div class="form-group">
-        <label>상품 사진 3 (선택)</label>
-        <input type="file" id="prodFile3" accept="image/*" onchange="previewFile(3)">
-        <div id="preview3Name" style="font-size:12px; color:var(--text-sub); margin-top:2px;"></div>
+      <div class="form-group product-photo-slot">
+        <label for="prodFile3">상품 사진 3</label>
+        <div class="product-photo-tools">
+          <img id="prodPreview3" alt="상품 사진 3 미리보기" hidden>
+          <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 3 삭제" onclick="removeProductPhoto(3)" disabled>사진 삭제</button>
+        </div>
+        <input type="file" id="prodFile3" accept="image/jpeg,image/png,image/webp,image/gif" onchange="previewFile(3)">
+        <p id="preview3Name" class="product-photo-status" role="status"></p>
       </div>
 
       <div class="modal-btns">
@@ -1179,6 +1197,8 @@ window.hansolCatalogConfig = {
 
     let currentCategory = "all";
     let tempImages = ["", "", ""];
+    const productPhotoReaders = new Map();
+    let productPhotoSaving = false;
     let cart = JSON.parse(localStorage.getItem('hansol_cart')) || [];
     let cardQuantities = {};
     let cartCharges = JSON.parse(localStorage.getItem("hansol_cart_charges")) || {shipping: 0, fee: 0};
@@ -1380,19 +1400,77 @@ window.hansolCatalogConfig = {
       openCartModal();
     }
 
-    function previewFile(num) {
-      const fileInput = document.getElementById(`prodFile${num}`);
-      const nameDisplay = document.getElementById(`preview${num}Name`);
-      const file = fileInput.files[0];
+    function renderProductPhoto(slot, message) {
+      const image = document.getElementById(`prodPreview${slot}`);
+      const source = tempImages[slot - 1];
+      const displayable = typeof source === "string" && /^(https:\/\/|data:image\/(jpeg|png|webp|gif);base64,)/i.test(source);
+      if (displayable) image.src = source;
+      else image.removeAttribute("src");
+      image.hidden = !displayable;
+      const remove = image.nextElementSibling;
+      remove.disabled = productPhotoSaving || (!source && !productPhotoReaders.has(slot));
+      document.getElementById(`preview${slot}Name`).textContent =
+        message ?? (source ? "등록된 사진" : "사진 없음");
+    }
 
-      if (file) {
-        nameDisplay.textContent = `선택된 파일: ${file.name}`;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          tempImages[num - 1] = e.target.result;
-        };
-        reader.readAsDataURL(file);
+    function cancelProductPhotoRead(slot) {
+      const reader = productPhotoReaders.get(slot);
+      productPhotoReaders.delete(slot);
+      if (reader?.readyState === FileReader.LOADING) reader.abort();
+    }
+
+    function setProductPhotoControls() {
+      const modal = document.getElementById("productModal");
+      modal.querySelector(".btn-submit").disabled = productPhotoSaving || productPhotoReaders.size > 0;
+      modal.querySelector(".btn-cancel").disabled = productPhotoSaving;
+      for (let slot = 1; slot <= 3; slot++) {
+        const image = document.getElementById(`prodPreview${slot}`);
+        document.getElementById(`prodFile${slot}`).disabled = productPhotoSaving;
+        image.nextElementSibling.disabled =
+          productPhotoSaving || (!tempImages[slot - 1] && !productPhotoReaders.has(slot));
       }
+    }
+
+    function removeProductPhoto(slot) {
+      if (productPhotoSaving) return;
+      cancelProductPhotoRead(slot);
+      tempImages[slot - 1] = "";
+      document.getElementById(`prodFile${slot}`).value = "";
+      renderProductPhoto(slot, "비워 두고 저장하거나 이 자리에 새 사진을 선택하세요.");
+      setProductPhotoControls();
+    }
+
+    function previewFile(slot) {
+      const input = document.getElementById(`prodFile${slot}`);
+      const file = input.files[0];
+      if (!file || productPhotoSaving) return;
+      cancelProductPhotoRead(slot);
+      if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.type)) {
+        input.value = "";
+        renderProductPhoto(slot, "JPG, PNG, WebP 또는 GIF 사진을 선택해 주세요.");
+        setProductPhotoControls();
+        return;
+      }
+
+      const reader = new FileReader();
+      productPhotoReaders.set(slot, reader);
+      renderProductPhoto(slot, "사진을 불러오는 중입니다.");
+      setProductPhotoControls();
+      reader.onload = () => {
+        if (productPhotoReaders.get(slot) !== reader) return;
+        productPhotoReaders.delete(slot);
+        tempImages[slot - 1] = reader.result;
+        renderProductPhoto(slot, `선택한 사진: ${file.name}`);
+        setProductPhotoControls();
+      };
+      reader.onerror = () => {
+        if (productPhotoReaders.get(slot) !== reader) return;
+        productPhotoReaders.delete(slot);
+        input.value = "";
+        renderProductPhoto(slot, "사진을 읽지 못했습니다. 다시 선택해 주세요.");
+        setProductPhotoControls();
+      };
+      reader.readAsDataURL(file);
     }
 
     function updateUI() {
@@ -1449,6 +1527,10 @@ window.hansolCatalogConfig = {
       document.getElementById(id).style.display = "none";
       if (id === "loginModal") document.getElementById("signupLoginNotice").hidden = true;
       if (id === "signupModal") closeSignupAddressSearch();
+      if (id === "productModal") {
+        for (const slot of productPhotoReaders.keys()) cancelProductPhotoRead(slot);
+        setProductPhotoControls();
+      }
     }
 
     const bannerFields = {
@@ -3139,7 +3221,7 @@ window.hansolCatalogConfig = {
     }
 
     function openProductModal(id = null, category = currentCategory) {
-      if (currentUser?.id !== "flowerday1585") return;
+      if (currentUser?.id !== "flowerday1585" || productPhotoSaving) return;
       if (!catalogRow) { alert("공용 상품 목록을 먼저 불러와 주세요."); return; }
       editingRevision = catalogRow.revision;
       const product = id ? products.find(item => item.id === id) : null;
@@ -3147,16 +3229,14 @@ window.hansolCatalogConfig = {
       document.getElementById("prodStock").value = product?.stock ?? "";
       document.getElementById("prodSoldOut").checked = Boolean(product?.soldOut);
       document.getElementById("productSaveStatus").textContent = "";
-      document.querySelector("#productModal .btn-submit").disabled = false;
       document.getElementById("editProductIdx").value = id ? id : "";
       document.getElementById("productModalTitle").textContent = id ? "상품 수정" : "새 상품 등록";
       
-      document.getElementById("prodFile1").value = "";
-      document.getElementById("prodFile2").value = "";
-      document.getElementById("prodFile3").value = "";
-      document.getElementById("preview1Name").textContent = "";
-      document.getElementById("preview2Name").textContent = "";
-      document.getElementById("preview3Name").textContent = "";
+      for (let slot = 1; slot <= 3; slot++) {
+        cancelProductPhotoRead(slot);
+        document.getElementById("prodFile" + slot).value = "";
+      }
+      tempImages = Array.from({length:Math.max(3, product?.imgs?.length ?? 0)}, (_, index) => product?.imgs?.[index] || "");
 
       if (product) {
         const p = product;
@@ -3165,23 +3245,20 @@ window.hansolCatalogConfig = {
         document.getElementById("prodCode").value = p.code;
         document.getElementById("prodPrice").value = p.price;
         document.getElementById("prodDesc").value = p.desc || "";
-        tempImages = p.imgs ? [...p.imgs] : ["", "", ""];
-        if(tempImages[0]) document.getElementById("preview1Name").textContent = "기존 등록된 사진 1 유지됨";
-        if(tempImages[1]) document.getElementById("preview2Name").textContent = "기존 등록된 사진 2 유지됨";
-        if(tempImages[2]) document.getElementById("preview3Name").textContent = "기존 등록된 사진 3 유지됨";
       } else {
         document.getElementById("prodName").value = "";
         document.getElementById("prodCategory").value = categories.some(item => item.key === category) ? category : "pokemon";
         document.getElementById("prodCode").value = "";
         document.getElementById("prodPrice").value = "";
         document.getElementById("prodDesc").value = "";
-        tempImages = ["", "", ""];
       }
+      for (let slot = 1; slot <= 3; slot++) renderProductPhoto(slot);
+      setProductPhotoControls();
       openModal('productModal');
     }
 
     async function saveProduct() {
-      if (currentUser?.id !== "flowerday1585") return;
+      if (currentUser?.id !== "flowerday1585" || productPhotoSaving || productPhotoReaders.size) return;
       const editId = document.getElementById("editProductIdx").value;
       const name = document.getElementById("prodName").value.trim();
       const category = document.getElementById("prodCategory").value;
@@ -3216,7 +3293,8 @@ window.hansolCatalogConfig = {
       const items = editId
         ? products.map(product => product.id === Number(editId) ? {...product, ...details} : product)
         : [...products, {id: nextId, ...details}];
-      submit.disabled = true;
+      productPhotoSaving = true;
+      setProductPhotoControls();
       submit.textContent = "저장 중…";
       submit.setAttribute("aria-busy", "true");
       formStatus.textContent = "저장하고 있습니다.";
@@ -3228,7 +3306,8 @@ window.hansolCatalogConfig = {
       } catch (error) {
         formStatus.textContent = catalogWriteError(error);
       } finally {
-        submit.disabled = false;
+        productPhotoSaving = false;
+        setProductPhotoControls();
         submit.textContent = "저장하기";
         submit.removeAttribute("aria-busy");
       }
