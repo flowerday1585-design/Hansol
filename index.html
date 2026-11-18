@@ -868,7 +868,10 @@ window.hansolCatalogConfig = {
   const enabled = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(base)
     && /^sb_publishable_[\w-]+$/.test(publishableKey);
   const catalogPath = "/rest/v1/hansol_catalog?id=eq.1&select=revision,next_id,items";
-  let session = null;
+  const sessionKey = "hansol_auth_session_v1";
+  let memorySession = null;
+  let sessionStorageAvailable = true;
+  let refreshPending;
   const recoveryKey = "hansol_password_recovery_v1";
   const base64url = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 
@@ -909,20 +912,122 @@ window.hansolCatalogConfig = {
     }
   }
 
+  function readSession() {
+    if (!sessionStorageAvailable) return memorySession;
+    try {
+      const saved = JSON.parse(localStorage.getItem(sessionKey));
+      return saved?.userId && saved?.accessToken && saved?.refreshToken && Number.isFinite(saved.expiresAt) ? saved : null;
+    } catch (error) {
+      if (error instanceof SyntaxError) return null;
+      sessionStorageAvailable = false;
+      return memorySession;
+    }
+  }
+
+  function storeSession(saved) {
+    memorySession = saved;
+    if (!sessionStorageAvailable) return;
+    try {
+      if (saved) localStorage.setItem(sessionKey, JSON.stringify(saved));
+      else localStorage.removeItem(sessionKey);
+    } catch { sessionStorageAvailable = false; }
+  }
+
+  function sessionFromResponse(account, userId = account.user?.id) {
+    const saved = {
+      userId,
+      accessToken: account.access_token,
+      refreshToken: account.refresh_token,
+      expiresAt: (account.expires_at || (Date.now() / 1000 + account.expires_in)) * 1000
+    };
+    if (!saved.userId || !saved.accessToken || !saved.refreshToken || !Number.isFinite(saved.expiresAt)) {
+      throw new Error("로그인 세션을 확인할 수 없습니다.");
+    }
+    return saved;
+  }
+
+  async function refreshSession() {
+    const saved = readSession();
+    if (!saved || saved.expiresAt > Date.now() + 60000) return saved;
+    try {
+      const refreshed = await request("/auth/v1/token?grant_type=refresh_token", {
+        method: "POST", body: {refresh_token: saved.refreshToken}
+      });
+      const latest = readSession();
+      // A tab may have signed out or changed accounts while the request was running.
+      if (latest?.refreshToken !== saved.refreshToken) return latest;
+      const next = sessionFromResponse(refreshed, saved.userId);
+      storeSession(next);
+      return next;
+    } catch (error) {
+      const latest = readSession();
+      if (latest?.refreshToken !== saved.refreshToken) return latest;
+      if ([401, 403].includes(error.status) || ["refresh_token_not_found", "refresh_token_already_used", "session_not_found", "session_expired", "user_not_found"].includes(error.authCode)) {
+        storeSession(null);
+        window.dispatchEvent(new Event("hansol-session-ended"));
+        return null;
+      }
+      if (saved.expiresAt > Date.now()) return saved;
+      throw error;
+    }
+  }
+
+  function getSession() {
+    if (!refreshPending) {
+      const saved = readSession();
+      if (!saved || saved.expiresAt > Date.now() + 60000) return Promise.resolve(saved);
+      refreshPending = (sessionStorageAvailable && navigator.locks
+        ? navigator.locks.request(sessionKey, refreshSession)
+        : refreshSession()).finally(() => { refreshPending = null; });
+    }
+    return refreshPending;
+  }
+
+  async function requireAccessToken() {
+    const userId = readSession()?.userId;
+    const saved = await getSession();
+    if (!saved || saved.userId !== userId) throw new Error("다시 로그인해 주세요.");
+    return saved.accessToken;
+  }
+
+  async function readProfile(user, accessToken) {
+    const isAdmin = await request("/rest/v1/rpc/hansol_is_catalog_admin", {
+      method: "POST", body: {}, token: accessToken
+    }) === true;
+    return {id: isAdmin ? "flowerday1585" : user.id, accountId: user.id,
+      name: isAdmin ? "관리자" : String(user.user_metadata?.shop_name || user.email),
+      profile: isAdmin ? null : user.user_metadata, emailConfirmed: Boolean(user.email_confirmed_at)};
+  }
+
   window.hansolCatalog = {
     enabled,
+    sessionKey,
+    sessionAccountId: () => readSession()?.userId,
+    async restoreLogin() {
+      const saved = await getSession();
+      if (!saved) return null;
+      let user;
+      try {
+        user = await request("/auth/v1/user", {token: saved.accessToken});
+      } catch (error) {
+        if (readSession()?.refreshToken !== saved.refreshToken) return null;
+        if ([401, 403].includes(error.status)) {
+          storeSession(null);
+          return null;
+        }
+        throw error;
+      }
+      const profile = await readProfile(user, saved.accessToken);
+      return readSession()?.userId === user.id ? profile : null;
+    },
     async login(email, password) {
       const account = await request("/auth/v1/token?grant_type=password", {
         method: "POST", body: {email, password}
       });
-      if (!account.access_token) throw new Error("로그인할 수 없습니다.");
-      const isAdmin = await request("/rest/v1/rpc/hansol_is_catalog_admin", {
-        method: "POST", body: {}, token: account.access_token
-      }) === true;
-      session = account.access_token;
-      return {id: isAdmin ? "flowerday1585" : account.user.id,
-        name: isAdmin ? "관리자" : String(account.user.user_metadata?.shop_name || account.user.email),
-        profile: isAdmin ? null : account.user.user_metadata, emailConfirmed: Boolean(account.user.email_confirmed_at)};
+      if (!account.access_token || !account.refresh_token || !account.user) throw new Error("로그인할 수 없습니다.");
+      const profile = await readProfile(account.user, account.access_token);
+      storeSession(sessionFromResponse(account));
+      return profile;
     },
     signup(email, password, profile) {
       return request("/auth/v1/signup?redirect_to=" + encodeURIComponent("https://hansolarchive.com/"), {
@@ -986,21 +1091,23 @@ window.hansolCatalogConfig = {
       try { return await request("/rest/v1/rpc/hansol_shop_ready", {method:"POST", body:{}}) === true; }
       catch { return false; }
     },
-    shopRpc(name, body) {
-      if (!session) throw new Error("다시 로그인해 주세요.");
-      return request("/rest/v1/rpc/" + name, {method:"POST", body, token:session});
+    async shopRpc(name, body) {
+      const token = await requireAccessToken();
+      return request("/rest/v1/rpc/" + name, {method:"POST", body, token});
     },
     logout() {
-      session = null;
+      const saved = readSession();
+      storeSession(null);
+      if (saved) request("/auth/v1/logout?scope=local", {method:"POST", token:saved.accessToken}).catch(() => {});
     },
     async readBanners() {
       return await request('/rest/v1/hansol_banners?select=id,revision,settings');
     },
     async writeBanner(id, revision, settings) {
-      if (!session) throw new Error('관리자 이메일로 다시 로그인해 주세요.');
+      const token = await requireAccessToken();
       if (!Number.isSafeInteger(revision)) throw new Error('배너 서버 연결을 확인한 후 다시 시도해 주세요.');
       const rows = await request('/rest/v1/hansol_banners?id=eq.' + encodeURIComponent(id) + '&revision=eq.' + revision + '&select=id,revision,settings', {
-        method: 'PATCH', token: session,
+        method: 'PATCH', token,
         body: {revision: revision + 1, settings}, prefer: 'return=representation'
       });
       if (!rows.length) throw new Error('다른 기기에서 배너가 변경되었습니다. 창을 닫고 다시 열어 최신 내용을 확인해 주세요.');
@@ -1017,12 +1124,12 @@ window.hansolCatalogConfig = {
       });
     },
     async write(previous, items, nextId) {
-      if (!session) throw new Error("관리자로 다시 로그인해 주세요.");
+      const token = await requireAccessToken();
       const writePath = catalogPath.replace("select=revision,next_id,items", "select=revision,next_id");
       const [row] = await request(writePath + "&revision=eq." + previous.revision, {
         method: "PATCH",
         body: {revision: previous.revision + 1, next_id: nextId, items},
-        token: session,
+        token,
         prefer: "return=representation"
       });
       if (!row) {
@@ -1105,6 +1212,8 @@ window.hansolCatalogConfig = {
     let editingRevision = null;
     let products = publishedCatalog?.items || defaultProducts;
     let currentUser = null;
+    let restoringLogin = false;
+    let signingIn = false;
     // Remove obsolete browser-only signup records, which held plaintext passwords.
     try {
       localStorage.removeItem("hansol_current_user");
@@ -1196,10 +1305,7 @@ window.hansolCatalogConfig = {
 
     function catalogWriteError(error) {
       if (error.code === "CATALOG_TIMEOUT") return error.message;
-      if ([401, 403].includes(error.status)) {
-        handleLogout();
-        return "관리자로 다시 로그인해 주세요.";
-      }
+      if ([401, 403].includes(error.status)) return "관리자 권한을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.";
       if (error.conflict) refreshCatalog();
       return error.status === 413 ? "사진 용량을 줄여 다시 시도해 주세요."
         : error.conflict ? error.message : "상품 변경을 저장하지 못했습니다. 연결 상태를 확인해 주세요.";
@@ -1521,6 +1627,10 @@ window.hansolCatalogConfig = {
           headerActions.innerHTML = `<button class="auth-btn" onclick="handleLogout()">로그아웃</button><button class="auth-btn primary" onclick="showShopManagement('mine')">내 주문·배송</button><button class="auth-btn" onclick="openWithdrawal()">회원 탈퇴</button>`;
           adminContainer.innerHTML = "";
         }
+      } else if (restoringLogin) {
+        userInfoDisplay.textContent = "로그인 확인 중…";
+        headerActions.innerHTML = "";
+        adminContainer.innerHTML = "";
       } else {
         userInfoDisplay.textContent = "방문객 모드";
         headerActions.innerHTML = `
@@ -1676,6 +1786,8 @@ window.hansolCatalogConfig = {
       const password = document.getElementById("loginPw");
       const submit = document.querySelector("#loginModal .btn-submit");
       if (!email.includes("@") || !password.value) { alert("이메일과 비밀번호를 입력해 주세요."); return; }
+      if (restoringLogin || signingIn) return;
+      signingIn = true;
       submit.disabled = true;
       try {
         currentUser = await catalogApi.login(email, password.value);
@@ -1693,18 +1805,39 @@ window.hansolCatalogConfig = {
           await startCheckout(requested || undefined);
         }
       } catch { alert("로그인에 실패했습니다. 이메일 인증 여부와 비밀번호를 확인해 주세요."); }
-      finally { submit.disabled = false; }
+      finally { signingIn = false; submit.disabled = false; }
+    }
+
+    async function restoreSignedInUI() {
+      if (restoringLogin || signingIn || currentUser || !catalogApi.sessionAccountId()) return;
+      restoringLogin = true;
+      updateUI();
+      try {
+        currentUser = await catalogApi.restoreLogin();
+        if (currentUser && currentUser.accountId !== catalogApi.sessionAccountId()) currentUser = null;
+        if (currentUser) closeModal("loginModal");
+      } catch {
+        // Keep the saved session when the server is temporarily unavailable.
+      } finally {
+        restoringLogin = false;
+        updateUI();
+      }
     }
 
     function handleLogout() {
+      catalogApi.logout();
+      clearSignedInUI();
+    }
+
+    function clearSignedInUI() {
       stopSalesLedger();
       closeModal("salesLedgerModal");
       closeWithdrawal();
       closeModal("withdrawStatsModal");
       document.getElementById("withdrawStats").replaceChildren();
-      catalogApi.logout();
       currentUser = null;
       checkout = null;
+      pendingCheckout = null;
       document.getElementById("checkoutForm").reset();
       for (const id of ["checkoutModal","bankModal","adminModal","alertPreferences","productModal","bannerModal","stockModal"]) closeModal(id);
       closeShopManagement();
@@ -3521,6 +3654,15 @@ window.hansolCatalogConfig = {
     renderPolicyLinks();
     setupCustomerFeedback();
     updateUI();
+    restoreSignedInUI();
+    window.addEventListener("hansol-session-ended", clearSignedInUI);
+    window.addEventListener("focus", restoreSignedInUI);
+    window.addEventListener("online", restoreSignedInUI);
+    window.addEventListener("storage", event => {
+      if (event.key !== catalogApi.sessionKey && event.key !== null) return;
+      if (currentUser && currentUser.accountId !== catalogApi.sessionAccountId()) clearSignedInUI();
+      restoreSignedInUI();
+    });
     openEmailResetFromLink();
     openSignupFromLink();
     refreshCatalog();
