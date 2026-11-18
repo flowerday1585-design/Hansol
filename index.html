@@ -772,12 +772,24 @@
   <div class="modal" id="adminModal">
     <div class="modal-content">
       <h3>관리자 설정</h3>
+      <button class="auth-btn" type="button" onclick="openAlertPreferences()">주문·가입 알림 설정</button>
       <div class="form-group"><label for="adminShipping">주문당 배송비 (원)</label><input type="number" id="adminShipping" min="0" step="1"></div>
       <div class="form-group"><label for="adminFee">주문당 수수료 (원)</label><input type="number" id="adminFee" min="0" step="1"></div>
       <div class="modal-btns">
         <button class="btn-submit" onclick="saveAdminSettings()">변경하기</button>
         <button class="btn-cancel" onclick="closeModal('adminModal')">닫기</button>
       </div>
+    </div>
+  </div>
+
+  <p id="alertKakaoResult" role="status" hidden style="padding:12px"></p>
+  <div class="modal" id="alertPreferences" role="dialog" aria-modal="true" aria-labelledby="alertPreferencesTitle">
+    <div class="modal-content">
+      <h3 id="alertPreferencesTitle">주문·가입 알림 설정</h3>
+      <p>수신자는 최대 5명입니다. 카카오톡 연결 링크를 받은 직원은 본인 카카오 계정으로 메시지 전송에 동의합니다.</p>
+      <div id="alertRecipients"></div>
+      <p id="alertSettingsStatus" role="status" aria-live="polite"></p>
+      <button class="btn-cancel" type="button" onclick="closeModal('alertPreferences')">닫기</button>
     </div>
   </div>
 
@@ -1555,6 +1567,9 @@ window.hansolCatalogConfig = {
         password.value = "";
         closeModal("loginModal");
         updateUI();
+        if (currentUser.id === "flowerday1585" && new URL(location.href).searchParams.get("members") === "1") {
+          document.getElementById("adminActionContainer").scrollIntoView({block:"center"});
+        }
         await refreshCatalog();
         if (pendingCheckout !== null) {
           const requested = pendingCheckout;
@@ -1573,7 +1588,7 @@ window.hansolCatalogConfig = {
       currentUser = null;
       checkout = null;
       document.getElementById("checkoutForm").reset();
-      for (const id of ["checkoutModal","bankModal","adminModal","productModal","bannerModal","stockModal"]) closeModal(id);
+      for (const id of ["checkoutModal","bankModal","adminModal","alertPreferences","productModal","bannerModal","stockModal"]) closeModal(id);
       closeShopManagement();
       updateUI();
     }
@@ -2183,14 +2198,19 @@ window.hansolCatalogConfig = {
           target = await window.showSaveFilePicker({suggestedName:"hansol-members.xlsx",
             types:[{description:"Excel 통합 문서", accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]});
         }
-        const rows = [["이름", "이메일", "카카오톡 아이디", "가입 시간 (한국)", "이메일 인증"]];
-        for (let offset = 0; ; offset += 200) {
-          const page = await catalogApi.shopRpc("hansol_shop_members", {p_offset: offset});
+        const rows = [["이름", "이메일", "카카오톡 아이디", "휴대전화", "주소", "상세 주소",
+          "영문 주소", "영문 상세 주소", "영문 도시", "우편번호", "가입 신청 (한국)", "이메일 인증 완료 (한국)"]];
+        let after = null;
+        for (;;) {
+          const page = await catalogApi.shopRpc("hansol_members_workbook", {p_after: after});
           if (currentUser !== generationUser) return;
           for (const member of page) rows.push([
-            member.name, member.email, member.kakao_id, shopDate.format(new Date(member.joined_at)), member.verified ? "완료" : "대기"
+            member.name, member.email, member.kakao_id, member.phone, member.address, member.address_detail,
+            member.address_english, member.address_detail_english, member.city_english, member.postal_code,
+            shopDate.format(new Date(member.joined_at)), shopDate.format(new Date(member.verified_at))
           ]);
           if (page.length < 200) break;
+          after = page[page.length - 1].member_id;
         }
         const workbook = makeMemberWorkbook(rows);
         if (target) {
@@ -2787,6 +2807,141 @@ window.hansolCatalogConfig = {
       }
     }
 
+
+    const alertPreferences = document.getElementById("alertPreferences");
+    const alertRecipients = document.getElementById("alertRecipients");
+    const alertSettingsStatus = document.getElementById("alertSettingsStatus");
+    const alertRpc = (action, body = {}) => catalogApi.shopRpc("hansol_alert_" + action, body);
+
+    function alertInput(type, value, label) {
+      const input = document.createElement("input");
+      input.type = type;
+      if (type === "checkbox") input.checked = value;
+      else input.value = value;
+      const wrapper = document.createElement("label");
+      wrapper.append(input, " " + label);
+      return {input,wrapper};
+    }
+
+    function alertAction(text, action) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "auth-btn";
+      button.textContent = text;
+      button.onclick = async () => {
+        button.disabled = true;
+        alertSettingsStatus.textContent = "";
+        try { await action(); }
+        catch (error) {
+          alertSettingsStatus.textContent = ({
+            alert_settings_conflict:"다른 곳에서 설정이 바뀌었습니다. 창을 다시 열어 최신 정보를 확인해 주세요.",
+            invalid_alert_email:"이메일 주소를 확인해 주세요."
+          })[error.code] || (error.authCode === "23505" ? "이미 등록된 수신자입니다." : "요청을 처리하지 못했습니다. 설정과 로그인 상태를 확인해 주세요.");
+        }
+        finally { button.disabled = false; }
+      };
+      return button;
+    }
+
+    async function createAlertKakaoLink(slot, output) {
+      const state = await alertRpc("kakao_start", {p_slot:slot});
+      const url = new URL("/functions/v1/shop-notifications", window.hansolCatalogConfig.url);
+      url.searchParams.set("connect",state);
+      output.value = url.href;
+      output.hidden = false;
+      output.focus();
+      output.select();
+      alertSettingsStatus.textContent = "이 링크를 해당 수신자에게 전달해 주세요. 10분 안에 한 번 사용할 수 있습니다.";
+    }
+
+    function renderAlertRecipient(slot, row) {
+      const group = document.createElement("fieldset");
+      group.style.cssText = "display:grid;gap:8px;margin:12px 0;padding:12px;border:1px solid #d1d5db";
+      const heading = document.createElement("legend");
+      heading.textContent = "수신자 " + slot;
+      group.append(heading);
+      const address = alertInput("email",row?.email || "", "수신 이메일");
+      address.input.maxLength = 254;
+      const email = alertInput("checkbox",row?.email_enabled ?? true,"이메일 받기");
+      const signup = alertInput("checkbox",row?.signup ?? true,"회원가입 알림");
+      const orders = alertInput("checkbox",row?.order_updates ?? true,"주문·입금·배송 알림");
+      const kakao = alertInput("text",row?.kakao_label || "", "카카오톡 아이디 (직원 구분용)");
+      kakao.input.maxLength = 60;
+      group.append(address.wrapper,kakao.wrapper,email.wrapper,signup.wrapper,orders.wrapper,
+          alertAction("수신자 저장",async () => {
+            if ((email.input.checked && !address.input.value.trim()) || !address.input.reportValidity()) {
+              alertSettingsStatus.textContent = "알림을 받을 이메일 주소를 입력해 주세요.";
+              return;
+            }
+            if (!address.input.value.trim() && !kakao.input.value.trim()) {
+              alertSettingsStatus.textContent = "이메일 또는 직원 구분용 카카오톡 아이디를 입력해 주세요.";
+              return;
+            }
+            await alertRpc("settings_save",{p_slot:slot,p_revision:row?.revision ?? null,
+              p_email:address.input.value,p_kakao_label:kakao.input.value,p_email_enabled:email.input.checked,
+              p_signup:signup.input.checked,p_order_updates:orders.input.checked});
+            await loadAlertPreferences();
+            alertSettingsStatus.textContent = "수신자 설정을 저장했습니다.";
+          }));
+        if (row) group.append(alertAction("수신자 삭제",async () => {
+          if (!confirm("이 수신자의 알림을 중지하고 등록을 삭제하시겠습니까?")) return;
+          await alertRpc("settings_save",{p_slot:slot,p_revision:row.revision,p_email:"",p_kakao_label:"",
+            p_email_enabled:false,p_signup:false,p_order_updates:false});
+          await loadAlertPreferences();
+        }));
+      if (row) {
+        const status = document.createElement("p");
+        status.textContent = row.connected ? "카카오톡 연결됨" : "카카오톡 미연결";
+        const invite = document.createElement("input");
+        invite.type = "text";
+        invite.readOnly = true;
+        invite.hidden = true;
+        invite.setAttribute("aria-label","카카오톡 연결 링크");
+        group.append(status,alertAction("카카오톡 연결 링크 만들기",
+          () => createAlertKakaoLink(slot,invite)),invite);
+        if (row.connected) group.append(alertAction("카카오톡 연결 해제",async () => {
+          await alertRpc("kakao_disconnect",{p_slot:slot});
+          await loadAlertPreferences();
+        }));
+      }
+      return group;
+    }
+
+    async function loadAlertPreferences() {
+      const owner = currentUser;
+      const settings = await alertRpc("settings_read");
+      if (currentUser !== owner || alertPreferences.style.display !== "flex") return;
+      alertRecipients.replaceChildren(...[1,2,3,4,5].map(slot =>
+        renderAlertRecipient(slot,settings.recipients.find(row => row.slot === slot))));
+    }
+
+    async function openAlertPreferences() {
+      alertRecipients.replaceChildren();
+      closeModal("adminModal");
+      openModal("alertPreferences");
+      alertSettingsStatus.textContent = "설정을 불러오는 중입니다.";
+      try {
+        await loadAlertPreferences();
+        alertSettingsStatus.textContent = "";
+      } catch {
+        alertSettingsStatus.textContent = "알림 설정을 불러올 수 없습니다. 서버 설치와 로그인 상태를 확인해 주세요.";
+      }
+    }
+
+    const alertCallback = new URL(location.href);
+    const alertCallbackStatus = alertCallback.searchParams.get("alert-kakao");
+    if (alertCallbackStatus) {
+      alertCallback.searchParams.delete("alert-kakao");
+      history.replaceState(null,"",alertCallback);
+      const result = document.getElementById("alertKakaoResult");
+      result.hidden = false;
+      result.textContent = ({
+        connected:"카카오톡을 연결했습니다. 이 창을 닫으셔도 됩니다.",
+        expired:"카카오톡 연결 요청이 만료됐습니다. 관리자 화면에서 다시 연결해 주세요.",
+        setup:"카카오 발송 서비스를 먼저 설정해 주세요.",
+        failed:"카카오톡을 연결하지 못했습니다. 로그인과 메시지 전송 동의를 확인해 주세요."
+      })[alertCallbackStatus] || "카카오톡 연결 상태를 관리자 화면에서 확인해 주세요.";
+    }
 
     function saveAdminSettings() {
       if (currentUser?.id !== "flowerday1585") return;
