@@ -726,6 +726,19 @@ window.hansolCatalogConfig = {
     logout() {
       session = null;
     },
+    async readBanners() {
+      return await request('/rest/v1/hansol_banners?select=id,revision,settings');
+    },
+    async writeBanner(id, revision, settings) {
+      if (!session) throw new Error('관리자 이메일로 다시 로그인해 주세요.');
+      if (!Number.isSafeInteger(revision)) throw new Error('배너 서버 연결을 확인한 후 다시 시도해 주세요.');
+      const rows = await request('/rest/v1/hansol_banners?id=eq.' + encodeURIComponent(id) + '&revision=eq.' + revision + '&select=id,revision,settings', {
+        method: 'PATCH', token: session,
+        body: {revision: revision + 1, settings}, prefer: 'return=representation'
+      });
+      if (!rows.length) throw new Error('다른 기기에서 배너가 변경되었습니다. 창을 닫고 다시 열어 최신 내용을 확인해 주세요.');
+      return rows[0];
+    },
     async read() {
       const [row] = await request(catalogPath);
       if (!row) throw new Error("상품 목록을 찾을 수 없습니다.");
@@ -762,11 +775,7 @@ window.hansolCatalogConfig = {
       const published = JSON.parse(document.getElementById(publishedId).textContent);
       const storageKey = storagePrefix + JSON.stringify(published).slice(0, 1000);
       const settings = { ...defaults, ...published };
-      try {
-        Object.assign(settings, JSON.parse(localStorage.getItem(storageKey)));
-      } catch {
-        // Keep the published settings when local storage is unavailable.
-      }
+      // Public display uses published backup until the shared server responds.
       return { publishedId, storageKey, settings };
     }
 
@@ -785,6 +794,30 @@ window.hansolCatalogConfig = {
       }
     };
     let editingBanner = banners.home;
+    let editingBannerRevision = null;
+    let bannerRefreshing = false;
+    let bannerSaving = false;
+    let bannerServerReady = false;
+    async function refreshBanners() {
+      if (bannerRefreshing || bannerSaving) return;
+      bannerRefreshing = true;
+      try {
+        const rows = await window.hansolCatalog.readBanners();
+        if (!['home', 'notice'].every(id => rows.some(row => row.id === id))) throw new Error('배너 초기 설정이 필요합니다.');
+        for (const row of rows) {
+          const entry = banners[row.id];
+          if (!entry || !row.settings || typeof row.settings !== 'object') continue;
+          entry.settings = row.settings;
+          entry.revision = row.revision;
+          renderBanner(entry);
+        }
+        bannerServerReady = true;
+      } catch (error) {
+        bannerServerReady = false;
+        console.warn('배너 서버 조회 실패: 기존 배포 내용을 유지합니다.');
+      } finally { bannerRefreshing = false; }
+    }
+
 
     const defaultProducts = [
       { id: 1, category: "pokemon", categoryName: "포켓몬 카드", code: "M3 / MUNIKIS ZERO", name: "일본판 포켓몬 카드 무니키스 제로 1BOX", price: 78000, desc: "일본 내수용 정품 미개봉 박스입니다. 안전하게 포장되어 발송됩니다.", imgs: ["", "", ""] },
@@ -1184,17 +1217,19 @@ window.hansolCatalogConfig = {
       else image.removeAttribute("src");
     }
 
-    function openBannerEditor(key = "home") {
+    async function openBannerEditor(key = "home") {
       const form = document.getElementById("bannerForm");
       if (currentUser?.id !== "flowerday1585" || form.querySelector('[type="submit"]').disabled) return;
+      await refreshBanners();
       editingBanner = banners[key];
+      editingBannerRevision = editingBanner.revision;
       form.reset();
       document.getElementById("bannerEditorTitle").textContent = editingBanner.editorTitle;
       const values = { color: "#ffffff", background: "#1e3a8a", ...editingBanner.settings };
       for (const [key, id] of Object.entries(bannerFields)) {
         document.getElementById(id).value = values[key] ?? "";
       }
-      document.getElementById("bannerEditorStatus").textContent = "";
+      document.getElementById("bannerEditorStatus").textContent = bannerServerReady ? "저장하면 방문자 화면에도 반영됩니다." : "배너 서버에 연결하지 못했습니다. 입력 내용은 서버에 저장되지 않습니다. 초기 설정 또는 연결을 확인해 주세요.";
       openModal("bannerModal");
       document.getElementById("editBannerTitle").focus();
     }
@@ -1220,6 +1255,8 @@ window.hansolCatalogConfig = {
         return;
       }
       submit.disabled = true;
+      bannerSaving = true;
+      status.textContent = "서버에 저장 중입니다…";
       try {
         if (file) {
           settings.photo = await new Promise((resolve, reject) => {
@@ -1233,15 +1270,21 @@ window.hansolCatalogConfig = {
           await image.decode();
         }
         if (currentUser?.id !== "flowerday1585") return;
-        localStorage.setItem(entry.storageKey, JSON.stringify(settings));
-        entry.settings = settings;
+        const id = Object.keys(banners).find(key => banners[key] === entry);
+        const row = await window.hansolCatalog.writeBanner(id, editingBannerRevision, settings);
+        entry.settings = row.settings;
+        entry.revision = row.revision;
+        editingBannerRevision = row.revision;
+        try { localStorage.setItem(entry.storageKey, JSON.stringify(row.settings)); } catch {}
+
         renderBanner(entry);
         document.getElementById("editBannerPhoto").value = "";
         document.getElementById("removeBannerPhoto").checked = false;
-        status.textContent = "저장했습니다. 고객에게도 보이게 하려면 배포용 HTML을 받아 사이트에 올려 주세요.";
-      } catch {
-        status.textContent = "저장하지 못했습니다. 더 작은 사진으로 다시 시도해 주세요.";
+        status.textContent = "서버에 저장했습니다. 다른 기기에서는 새로고침하거나 약 15초 기다리면 반영됩니다.";
+      } catch (error) {
+        status.textContent = (error.message || '서버 저장에 실패했습니다.') + ' 입력 내용은 유지됩니다.';
       } finally {
+        bannerSaving = false;
         submit.disabled = false;
       }
     }
@@ -1825,6 +1868,11 @@ window.hansolCatalogConfig = {
     });
     document.getElementById("bannerForm").addEventListener("submit", saveBanner);
     Object.values(banners).forEach(renderBanner);
+    refreshBanners();
+    setInterval(() => { if (!document.hidden) refreshBanners(); }, 15000);
+    window.addEventListener('focus', refreshBanners);
+    window.addEventListener('pageshow', refreshBanners);
+
 
     setupProductDetail();
 
