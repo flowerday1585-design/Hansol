@@ -596,6 +596,7 @@
   <div class="modal" id="loginModal">
     <div class="modal-content">
       <h3>로그인</h3>
+      <p id="signupLoginNotice" role="status" aria-live="polite" hidden></p>
       <div class="form-group"><label for="loginId">이메일</label><input type="email" id="loginId" placeholder="이메일 주소" autocomplete="username"></div>
       <div class="form-group"><label>비밀번호</label><input type="password" id="loginPw" placeholder="비밀번호 입력" autocomplete="current-password"></div>
       <div class="modal-btns">
@@ -681,7 +682,6 @@
         </div>
         <small id="signupEmailHint">필수 가입 정보를 입력한 뒤 인증메일을 보내 주세요.</small>
         <p id="signupEmailStatus" role="status" aria-live="polite"></p>
-        <button type="button" class="auth-btn" id="signupEmailLogin" hidden onclick="closeModal('signupModal'); openModal('loginModal')">로그인 화면으로</button>
       </div>
       <div class="form-group"><label for="signupPw">비밀번호 (8자 이상)</label><input type="password" id="signupPw" autocomplete="new-password" minlength="8" maxlength="72" required></div>
       <div class="form-group"><label for="signupPwCheck">비밀번호 확인 (필수)</label><input id="signupPwCheck" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></div>
@@ -719,7 +719,7 @@
       </div>
       <p id="signupStatus" role="status"></p>
       <div class="modal-btns">
-        <button type="button" class="btn-submit" id="signupSubmit" onclick="handleSignup()" disabled="">이메일 인증으로 가입하기</button>
+        <button type="button" class="btn-submit" id="signupSubmit" onclick="handleSignup(true)" disabled="">가입하기</button>
         <button class="btn-cancel" onclick="closeModal('signupModal')">취소</button>
       </div>
     </div>
@@ -1412,7 +1412,10 @@ window.hansolCatalogConfig = {
     }
 
     function openModal(id) { document.getElementById(id).style.display = "flex"; }
-    function closeModal(id) { document.getElementById(id).style.display = "none"; }
+    function closeModal(id) {
+      document.getElementById(id).style.display = "none";
+      if (id === "loginModal") document.getElementById("signupLoginNotice").hidden = true;
+    }
 
     const bannerFields = {
       tag: "editBannerTag", title: "editBannerTitle", description: "editBannerDescription",
@@ -1661,13 +1664,15 @@ window.hansolCatalogConfig = {
       } finally { button.disabled = document.getElementById("emailResetClose").disabled = false; }
     }
 
+    let signupConfirmation = "";
+
     function openSignupModal() {
+      signupConfirmation = "";
       document.getElementById("signupAgeConfirmed").checked = false;
       document.getElementById("signupSubmit").disabled = true;
       document.getElementById("signupEmailSend").disabled = false;
       document.getElementById("signupAgeConfirmed").disabled = false;
       document.getElementById("signupEmailStatus").textContent = "";
-      document.getElementById("signupEmailLogin").hidden = true;
       document.getElementById("signupStatus").textContent = "";
       openModal("signupModal");
     }
@@ -1768,7 +1773,17 @@ window.hansolCatalogConfig = {
       }
     }
 
-    async function handleSignup() {
+    function finishSignup() {
+      if (document.getElementById("signupModal").style.display !== "flex") return;
+      closeModal("signupModal");
+      openModal("loginModal");
+      const notice = document.getElementById("signupLoginNotice");
+      notice.hidden = false;
+      notice.textContent = signupConfirmation;
+      document.getElementById("loginId").focus();
+    }
+
+    async function handleSignup(finish = false) {
       const email = document.getElementById("signupId");
       const password = document.getElementById("signupPw");
       const repeatPassword = document.getElementById("signupPwCheck");
@@ -1785,8 +1800,11 @@ window.hansolCatalogConfig = {
           field.style.color = normal ? "#374151" : "#b91c1c";
         }
       };
+      if (signupConfirmation) {
+        if (finish) finishSignup();
+        return;
+      }
       if (emailButton.disabled) return;
-      let accepted = false;
       message("");
       if (!email.value.trim() || !email.checkValidity()) {
         message("이메일 주소를 확인해 주세요.");
@@ -1839,17 +1857,16 @@ window.hansolCatalogConfig = {
         password.value = repeatPassword.value = name.value = kakaoId.value = "";
         for (const id of Object.values(fields)) document.getElementById(id).value = "";
         setSignupAddressStatus("");
-        accepted = true;
-        message(result.access_token ? "가입되었습니다. 로그인해 주세요."
-          : "가입 요청을 받았습니다. 받은편지함이나 스팸함에서 인증 링크를 누른 뒤 로그인해 주세요.", true);
-        document.getElementById("signupEmailLogin").hidden = false;
-        document.getElementById("signupEmailLogin").focus();
+        signupConfirmation = result.access_token ? "가입되었습니다. 로그인해 주세요."
+          : "가입 요청을 받았습니다. 받은편지함이나 스팸함에서 인증 링크를 누른 뒤 로그인해 주세요.";
+        if (finish) finishSignup();
+        else message(signupConfirmation, true);
       } catch (error) {
         message(error.status === 429 ? "요청이 많습니다. 잠시 후 다시 시도해 주세요."
           : "가입을 완료하지 못했습니다. 이메일을 확인하거나 잠시 후 다시 시도해 주세요.");
       } finally {
-        age.disabled = emailButton.disabled = accepted;
-        button.disabled = accepted || !age.checked;
+        age.disabled = emailButton.disabled = Boolean(signupConfirmation);
+        button.disabled = !age.checked;
       }
     }
 
