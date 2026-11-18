@@ -144,6 +144,11 @@
     .product-photo-tools img[hidden] { display:none; }
     .product-photo-remove { color:#b91c1c; }
     .product-photo-remove:disabled { opacity:.48; cursor:default; }
+    .product-save-notice {
+      position:fixed; z-index:10000; bottom:24px; left:50%; transform:translateX(-50%);
+      width:max-content; max-width:calc(100% - 24px); padding:12px 18px; border-radius:8px;
+      background:#166534; color:white; font-weight:700; box-shadow:0 3px 12px #0003;
+    }
     .product-photo-status { color:var(--text-sub); font-size:12px; margin-top:4px; overflow-wrap:anywhere; }
     .product-detail { position: fixed; inset: 0; margin: auto; width: min(92vw, 680px); max-height: 90dvh; padding: 16px; border: 0; border-radius: 12px; color: var(--text-main); background: #fff; overflow-y: auto; }
     .product-detail::backdrop { background: #0f172acc; }
@@ -455,7 +460,7 @@
         <div id="adminActionContainer"></div>
       </div>
       
-      <input id="catalogImport" type="file" accept=".html,.htm" hidden="" onchange="importCatalog(this)"><p id="catalogSyncStatus" role="status" hidden=""></p><div id="productSectionsContainer"></div>
+      <input id="catalogImport" type="file" accept=".html,.htm" hidden="" onchange="importCatalog(this)"><p id="catalogSyncStatus" role="status" hidden=""></p><p class="product-save-notice" id="productSavedNotice" role="status" hidden></p><div id="productSectionsContainer"></div>
       <section id="customerFeedback" class="customer-feedback" aria-label="고객 리뷰">
         <div class="feedback-card">
           <h2>고객 리뷰</h2>
@@ -1006,6 +1011,11 @@ window.hansolCatalogConfig = {
       if (!row) throw new Error("상품 목록을 찾을 수 없습니다.");
       return row;
     },
+    async saveOneProduct(revision, id, product, changes) {
+      return this.shopRpc("hansol_save_product", {
+        p_revision:revision, p_item_id:id, p_product:product, p_photo_changes:changes
+      });
+    },
     async write(previous, items, nextId) {
       if (!session) throw new Error("관리자로 다시 로그인해 주세요.");
       const writePath = catalogPath.replace("select=revision,next_id,items", "select=revision,next_id");
@@ -1199,6 +1209,7 @@ window.hansolCatalogConfig = {
     let tempImages = ["", "", ""];
     const productPhotoReaders = new Map();
     let productPhotoSaving = false;
+    let productSavedTimer;
     let cart = JSON.parse(localStorage.getItem('hansol_cart')) || [];
     let cardQuantities = {};
     let cartCharges = JSON.parse(localStorage.getItem("hansol_cart_charges")) || {shipping: 0, fee: 0};
@@ -3279,7 +3290,7 @@ window.hansolCatalogConfig = {
         alert("재고는 0부터 999999 사이의 정수로 입력해 주세요.");
         return;
       }
-      const details = { stock, category, categoryName: catNames[category], code, name, price, desc, imgs: [...tempImages], soldOut };
+      const details = { stock, category, categoryName: catNames[category], code, name, price, desc, soldOut };
       if (catalogWriting || !catalogRow) return;
       const formStatus = document.getElementById("productSaveStatus");
       const submit = document.querySelector("#productModal .btn-submit");
@@ -3289,24 +3300,47 @@ window.hansolCatalogConfig = {
       }
 
       const previous = catalogRow;
-      const nextId = nextCatalogId();
-      const items = editId
-        ? products.map(product => product.id === Number(editId) ? {...product, ...details} : product)
-        : [...products, {id: nextId, ...details}];
+      const itemId = editId ? Number(editId) : null;
+      const existing = itemId === null ? null : previous.items.find(product => product.id === itemId);
+      const originalPhotos = existing?.imgs ?? [];
+      const savedPhotos = [...tempImages];
+      const photoChanges = Object.fromEntries(
+        savedPhotos.slice(0, 3).map((photo, slot) => [slot, photo])
+          .filter(([slot, photo]) => photo !== (originalPhotos[slot] || ""))
+      );
       productPhotoSaving = true;
+      catalogWriting = true;
+      document.getElementById("productSavedNotice").hidden = true;
       setProductPhotoControls();
       submit.textContent = "저장 중…";
       submit.setAttribute("aria-busy", "true");
       formStatus.textContent = "저장하고 있습니다.";
       try {
-        await commitCatalog(previous, items, editId ? nextId : nextId + 1);
+        const saved = await catalogApi.saveOneProduct(previous.revision, itemId, details, photoChanges);
+        if (!saved) {
+          const error = new Error("다른 기기에서 상품이 변경되었습니다. 최신 목록에서 다시 열어 주세요.");
+          error.conflict = true;
+          throw error;
+        }
+        const item = {...existing, ...details, id:saved.item_id, imgs:savedPhotos};
+        const items = existing
+          ? previous.items.map(product => product.id === itemId ? item : product)
+          : [...previous.items, item];
+        displayCatalog({revision:saved.revision, next_id:saved.next_id, items});
         closeModal("productModal");
         formStatus.textContent = "";
         setCategory(currentCategory === "all" ? "all" : category);
+        const notice = document.getElementById("productSavedNotice");
+        notice.hidden = false;
+        notice.textContent = Object.keys(photoChanges).length ? "상품 사진이 저장되었습니다." : "상품이 저장되었습니다.";
+        clearTimeout(productSavedTimer);
+        productSavedTimer = setTimeout(() => { notice.hidden = true; }, 7000);
       } catch (error) {
+        catalogWriting = false;
         formStatus.textContent = catalogWriteError(error);
       } finally {
         productPhotoSaving = false;
+        catalogWriting = false;
         setProductPhotoControls();
         submit.textContent = "저장하기";
         submit.removeAttribute("aria-busy");
