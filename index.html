@@ -3,6 +3,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
+  <meta name="description" content="한솔아카이브는 일본판 포켓몬 카드와 원피스 카드게임 부스터팩·박스를 소개하는 TCG 전문 스토어입니다.">
+  <link rel="canonical" href="https://hansolarchive.com/">
+
   <style>
     :root {
       --bg-body: #f5f6f8;
@@ -207,6 +210,9 @@
     .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
     .modal-btns button { flex: 1; padding: 10px; border-radius: 6px; font-weight: 700; border: none; cursor: pointer; }
     .btn-submit { background: var(--primary); color: #fff; }
+    .signup-email-row {display:flex; flex-wrap:wrap; align-items:center; gap:6px;}
+    .signup-email-row input {flex:1; min-width:135px;}
+    .signup-email-row button {white-space:nowrap;}
     #signupSubmit:disabled { background: #e5e7eb; color: #4b5563; cursor: not-allowed; }
     .signup-age-box { margin-top:16px; padding:12px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; }
     .signup-age-label { display:flex; align-items:flex-start; gap:8px; font-size:14px; font-weight:700; cursor:pointer; }
@@ -296,6 +302,22 @@
       .qty-btn { min-width: 25px; min-height: 28px; padding: 0 4px; }
       .qty-display { min-width: 20px; padding-inline: 3px; font-size: 11px; }
       .btn-card-add { min-height: 28px; padding: 2px 4px; font-size: 10px; line-height: 1.2; }
+    }
+  
+    .shop-buy {width:100%; margin-top:5px; min-height:32px;}
+    .shop-stock {font-size:12px; color:#475569; margin-top:5px;}
+    .shop-stock-low {color:#b91c1c; font-weight:800;}
+    #stockModal .modal-content {max-width:640px;}
+    .stock-entry {display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:8px; padding:12px 0; border-bottom:1px solid var(--border);}
+    .stock-entry strong {display:block; overflow-wrap:anywhere;}
+    .stock-entry input {width:78px; min-height:36px; padding:5px; border:1px solid #94a3b8; border-radius:6px;}
+    @media(max-width:420px) {.stock-entry > div {grid-column:1 / -1;} .stock-entry {grid-template-columns:auto 1fr;}}
+    .shop-admin-row {white-space:pre-wrap; overflow-wrap:anywhere; padding:9px 0; border-bottom:1px solid #e5e7eb; margin-bottom:6px;}
+    .shop-admin-row button {margin:6px 4px 0 0;}
+    @media (max-width:480px) {
+      .header-inner {grid-template-columns:minmax(0,1fr) auto;}
+      .logo-title {white-space:normal; font-size:15px;}
+      .header-actions {flex-wrap:wrap; justify-content:flex-end; max-width:160px;}
     }
   </style>
 </head>
@@ -495,6 +517,7 @@
       <div id="detailCounter" class="detail-counter" aria-live="polite"></div>
     </div>
     <p id="detailDescription" class="detail-description"></p>
+    <button class="auth-btn primary shop-buy" type="button" id="detailOrder">주문하기</button>
   </dialog>
   <div class="modal" id="cartModal">
     <div class="modal-content" style="max-width:540px;">
@@ -504,69 +527,189 @@
       </div>
       <div style="display:grid; gap:4px; margin-top:12px;">
         <span>상품 합계 <strong id="cartSubtotal">0원</strong></span>
-        <span>배송비 <strong id="cartShipping">0원</strong></span>
-        <span>수수료 <strong id="cartFee">0원</strong></span>
+        <span hidden><strong id="cartShipping">0원</strong><strong id="cartFee">0원</strong></span>
       </div>
       <div class="cart-total-box">
-        <span>총 결제금액 합계</span>
+        <span>예상 합계</span>
         <span id="cartTotalPrice" style="color:var(--primary);">0원</span>
       </div>
       <div class="modal-btns">
-        <button class="btn-submit" onclick="alert('주문 기능은 준비 중입니다!')">주문하기</button>
+        <button class="btn-submit" onclick="startCheckout()">주문하기</button>
         <button class="btn-cancel" onclick="closeModal('cartModal')">닫기</button>
       </div>
     </div>
+  </div>
+
+  <div class="modal" id="checkoutModal" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle">
+    <form id="checkoutForm" class="modal-content" onsubmit="submitOrder(event)">
+      <h3 id="checkoutTitle">계좌이체 주문</h3>
+      <p id="checkoutItems" class="shop-admin-row"></p>
+      <p id="checkoutBank" class="shop-admin-row"></p>
+      <p>배송비가 필요한 경우 접수 후 안내드립니다. 최종 금액을 안내받은 뒤 입금해 주세요.</p>
+      <div class="form-group"><label for="orderRecipient">받는 분</label><input id="orderRecipient" name="recipient" autocomplete="name" maxlength="80" required></div>
+      <div class="form-group"><label for="orderPhone">휴대전화번호 (배송 알림톡 수신)</label><input id="orderPhone" name="phone" type="tel" autocomplete="tel" maxlength="25" required></div>
+      <div class="form-group"><label for="orderAddress">배송 주소 (상세주소 포함)</label><textarea id="orderAddress" name="address" autocomplete="street-address" minlength="5" maxlength="350" required></textarea></div>
+      <div class="form-group"><label for="orderCustoms">개인통관고유부호 (해외 직배송 상품만)</label><input id="orderCustoms" name="customs" maxlength="13" pattern="[Pp][0-9]{12}"></div>
+      <p id="checkoutStatus" role="status" aria-live="polite"></p>
+      <div class="modal-btns">
+        <button class="btn-submit" type="submit">주문 접수</button>
+        <button class="btn-cancel" type="button" onclick="if (!checkoutBusy) closeModal('checkoutModal')">닫기</button>
+      </div>
+    </form>
+  </div>
+  <div class="modal" id="shopAdminModal" role="dialog" aria-modal="true" aria-labelledby="shopAdminTitle">
+    <div class="modal-content">
+      <h3 id="shopAdminTitle"></h3>
+      <div id="shopAdminList" role="status"></div>
+      <button type="button" class="auth-btn" id="shopAdminPrev">이전</button>
+      <button type="button" class="auth-btn" id="shopAdminNext">다음</button>
+      <button type="button" class="auth-btn" onclick="closeShopManagement()">닫기</button>
+    </div>
+  </div>
+  <div class="modal" id="stockModal" role="dialog" aria-modal="true" aria-labelledby="stockTitle">
+    <div class="modal-content">
+      <h3 id="stockTitle">상품별 재고 관리</h3>
+      <p>상품별 남은 수량을 수정하고 저장하세요. 주문 접수 시 주문 수량만큼 줄어듭니다.</p>
+      <p id="stockStatus" role="status" aria-live="polite"></p>
+      <div id="stockRows"></div>
+      <div class="modal-btns">
+        <button type="button" class="auth-btn" id="stockReload" onclick="openStockManager()">최신 재고 불러오기</button>
+        <button type="button" class="btn-cancel" onclick="closeModal('stockModal')">닫기</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal" id="bankModal" role="dialog" aria-modal="true" aria-labelledby="bankTitle">
+    <form class="modal-content" id="bankForm" onsubmit="saveShopBank(event)">
+      <h3 id="bankTitle">입금 계좌 설정</h3>
+      <div class="form-group"><label for="bankName">은행</label><input id="bankName" name="bank" maxlength="60" required></div>
+      <div class="form-group"><label for="bankNumber">계좌번호</label><input id="bankNumber" name="account" maxlength="50" required></div>
+      <div class="form-group"><label for="bankHolder">예금주</label><input id="bankHolder" name="holder" maxlength="60" required></div>
+      <div class="modal-btns">
+        <button type="submit" class="btn-submit">저장</button>
+        <button type="button" class="btn-cancel" onclick="closeModal('bankModal')">닫기</button>
+      </div>
+      <p id="bankStatus" role="status"></p>
+    </form>
   </div>
 
   <!-- 로그인 모달 -->
   <div class="modal" id="loginModal">
     <div class="modal-content">
       <h3>로그인</h3>
-      <div class="form-group"><label for="loginId">회원 아이디 또는 관리자 이메일</label><input type="text" id="loginId" placeholder="회원 아이디 또는 관리자 이메일" autocomplete="username"></div>
+      <div class="form-group"><label for="loginId">이메일</label><input type="email" id="loginId" placeholder="이메일 주소" autocomplete="username"></div>
       <div class="form-group"><label>비밀번호</label><input type="password" id="loginPw" placeholder="비밀번호 입력" autocomplete="current-password"></div>
       <div class="modal-btns">
         <button class="btn-submit" onclick="handleLogin()">로그인</button>
+        <button class="auth-btn" onclick="closeModal('loginModal'); openSignupModal()">회원가입</button>
         <button class="btn-cancel" onclick="closeModal('loginModal')">취소</button>
+      </div>
+      <div style="margin-top:12px">
+        <button type="button" class="auth-btn" onclick="openEmailRecovery()">비밀번호 찾기</button>
       </div>
     </div>
   </div>
 
   <!-- 회원가입 모달 (개인통관고유부호 및 주소 포함) -->
+  <div class="modal" id="emailRecoveryModal" role="dialog" aria-modal="true" aria-labelledby="emailRecoveryTitle">
+    <div class="modal-content">
+      <h3 id="emailRecoveryTitle">이메일로 비밀번호 찾기</h3>
+      <p>가입할 때 사용한 이메일 주소를 입력해 주세요. 링크는 요청한 브라우저에서 열어 주세요.</p>
+      <form onsubmit="sendPasswordReset(event)">
+        <div class="form-group"><label for="emailRecoveryAddress">가입 이메일</label><input id="emailRecoveryAddress" type="email" autocomplete="email" maxlength="254" required></div>
+        <button class="auth-btn primary" type="submit">재설정 링크 보내기</button>
+        <button class="auth-btn" type="button" onclick="closeModal('emailRecoveryModal'); openModal('loginModal')">닫기</button>
+      </form>
+      <p id="emailRecoveryStatus" role="status" aria-live="polite" style="margin-top:10px"></p>
+    </div>
+  </div>
+  <div class="modal" id="emailResetModal" role="dialog" aria-modal="true" aria-labelledby="emailResetTitle">
+    <div class="modal-content">
+      <h3 id="emailResetTitle">새 비밀번호 설정</h3>
+      <form id="emailResetForm" hidden onsubmit="saveEmailReset(event)">
+        <div class="form-group"><label for="emailResetPassword">새 비밀번호 (8자 이상)</label><input id="emailResetPassword" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></div>
+        <div class="form-group"><label for="emailResetPasswordCheck">새 비밀번호 확인</label><input id="emailResetPasswordCheck" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></div>
+        <button class="auth-btn primary" type="submit">새 비밀번호 저장</button>
+      </form>
+      <p id="emailResetStatus" role="status" aria-live="polite" style="margin-top:10px"></p>
+      <button class="auth-btn" type="button" id="emailResetClose" onclick="closeEmailReset()">닫기</button>
+    </div>
+  </div>
+
+  <div class="modal" id="withdrawModal" role="dialog" aria-modal="true" aria-labelledby="withdrawTitle">
+    <div class="modal-content">
+      <h3 id="withdrawTitle">회원 탈퇴</h3>
+      <p style="margin-bottom:12px">탈퇴하면 계정과 가입 정보가 삭제됩니다. 진행 중인 주문이 있다면 주문 완료 후 탈퇴해 주세요.</p>
+      <form id="withdrawForm" onsubmit="submitWithdrawal(event)">
+        <div class="form-group"><label for="withdrawEmail">아이디 (가입 이메일)</label><input id="withdrawEmail" type="email" maxlength="254" autocomplete="username" required></div>
+        <div class="form-group"><label for="withdrawPassword">현재 비밀번호</label><input id="withdrawPassword" type="password" autocomplete="current-password" required></div>
+        <div class="form-group"><label for="withdrawReason">탈퇴 사유 (필수)</label>
+          <select id="withdrawReason" required>
+            <option value="">탈퇴 사유를 선택해 주세요</option>
+            <option value="not_used">이용 빈도가 낮아요</option>
+            <option value="product">원하는 상품이 없어요</option>
+            <option value="delivery">주문·배송이 불편해요</option>
+            <option value="website">사이트 이용이 불편해요</option>
+            <option value="privacy">개인정보가 걱정돼요</option>
+            <option value="other">기타</option>
+          </select>
+        </div>
+        <label><input type="checkbox" required> 탈퇴하면 계정을 복구할 수 없음을 확인했습니다.</label>
+        <p id="withdrawStatus" role="status" aria-live="polite" style="margin-top:8px"></p>
+        <div class="modal-btns">
+          <button class="btn-cancel" id="withdrawCancel" type="button" onclick="closeWithdrawal()">취소</button>
+          <button class="btn-submit" type="submit" style="background:#b91c1c;color:white">회원 탈퇴</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="modal" id="withdrawStatsModal" role="dialog" aria-modal="true" aria-labelledby="withdrawStatsTitle">
+    <div class="modal-content">
+      <h3 id="withdrawStatsTitle">탈퇴 사유 집계</h3>
+      <div id="withdrawStats" aria-live="polite"></div>
+      <button class="auth-btn" type="button" onclick="closeModal('withdrawStatsModal')">닫기</button>
+    </div>
+  </div>
+
   <div class="modal" id="signupModal">
     <div class="modal-content">
       <h3>회원가입</h3>
-      <div class="form-group"><label>아이디</label><input type="text" id="signupId" placeholder="사용할 아이디"></div>
-      <div class="form-group"><label>비밀번호</label><input type="password" id="signupPw" placeholder="비밀번호"></div>
-      <div class="form-group"><label for="signupName">한글 이름</label><input type="text" id="signupName" placeholder="한글 성함"></div>
       <div class="form-group">
-        <label for="signupNameEnglish">영문 이름</label>
-        <input type="text" id="signupNameEnglish" aria-describedby="signupEnglishNameHint" placeholder="여권에 표기된 영문 이름" required="">
-        <small id="signupEnglishNameHint" style="display:block; margin-top:4px; color:var(--text-sub);">여권에 표기된 영문 이름과 똑같이 입력해 주세요.</small>
-      </div>
-      <div class="form-group"><label>휴대전화번호</label><input type="text" id="signupPhone" placeholder="010-0000-0000"></div>
-      <div class="form-group"><label>개인통관고유부호 (선택)</label><input type="text" id="signupCustoms" placeholder="P로 시작하는 13자리 · 비워도 됩니다"></div>
-      <div class="form-group">
-        <label for="signupAddr">도로명 주소</label>
-        <div style="display:flex; gap:6px;">
-          <input type="text" id="signupAddr" autocomplete="address-line1" placeholder="직접 입력하거나 주소를 검색하세요" style="flex:1; min-width:0;">
-          <button type="button" id="signupAddressSearch" aria-controls="signupPostcode" aria-expanded="false" onclick="execDaumPostcode()" style="padding:0 12px; white-space:nowrap; background:#e5e7eb; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">주소검색</button>
+        <label for="signupId">이메일 주소 (필수)</label>
+        <div class="signup-email-row">
+          <input type="email" id="signupId" autocomplete="email" maxlength="254" aria-describedby="signupEmailHint signupEmailStatus" required>
+          <button type="button" class="auth-btn primary" id="signupEmailSend" onclick="handleSignup()">인증메일 보내기</button>
         </div>
-        <p id="signupAddressStatus" role="status"></p>
+        <small id="signupEmailHint">필수 가입 정보를 입력한 뒤 인증메일을 보내 주세요.</small>
+        <p id="signupEmailStatus" role="status" aria-live="polite"></p>
+        <button type="button" class="auth-btn" id="signupEmailLogin" hidden onclick="closeModal('signupModal'); openModal('loginModal')">로그인 화면으로</button>
       </div>
+      <div class="form-group"><label for="signupPw">비밀번호 (8자 이상)</label><input type="password" id="signupPw" autocomplete="new-password" minlength="8" maxlength="72" required></div>
+      <div class="form-group"><label for="signupPwCheck">비밀번호 확인 (필수)</label><input id="signupPwCheck" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></div>
+      <div class="form-group"><label for="signupName">한글 이름</label><input type="text" id="signupName" autocomplete="name" maxlength="80" placeholder="이름"></div>
+      <div class="form-group"><label for="signupKakaoId">카카오톡 아이디 (필수)</label><input id="signupKakaoId" autocomplete="off" maxlength="60" required placeholder="카카오톡 친구 추가용 아이디"></div>
+      <div class="form-group"><label for="signupNameEnglish">영문 이름 (선택)</label><input id="signupNameEnglish" maxlength="80" placeholder="여권에 표기된 영문 이름"></div>
+      <div class="form-group"><label for="signupPhone">휴대전화번호 (필수)</label><input type="tel" id="signupPhone" autocomplete="tel" maxlength="25" required placeholder="010-0000-0000"></div>
       <div class="form-group">
-        <label for="signupAddrEnglish">영문 주소</label>
-        <input type="text" id="signupAddrEnglish" aria-describedby="signupEnglishHint" placeholder="주소 검색 후 자동 입력 · 직접 수정 가능">
-        <small id="signupEnglishHint" style="display:block; margin-top:4px; color:var(--text-sub);">영문 주소를 한 번 더 확인하시기 바랍니다.</small>
+        <label for="signupAddr">도로명 주소 (필수)</label>
+        <div style="display:flex; gap:6px">
+          <input id="signupAddr" autocomplete="address-line1" maxlength="250" required style="min-width:0" placeholder="직접 입력하거나 주소를 검색하세요">
+          <button type="button" class="auth-btn" onclick="searchSignupAddress()">주소검색</button>
+        </div>
       </div>
+      <div class="form-group"><label for="signupAddrDetail">한글 상세주소 (동·호수)</label><input id="signupAddrDetail" autocomplete="address-line2" maxlength="90" placeholder="예: 101동 1203호"></div>
       <div class="form-group">
-        <label for="signupAddrDetail">상세주소 (선택)</label>
-        <input type="text" id="signupAddrDetail" autocomplete="address-line2" placeholder="동·호수, 층 또는 건물명">
+        <label for="signupAddrEnglish">Address 1 · 영문 도로명 주소 (필수)</label>
+        <input id="signupAddrEnglish" maxlength="250" required placeholder="주소검색 후 자동 입력" aria-describedby="signupEnglishReminder signupAddressStatus">
       </div>
-      <div class="form-group">
-        <label for="signupAddrDetailEnglish">영문 상세주소 (선택)</label>
-        <input type="text" id="signupAddrDetailEnglish" aria-describedby="signupEnglishDetailHint" placeholder="예: Building 302, Unit 802">
-        <small id="signupEnglishDetailHint" style="display:block; margin-top:4px; color:var(--text-sub);">동·호수나 층이 있으면 영문으로 입력해 주세요.</small>
-      </div>
+      <div class="form-group"><label for="signupAddrDetailEnglish">Address 2 · 영문 동·호수</label><input id="signupAddrDetailEnglish" maxlength="150" placeholder="예: Building 101, Unit 1203"></div>
+      <div class="form-group"><label for="signupCity">City · 영문 도시 (필수)</label><input id="signupCity" maxlength="130" required placeholder="예: Busan"></div>
+      <div class="form-group"><label for="signupPostal">Postal Code · 우편번호 (필수)</label><input id="signupPostal" autocomplete="postal-code" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" required placeholder="숫자 5자리"></div>
+      <p id="signupEnglishReminder" style="color:#b91c1c;font-weight:700;margin-bottom:6px">영문 주소는 정확하게 확인하시고 틀린 부분 있으면 고쳐서 다시 수정해 주세요.</p>
+      <p style="color:#111827;margin-bottom:6px">동·호수는 한글 상세주소에 입력하면 Address 2에 영문으로 표시됩니다. 자동 입력이 안 된 부분은 직접 수정할 수 있습니다.</p>
+      <button type="button" class="auth-btn" onclick="confirmSignupAddress()" style="margin-bottom:6px">주소 확인</button>
+      <p id="signupAddressStatus" role="status" aria-live="polite" style="margin-bottom:12px"></p>
+      <div class="form-group"><label for="signupCustoms">개인통관고유부호 (선택)</label><input id="signupCustoms" autocomplete="off" maxlength="13" placeholder="해외 직배송에 필요한 경우 P로 시작하는 13자리"></div>
+      <p>가입 정보는 계정 관리, 연락과 주문에 사용합니다. 탈퇴하면 가입 정보가 삭제됩니다.</p>
       <div class="signup-age-box">
         <label class="signup-age-label" for="signupAgeConfirmed">
           <input type="checkbox" id="signupAgeConfirmed" aria-describedby="signupAgeHint" required="">
@@ -574,8 +717,9 @@
         </label>
         <p id="signupAgeHint">한솔아카이브는 만 15세부터 가입하실 수 있습니다. 연령을 사실과 다르게 확인한 경우 회원 이용이 제한될 수 있습니다. 구매와 관련한 권리와 책임은 관계 법령에 따릅니다.</p>
       </div>
+      <p id="signupStatus" role="status"></p>
       <div class="modal-btns">
-        <button type="button" class="btn-submit" id="signupSubmit" onclick="handleSignup()" disabled="">가입완료</button>
+        <button type="button" class="btn-submit" id="signupSubmit" onclick="handleSignup()" disabled="">이메일 인증으로 가입하기</button>
         <button class="btn-cancel" onclick="closeModal('signupModal')">취소</button>
       </div>
     </div>
@@ -596,6 +740,7 @@
       </div>
       <div class="form-group"><label>코드/시리즈</label><input type="text" id="prodCode" placeholder="예: M3 / MUNIKIS ZERO"></div>
       <div class="form-group"><label>가격 (원)</label><input type="number" id="prodPrice" placeholder="예: 78000"></div>
+      <div class="form-group"><label for="prodStock">판매 가능 재고</label><input type="number" id="prodStock" min="0" max="999999" step="1" placeholder="미설정 상품은 주문 대기"></div>
       <div class="form-group"><label class="stock-toggle"><input type="checkbox" id="prodSoldOut"> 품절</label></div>
       <div class="form-group"><label>상품 상세 설명</label><textarea id="prodDesc" placeholder="상품 상태, 구성품, 배송 안내 등 상세 내용을 적어주세요."></textarea></div>
       
@@ -676,6 +821,8 @@ window.hansolCatalogConfig = {
     && /^sb_publishable_[\w-]+$/.test(publishableKey);
   const catalogPath = "/rest/v1/hansol_catalog?id=eq.1&select=revision,next_id,items";
   let session = null;
+  const recoveryKey = "hansol_password_recovery_v1";
+  const base64url = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 
   async function request(path, {method = "GET", body, token, prefer} = {}) {
     if (!enabled) throw new Error("상품 서버 설정이 필요합니다.");
@@ -695,6 +842,9 @@ window.hansolCatalogConfig = {
     });
     if (!response.ok) {
       const error = new Error("상품 서버 요청에 실패했습니다.");
+      const failure = await response.json().catch(() => ({}));
+      error.code = failure.message;
+      error.authCode = failure.error_code || failure.code;
       error.status = response.status;
       throw error;
     }
@@ -717,11 +867,72 @@ window.hansolCatalogConfig = {
       const account = await request("/auth/v1/token?grant_type=password", {
         method: "POST", body: {email, password}
       });
-      const token = account.access_token;
-      if (!token || await request("/rest/v1/rpc/hansol_is_catalog_admin", {
-        method: "POST", body: {}, token
-      }) !== true) throw new Error("상품 관리자 권한이 없습니다.");
-      session = token;
+      if (!account.access_token) throw new Error("로그인할 수 없습니다.");
+      const isAdmin = await request("/rest/v1/rpc/hansol_is_catalog_admin", {
+        method: "POST", body: {}, token: account.access_token
+      }) === true;
+      session = account.access_token;
+      return {id: isAdmin ? "flowerday1585" : account.user.id,
+        name: isAdmin ? "관리자" : String(account.user.user_metadata?.shop_name || account.user.email),
+        profile: isAdmin ? null : account.user.user_metadata};
+    },
+    signup(email, password, profile) {
+      return request("/auth/v1/signup?redirect_to=" + encodeURIComponent("https://hansolarchive.com/"), {
+        method: "POST", body: {email, password, data: {...profile, hansol_member:true}}
+      });
+    },
+    async requestPasswordReset(email) {
+      const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)));
+      const digest = await crypto.subtle.digest("SHA-256",new TextEncoder().encode(verifier));
+      const redirect = new URL(location.pathname,location.origin);
+      redirect.searchParams.set("mode","password-reset");
+      const saved = JSON.stringify({verifier,issued:Date.now()});
+      localStorage.setItem(recoveryKey,saved);
+      try {
+        await request("/auth/v1/recover?redirect_to=" + encodeURIComponent(redirect.href), {
+          method:"POST", body:{email,code_challenge:base64url(new Uint8Array(digest)),code_challenge_method:"s256"}
+        });
+      } catch (error) {
+        // Retain the verifier if delivery succeeded but the response was lost.
+        if (error.status >= 400 && error.status < 500 && localStorage.getItem(recoveryKey) === saved) {
+          localStorage.removeItem(recoveryKey);
+        }
+        throw error;
+      }
+    },
+    async verifyPasswordReset(code) {
+      const saved = localStorage.getItem(recoveryKey);
+      const pending = saved && JSON.parse(saved);
+      if (!code || !pending?.verifier || Date.now() - pending.issued > 3600000) throw new Error("재설정 요청 없음");
+      const verified = await request("/auth/v1/token?grant_type=pkce", {
+        method:"POST", body:{auth_code:code,code_verifier:pending.verifier}
+      });
+      if (localStorage.getItem(recoveryKey) === saved) localStorage.removeItem(recoveryKey);
+      if (!verified?.access_token || !verified.user?.email) throw new Error("재설정 인증 실패");
+      return {token:verified.access_token,email:verified.user.email};
+    },
+    async withdraw(email, password, reason, expectedId) {
+      const challenge = await this.shopRpc("hansol_shop_begin_withdraw",{});
+      const fresh = await request("/auth/v1/token?grant_type=password", {
+        method:"POST",body:{email,password}
+      });
+      if (!fresh?.access_token || fresh.user?.id !== expectedId) {
+        throw Object.assign(new Error("로그인 계정이 다릅니다."),{code:"WRONG_WITHDRAW_ACCOUNT"});
+      }
+      return request("/rest/v1/rpc/hansol_shop_delete_member", {
+        method:"POST",token:fresh.access_token,body:{p_challenge:challenge,p_reason:reason}
+      });
+    },
+    resetRecoveredPassword(token, password) {
+      return request("/auth/v1/user", {method:"PUT", token, body:{password}});
+    },
+    async shopReady() {
+      try { return await request("/rest/v1/rpc/hansol_shop_ready", {method:"POST", body:{}}) === true; }
+      catch { return false; }
+    },
+    shopRpc(name, body) {
+      if (!session) throw new Error("다시 로그인해 주세요.");
+      return request("/rest/v1/rpc/" + name, {method:"POST", body, token:session});
     },
     logout() {
       session = null;
@@ -832,8 +1043,12 @@ window.hansolCatalogConfig = {
     let catalogWriting = false;
     let editingRevision = null;
     let products = publishedCatalog?.items || defaultProducts;
-    let currentUser = JSON.parse(localStorage.getItem('hansol_current_user') || "null");
-    if (currentUser?.id === "flowerday1585") currentUser = null;
+    let currentUser = null;
+    // Remove obsolete browser-only signup records, which held plaintext passwords.
+    try {
+      localStorage.removeItem("hansol_current_user");
+      localStorage.removeItem("hansol_users");
+    } catch {}
 
     function escapeCatalogHtml(value) {
       const escapes = {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"};
@@ -909,8 +1124,8 @@ window.hansolCatalogConfig = {
         ) || new Set(items.map(product => product.id)).size !== items.length) throw new Error();
         if (!confirm(`현재 공용 목록을 이 파일의 상품 ${items.length}개로 교체하시겠습니까?`)) return;
         const nextId = items.reduce((next, item) => Math.max(next, item.id + 1), previous.next_id);
-        await commitCatalog(previous, items.map(({id, category, categoryName, name, code, price, desc, imgs, soldOut}) =>
-          ({id, category, categoryName: String(categoryName || ""), name, code, price, desc: String(desc || ""), imgs, soldOut: Boolean(soldOut)})
+        await commitCatalog(previous, items.map(({id, category, categoryName, name, code, price, desc, imgs, soldOut, stock}) =>
+          ({id, category, categoryName: String(categoryName || ""), name, code, price, desc: String(desc || ""), imgs, soldOut: Boolean(soldOut), stock: Number.isSafeInteger(stock) && stock >= 0 ? stock : null})
         ), nextId);
         alert("공용 상품 목록을 저장했습니다.");
       } catch (error) {
@@ -1033,9 +1248,9 @@ window.hansolCatalogConfig = {
 
     function adjustCardQty(productId, delta) {
       const product = products.find(item => item.id === productId);
-      if (!product || product.soldOut) return;
+      if (!stockAvailable(product)) return;
       if (!cardQuantities[productId]) cardQuantities[productId] = 1;
-      cardQuantities[productId] += delta;
+      cardQuantities[productId] = Math.min(product.stock, cardQuantities[productId] + delta);
       if (cardQuantities[productId] < 1) cardQuantities[productId] = 1;
       
       const span = document.getElementById(`qty-num-${productId}`);
@@ -1047,9 +1262,10 @@ window.hansolCatalogConfig = {
     function addCardToCart(productId) {
       const qty = cardQuantities[productId] || 1;
       const p = products.find(x => x.id === productId);
-      if (!p || p.soldOut) return;
+      if (!stockAvailable(p)) return;
 
       let item = cart.find(x => x.id === productId);
+      if ((item?.qty || 0) + qty > p.stock) { alert("남은 수량을 초과했습니다."); return; }
       if(item) {
         item.qty += qty;
       } else {
@@ -1077,7 +1293,7 @@ window.hansolCatalogConfig = {
       updateCartBadge();
       const listContainer = document.getElementById("cartItemsList");
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-      const {shipping, fee} = cart.length ? cartCharges : {shipping: 0, fee: 0};
+      const {shipping, fee} = {shipping: 0, fee: 0};
       document.getElementById("cartSubtotal").textContent = won(subtotal);
       document.getElementById("cartShipping").textContent = won(shipping);
       document.getElementById("cartFee").textContent = won(fee);
@@ -1117,7 +1333,8 @@ window.hansolCatalogConfig = {
         openCartModal();
         return;
       }
-      cart[idx].qty = Math.max(1, val);
+      const product = products.find(item => item.id === line.id);
+      cart[idx].qty = Math.max(1, Math.min(product?.stock ?? val, val));
       localStorage.setItem('hansol_cart', JSON.stringify(cart));
       updateCartBadge();
       openCartModal();
@@ -1163,15 +1380,23 @@ window.hansolCatalogConfig = {
         if (currentUser.id === "flowerday1585") {
           headerActions.innerHTML = `
             <button class="auth-btn primary" onclick="openAdminModal()">관리자설정</button>
+            <button type="button" class="auth-btn" onclick="openStockManager()">재고 관리</button>
             <button class="auth-btn" onclick="handleLogout()">로그아웃</button>
           `;
           adminContainer.innerHTML = `
             <button onclick="openProductModal()" style="padding:10px 16px; background:var(--primary); color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">+ 새 상품 등록</button>
             <button type="button" class="auth-btn" onclick="document.getElementById('catalogImport').click()">이전 상품 목록 가져오기</button>
              <button type="button" class="auth-btn" onclick="downloadBannerSite()">배포용 HTML 받기</button>
+             <button type="button" class="auth-btn" onclick="openStockManager()">재고 관리</button>
+             <button type="button" class="auth-btn" onclick="openBankSettings()">입금 계좌</button>
+             <button type="button" class="auth-btn" onclick="showShopManagement('orders')">주문 관리</button>
+             <button type="button" class="auth-btn" onclick="showShopManagement('members')">가입 회원</button>
+          <button type="button" class="auth-btn" onclick="showWithdrawStats()">탈퇴 사유</button>
+             <button type="button" class="auth-btn" onclick="downloadMembers(this)">회원 엑셀 받기</button>
+             <button type="button" class="auth-btn" onclick="downloadMembers(this, true)">엑셀 파일 갱신</button>
           `;
         } else {
-          headerActions.innerHTML = `<button class="auth-btn" onclick="handleLogout()">로그아웃</button>`;
+          headerActions.innerHTML = `<button class="auth-btn" onclick="handleLogout()">로그아웃</button><button class="auth-btn primary" onclick="showShopManagement('mine')">내 주문·배송</button><button class="auth-btn" onclick="openWithdrawal()">회원 탈퇴</button>`;
           adminContainer.innerHTML = "";
         }
       } else {
@@ -1317,125 +1542,806 @@ window.hansolCatalogConfig = {
     }
 
     async function handleLogin() {
-      const id = document.getElementById("loginId").value.trim();
-      const passwordField = document.getElementById("loginPw");
-      const password = passwordField.value;
+      const email = document.getElementById("loginId").value.trim();
+      const password = document.getElementById("loginPw");
       const submit = document.querySelector("#loginModal .btn-submit");
+      if (!email.includes("@") || !password.value) { alert("이메일과 비밀번호를 입력해 주세요."); return; }
       submit.disabled = true;
       try {
-        const users = JSON.parse(localStorage.getItem("hansol_users") || "[]");
-        const customer = id === "flowerday1585" ? null : users.find(user => user.id === id && user.pw === password.trim());
-        if (customer) {
-          currentUser = customer;
-          localStorage.setItem("hansol_current_user", JSON.stringify(currentUser));
-        } else if (id.includes("@")) {
-          await catalogApi.login(id, password);
-          currentUser = {id: "flowerday1585", name: "관리자"};
-          await refreshCatalog();
-        } else {
-          alert("회원 정보가 일치하지 않습니다. 상품 관리자는 등록된 이메일로 로그인해 주세요.");
-          return;
-        }
-        passwordField.value = "";
+        currentUser = await catalogApi.login(email, password.value);
+        password.value = "";
         closeModal("loginModal");
         updateUI();
-      } catch {
-        alert(catalogApi.enabled ? "관리자 이메일, 비밀번호 또는 권한을 확인해 주세요." : "관리자 로그인을 사용하려면 상품 서버 연결이 필요합니다.");
-      } finally {
-        submit.disabled = false;
-      }
+        await refreshCatalog();
+        if (pendingCheckout !== null) {
+          const requested = pendingCheckout;
+          pendingCheckout = null;
+          await startCheckout(requested || undefined);
+        }
+      } catch { alert("로그인에 실패했습니다. 이메일 인증 여부와 비밀번호를 확인해 주세요."); }
+      finally { submit.disabled = false; }
     }
 
     function handleLogout() {
+      closeWithdrawal();
+      closeModal("withdrawStatsModal");
+      document.getElementById("withdrawStats").replaceChildren();
       catalogApi.logout();
       currentUser = null;
-      localStorage.removeItem("hansol_current_user");
+      checkout = null;
+      document.getElementById("checkoutForm").reset();
+      for (const id of ["checkoutModal","bankModal","adminModal","productModal","bannerModal","stockModal"]) closeModal(id);
+      closeShopManagement();
       updateUI();
+    }
+
+    let emailRecovery = null;
+    const emailResetStatus = message => document.getElementById("emailResetStatus").textContent = message;
+
+    function openEmailRecovery() {
+      const field = document.getElementById("emailRecoveryAddress");
+      field.value = document.getElementById("loginId").value.trim();
+      document.getElementById("emailRecoveryStatus").textContent = "";
+      closeModal("loginModal");
+      openModal("emailRecoveryModal");
+      field.focus();
+    }
+
+    async function sendPasswordReset(event) {
+      event.preventDefault();
+      const button = event.currentTarget.querySelector('button[type="submit"]');
+      const status = document.getElementById("emailRecoveryStatus");
+      const email = document.getElementById("emailRecoveryAddress").value.trim();
+      if (button.disabled) return;
+      button.disabled = true;
+      status.textContent = "재설정 링크를 요청하고 있습니다…";
+      try {
+        await catalogApi.requestPasswordReset(email);
+        status.textContent = "가입된 이메일이라면 재설정 링크가 도착합니다. 받은편지함과 스팸함을 확인해 주세요.";
+      } catch (error) {
+        status.textContent = (error.status === 429 || error.authCode === "over_email_send_rate_limit")
+          ? "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."
+          : "재설정 링크를 요청하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.";
+      } finally { button.disabled = false; }
+    }
+
+    async function openEmailResetFromLink() {
+      const url = new URL(location.href);
+      if (url.searchParams.get("mode") !== "password-reset") return;
+      const code = url.searchParams.get("code");
+      for (const key of ["mode","code","error","error_code","error_description"]) url.searchParams.delete(key);
+      history.replaceState(null,"",url.pathname + url.search + url.hash);
+      const form = document.getElementById("emailResetForm");
+      form.hidden = true;
+      const close = document.getElementById("emailResetClose");
+      close.disabled = true;
+      openModal("emailResetModal");
+      emailResetStatus("재설정 링크를 확인하고 있습니다…");
+      try {
+        emailRecovery = await catalogApi.verifyPasswordReset(code);
+        form.hidden = false;
+        emailResetStatus("");
+        document.getElementById("emailResetPassword").focus();
+      } catch {
+        emailResetStatus("재설정 링크가 만료됐거나 요청한 브라우저와 다릅니다. 닫은 뒤 이 브라우저에서 새 링크를 요청해 주세요.");
+      } finally { close.disabled = false; }
+    }
+
+    function closeEmailReset() {
+      emailRecovery = null;
+      document.getElementById("emailResetForm").reset();
+      closeModal("emailResetModal");
+      openModal("loginModal");
+    }
+
+    async function saveEmailReset(event) {
+      event.preventDefault();
+      if (!emailRecovery) return;
+      const form = event.currentTarget;
+      const button = form.querySelector('button[type="submit"]');
+      const password = document.getElementById("emailResetPassword").value;
+      const confirmation = document.getElementById("emailResetPasswordCheck");
+      if (button.disabled) return;
+      if (password.length < 8 || password !== confirmation.value) {
+        emailResetStatus("새 비밀번호를 8자 이상 입력하고 확인 칸에도 똑같이 입력해 주세요.");
+        confirmation.focus();
+        return;
+      }
+      button.disabled = document.getElementById("emailResetClose").disabled = true;
+      try {
+        const email = emailRecovery.email;
+        await catalogApi.resetRecoveredPassword(emailRecovery.token,password);
+        document.getElementById("loginId").value = email;
+        closeEmailReset();
+        alert("새 비밀번호를 저장했습니다. 다시 로그인해 주세요.");
+      } catch (error) {
+        emailResetStatus(error.status === 401 || error.status === 403
+          ? "인증이 만료되었습니다. 새 재설정 링크를 요청해 주세요."
+          : "비밀번호를 변경하지 못했습니다. 다른 비밀번호를 입력하거나 잠시 뒤 다시 시도해 주세요.");
+      } finally { button.disabled = document.getElementById("emailResetClose").disabled = false; }
     }
 
     function openSignupModal() {
       document.getElementById("signupAgeConfirmed").checked = false;
       document.getElementById("signupSubmit").disabled = true;
+      document.getElementById("signupEmailSend").disabled = false;
+      document.getElementById("signupAgeConfirmed").disabled = false;
+      document.getElementById("signupEmailStatus").textContent = "";
+      document.getElementById("signupEmailLogin").hidden = true;
+      document.getElementById("signupStatus").textContent = "";
       openModal("signupModal");
     }
 
-    function handleSignup() {
-      const ageConfirmation = document.getElementById("signupAgeConfirmed");
-      if (!ageConfirmation.checked) {
-        alert("만 15세 이상임을 확인해 주세요.");
-        ageConfirmation.focus();
-        return;
-      }
-      const id = document.getElementById("signupId").value.trim();
-      const pw = document.getElementById("signupPw").value.trim();
-      const name = document.getElementById("signupName").value.trim();
-      const nameEnglish = document.getElementById("signupNameEnglish").value.trim();
-      const phone = document.getElementById("signupPhone").value.trim();
-      const customs = document.getElementById("signupCustoms").value.trim();
-      const addr = document.getElementById("signupAddr").value.trim();
-      const addrDetail = document.getElementById("signupAddrDetail").value.trim();
-      const addrEnglish = document.getElementById("signupAddrEnglish").value.trim();
-      const addrDetailEnglish = document.getElementById("signupAddrDetailEnglish").value.trim();
+    const signupRoad = document.getElementById("signupAddr");
+    const signupRoadEnglish = document.getElementById("signupAddrEnglish");
+    const signupDetail = document.getElementById("signupAddrDetail");
+    const signupDetailEnglish = document.getElementById("signupAddrDetailEnglish");
+    const signupCity = document.getElementById("signupCity");
+    const signupPostal = document.getElementById("signupPostal");
+    const signupAddressStatus = document.getElementById("signupAddressStatus");
+    let signupAddressVerified = false;
 
-      if (!id || !pw || !name || !nameEnglish || !phone || !addr) {
-        alert("아이디, 비밀번호, 한글·영문 이름, 휴대전화번호, 도로명 주소를 입력해 주세요.");
-        return;
-      }
-
-      let users = JSON.parse(localStorage.getItem('hansol_users')) || [];
-      if (users.some(u => u.id === id) || id === "flowerday1585") {
-        alert("이미 사용 중인 아이디입니다.");
-        return;
-      }
-
-      users.push({ id, pw, name, nameEnglish, phone, customs, addr, addrDetail, addrEnglish, addrDetailEnglish });
-      localStorage.setItem('hansol_users', JSON.stringify(users));
-      alert("회원가입이 완료되었습니다! 로그인해 주세요.");
-      closeModal('signupModal');
-      openModal('loginModal');
+    function setSignupAddressStatus(message, verified = false) {
+      signupAddressVerified = verified;
+      signupAddressStatus.textContent = message;
+      signupAddressStatus.style.color = verified ? "#166534" : "#b91c1c";
     }
 
-    function execDaumPostcode() {
-      const address = document.getElementById("signupAddr");
-      const englishAddress = document.getElementById("signupAddrEnglish");
-      const detailAddress = document.getElementById("signupAddrDetail");
-      const status = document.getElementById("signupAddressStatus");
-
-      status.textContent = "";
-
-      if (window.location.protocol === "file:") {
-        status.textContent = "내 PC에서 파일을 직접 열면 카카오 주소 검색이 차단됩니다. 실제 웹사이트 주소나 로컬 서버(http://)에서 실행해 주세요.";
-        address.focus();
+    function confirmSignupAddress() {
+      if (!signupRoad.value.trim() || !/[가-힣]/.test(signupRoad.value)) {
+        setSignupAddressStatus("한글 도로명 주소를 확인해 주세요.");
+        signupRoad.focus();
         return;
       }
+      if (!/[a-z]/i.test(signupRoadEnglish.value) || /[가-힣]/.test(signupRoadEnglish.value)) {
+        setSignupAddressStatus("영문 주소를 가져오지 못했거나 입력 형식이 맞지 않습니다. 다시 검색하거나 직접 입력해 주세요.");
+        signupRoadEnglish.focus();
+        return;
+      }
+      if (signupDetail.value.trim() && (!/[a-z]/i.test(signupDetailEnglish.value) || /[가-힣]/.test(signupDetailEnglish.value))) {
+        setSignupAddressStatus("Address 2에 동·호수를 영문으로 입력해 주세요.");
+        signupDetailEnglish.focus();
+        return;
+      }
+      if (!/[a-z]/i.test(signupCity.value) || /[가-힣]/.test(signupCity.value) || !/^[0-9]{5}$/.test(signupPostal.value.trim())) {
+        setSignupAddressStatus("영문 도시와 다섯 자리 우편번호를 확인해 주세요.");
+        (!/[a-z]/i.test(signupCity.value) || /[가-힣]/.test(signupCity.value) ? signupCity : signupPostal).focus();
+        return;
+      }
+      setSignupAddressStatus("✓ 주소 입력 확인 완료", true);
+    }
 
+    function formatSignupDetail(detail) {
+      const parts = [];
+      const labels = {"동":"Building", "호":"Unit", "층":"Floor"};
+      const remaining = detail.replace(/([0-9]+|[A-Za-z][0-9]*)\s*(동|호|층)/gi, (_, number, kind) => {
+        parts.push(labels[kind] + " " + number);
+        return "";
+      });
+      return parts.length && !remaining.replace(/[\s,]+/g,"") ? parts.join(", ") : "";
+    }
+
+    for (const input of [signupRoadEnglish, signupDetailEnglish, signupCity, signupPostal]) {
+      input.addEventListener("input", () => setSignupAddressStatus("주소가 바뀌었습니다. 내용을 확인한 뒤 ‘주소 확인’을 눌러 주세요."));
+    }
+    signupRoad.addEventListener("input", () => {
+      signupRoadEnglish.value = signupCity.value = signupPostal.value = "";
+      setSignupAddressStatus("한글 주소가 바뀌었습니다. 다시 주소검색을 하거나 영문 주소를 입력해 주세요.");
+    });
+    signupDetail.addEventListener("input", () => {
+      signupDetailEnglish.value = formatSignupDetail(signupDetail.value);
+      setSignupAddressStatus("상세주소가 바뀌었습니다. 영문 표기를 확인한 뒤 ‘주소 확인’을 눌러 주세요.");
+    });
+
+    function searchSignupAddress() {
       const Postcode = window.kakao?.Postcode || window.daum?.Postcode;
       if (!Postcode) {
-        status.textContent = "주소 검색 서비스를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.";
+        setSignupAddressStatus("주소검색을 불러올 수 없습니다. 두 주소를 직접 입력해 주세요.");
         return;
       }
-
-      new Postcode({
-        oncomplete: function(data) {
-          const roadAddr = data.roadAddress || data.autoRoadAddress || "";
-          const engAddr = data.roadAddressEnglish || data.autoRoadAddressEnglish || "";
-
-          if (roadAddr) {
-            address.value = roadAddr;
-            englishAddress.value = engAddr;
-            status.textContent = engAddr
-              ? "한글 및 영문 도로명 주소가 입력되었습니다. 상세주소를 입력해 주세요."
-              : "도로명 주소가 입력되었습니다. 영문 주소는 직접 확인 후 입력해 주세요.";
-            detailAddress.focus();
-          } else {
-            status.textContent = "도로명 주소를 찾지 못했습니다. 직접 입력해 주세요.";
-            address.focus();
+      try {
+        new Postcode({oncomplete(data) {
+          const useSelectedRoad = Boolean(data.roadAddress);
+          signupRoad.value = (useSelectedRoad ? data.roadAddress : data.autoRoadAddress) || "";
+          const english = (useSelectedRoad ? data.roadAddressEnglish : data.autoRoadAddressEnglish) || "";
+          const parts = english.split(",").map(part => part.trim()).filter(Boolean);
+          if (/^(Republic of Korea|South Korea|Korea)$/i.test(parts.at(-1) || "")) parts.pop();
+          const cityParts = [];
+          const normalize = value => value.toLowerCase().replace(/[^a-z0-9]/g,"");
+          for (const region of [data.sidoEnglish, data.sigunguEnglish]) {
+            if (!region) continue;
+            for (let start = parts.length - 1; start > 0; start--) {
+              if (normalize(parts.slice(start).join("")) === normalize(region)) {
+                cityParts.unshift(...parts.splice(start));
+                break;
+              }
+            }
           }
+          signupRoadEnglish.value = parts.join(", ");
+          signupCity.value = cityParts.join(", ") || [data.sigunguEnglish, data.sidoEnglish].filter(Boolean).join(", ");
+          signupPostal.value = useSelectedRoad ? data.zonecode || "" : "";
+          confirmSignupAddress();
+          if (signupAddressVerified) document.getElementById("signupAddrDetail").focus();
+        }}).open();
+      } catch {
+        setSignupAddressStatus("주소검색을 열 수 없습니다. 다시 시도하거나 두 주소를 직접 입력해 주세요.");
+      }
+    }
+
+    async function handleSignup() {
+      const email = document.getElementById("signupId");
+      const password = document.getElementById("signupPw");
+      const repeatPassword = document.getElementById("signupPwCheck");
+      const name = document.getElementById("signupName");
+      const kakaoId = document.getElementById("signupKakaoId");
+      const age = document.getElementById("signupAgeConfirmed");
+      const button = document.getElementById("signupSubmit");
+      const emailButton = document.getElementById("signupEmailSend");
+      const status = document.getElementById("signupStatus");
+      const emailStatus = document.getElementById("signupEmailStatus");
+      const message = (text, normal = false) => {
+        for (const field of [status,emailStatus]) {
+          field.textContent = text;
+          field.style.color = normal ? "#374151" : "#b91c1c";
         }
-      }).open({
-        q: address.value.trim(),
-        popupTitle: "한솔아카이브 도로명 주소 검색"
+      };
+      if (emailButton.disabled) return;
+      let accepted = false;
+      message("");
+      if (!email.value.trim() || !email.checkValidity()) {
+        message("이메일 주소를 확인해 주세요.");
+        email.focus();
+        return;
+      }
+      if (!age.checked || password.value.length < 8 || !name.value.trim()) {
+        message("이름, 이메일, 비밀번호(8자 이상), 연령 확인을 입력해 주세요.");
+        return;
+      }
+      if (password.value !== repeatPassword.value) {
+        message("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+        repeatPassword.focus();
+        return;
+      }
+      if (!kakaoId.value.trim()) {
+        message("카카오톡 아이디를 입력해 주세요.");
+        kakaoId.focus();
+        return;
+      }
+      const fields = {
+        shop_name_english: "signupNameEnglish", shop_phone: "signupPhone",
+        shop_addr: "signupAddr", shop_addr_english: "signupAddrEnglish", shop_addr_detail: "signupAddrDetail",
+        shop_addr_detail_english: "signupAddrDetailEnglish", shop_city_english: "signupCity",
+        shop_postal_code: "signupPostal", shop_customs: "signupCustoms"
+      };
+      const profile = {shop_name: name.value.trim(), kakao_id: kakaoId.value.trim()};
+      for (const [key,id] of Object.entries(fields)) profile[key] = document.getElementById(id).value.trim();
+      if (!/^(010|8210)[0-9]{8}$/.test(profile.shop_phone.replace(/[^0-9]/g,"")) || !profile.shop_addr) {
+        message("휴대전화번호와 도로명 주소를 입력해 주세요.");
+        return;
+      }
+      if (!signupAddressVerified) {
+        message("한글·영문 주소를 확인한 뒤 가입해 주세요.");
+        signupRoadEnglish.focus();
+        return;
+      }
+      profile.shop_phone = profile.shop_phone.replace(/[^0-9]/g,"").replace(/^8210/,"010");
+      profile.shop_customs = profile.shop_customs.toUpperCase();
+      if (profile.shop_customs && !/^P[0-9]{12}$/.test(profile.shop_customs)) {
+        message("개인통관고유부호는 P와 숫자 12자리로 입력해 주세요.");
+        return;
+      }
+      button.disabled = emailButton.disabled = age.disabled = true;
+      message("인증메일을 요청하고 있습니다…", true);
+      try {
+        if (!await catalogApi.shopReady()) { message("회원가입을 준비 중입니다."); return; }
+        const result = await catalogApi.signup(email.value.trim(), password.value, profile);
+        document.getElementById("loginId").value = email.value.trim();
+        password.value = repeatPassword.value = name.value = kakaoId.value = "";
+        for (const id of Object.values(fields)) document.getElementById(id).value = "";
+        setSignupAddressStatus("");
+        accepted = true;
+        message(result.access_token ? "가입되었습니다. 로그인해 주세요."
+          : "가입 요청을 받았습니다. 받은편지함이나 스팸함에서 인증 링크를 누른 뒤 로그인해 주세요.", true);
+        document.getElementById("signupEmailLogin").hidden = false;
+        document.getElementById("signupEmailLogin").focus();
+      } catch (error) {
+        message(error.status === 429 ? "요청이 많습니다. 잠시 후 다시 시도해 주세요."
+          : "가입을 완료하지 못했습니다. 이메일을 확인하거나 잠시 후 다시 시도해 주세요.");
+      } finally {
+        age.disabled = emailButton.disabled = accepted;
+        button.disabled = accepted || !age.checked;
+      }
+    }
+
+    function stockAvailable(product) {
+      return product && !product.soldOut && Number.isSafeInteger(product.stock) && product.stock > 0;
+    }
+
+    function lowStock(product) {
+      return Number.isSafeInteger(product.stock) && product.stock > 0 && product.stock <= 10;
+    }
+
+    let stockLoading = false;
+    async function openStockManager() {
+      if (currentUser?.id !== "flowerday1585" || stockLoading || catalogWriting) return;
+      const owner = currentUser;
+      const status = document.getElementById("stockStatus");
+      const reload = document.getElementById("stockReload");
+      stockLoading = reload.disabled = true;
+      openModal("stockModal");
+      status.textContent = "최신 재고를 불러오는 중…";
+      const list = document.getElementById("stockRows");
+      list.replaceChildren();
+      try {
+        const row = await catalogApi.read();
+        if (currentUser !== owner) return;
+        if (row.revision >= (catalogRow?.revision ?? 0) && !catalogWriting) displayCatalog(row);
+        renderStockRows();
+        status.textContent = products.length ? "" : "등록된 상품이 없습니다.";
+      } catch {
+        if (currentUser === owner) status.textContent = "재고를 불러오지 못했습니다. 다시 시도해 주세요.";
+      } finally {
+        stockLoading = reload.disabled = false;
+      }
+    }
+
+    function renderStockRows() {
+      const list = document.getElementById("stockRows");
+      const status = document.getElementById("stockStatus");
+      list.replaceChildren();
+      for (const item of products) {
+        const product = {...item};
+        const row = document.createElement("form");
+        row.className = "stock-entry";
+        const title = document.createElement("div");
+        const name = document.createElement("strong");
+        name.textContent = product.name;
+        const state = document.createElement("small");
+        state.textContent = [
+          product.categoryName,
+          product.stock == null ? "재고 미설정" : "현재 " + product.stock + "개",
+          product.soldOut ? "판매 중지" : product.stock === 0 ? "품절" : ""
+        ].filter(Boolean).join(" · ");
+        if (lowStock(product)) state.className = "shop-stock-low";
+        title.append(name,state);
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = "0";
+        input.max = "999999";
+        input.step = "1";
+        input.required = true;
+        input.value = product.stock ?? "";
+        input.setAttribute("aria-label", product.name + " 남은 수량");
+        const save = document.createElement("button");
+        save.type = "submit";
+        save.className = "auth-btn primary";
+        save.textContent = "저장";
+        row.append(title,input,save);
+        row.addEventListener("submit", async event => {
+          event.preventDefault();
+          if (currentUser?.id !== "flowerday1585" || catalogWriting || stockLoading || !catalogRow) return;
+          const stock = input.valueAsNumber;
+          if (!Number.isSafeInteger(stock) || stock < 0 || stock > 999999) return;
+          const current = products.find(item => item.id === product.id);
+          if (!current || current.stock !== product.stock) {
+            status.textContent = "주문 또는 다른 수정으로 재고가 바뀌었습니다. 최신 재고를 불러온 뒤 수량을 입력해 주세요.";
+            return;
+          }
+          const previous = catalogRow;
+          save.disabled = true;
+          try {
+            await commitCatalog(previous, products.map(item => item.id === product.id ? {...item,stock} : item), previous.next_id);
+            if (currentUser?.id !== "flowerday1585") return;
+            // Update this row alone so edits typed for other products stay in place.
+            product.stock = stock;
+            state.textContent = [product.categoryName,"현재 " + stock + "개",current.soldOut ? "판매 중지" : stock === 0 ? "품절" : ""].filter(Boolean).join(" · ");
+            state.className = lowStock(product) ? "shop-stock-low" : "";
+            status.textContent = product.name + " 재고를 " + stock + "개로 저장했습니다.";
+          } catch (error) {
+            status.textContent = catalogWriteError(error);
+          } finally { save.disabled = false; }
+        });
+        list.append(row);
+      }
+    }
+
+    let pendingCheckout = null;
+    let checkout = null;
+    let checkoutBusy = false;
+    async function startCheckout(productId) {
+      if (checkoutBusy) return;
+      const selected = productId ? [{id: productId, qty: cardQuantities[productId] || 1}] : cart;
+      if (!selected.length) { alert("장바구니에 상품을 담아 주세요."); return; }
+      if (!catalogRow) { alert("상품 서버 연결을 확인해 주세요."); return; }
+      const lines = selected.map(line => {
+        const product = products.find(item => item.id === line.id);
+        return stockAvailable(product) && line.qty <= product.stock ? {
+          id: line.id, qty: line.qty, price: product.price, name: product.name
+        } : null;
       });
+      if (lines.some(line => !line)) { alert("남은 재고를 확인하고 수량을 조정해 주세요."); return; }
+      if (!currentUser) {
+        pendingCheckout = productId || 0;
+        closeModal("cartModal");
+        alert("주문하시려면 회원가입 또는 로그인해 주세요.");
+        openModal("loginModal");
+        return;
+      }
+      if (!await catalogApi.shopReady()) { alert("주문 접수를 준비 중입니다."); return; }
+      let bank;
+      try { bank = await catalogApi.shopRpc("hansol_shop_bank", {}); }
+      catch { alert("로그인과 주문 서버 연결을 확인해 주세요."); return; }
+      if (!bank) { alert("입금 계좌 등록 후 주문을 받습니다."); return; }
+      document.getElementById("checkoutBank").textContent = [bank.bank, bank.account, "예금주 " + bank.holder].join(" · ");
+      const signature = lines.map(({id, qty, price}) => [id, qty, price]).sort().join("/");
+      const storageKey = "hansol_order_" + currentUser.id + "_" + signature;
+      const requestId = sessionStorage.getItem(storageKey) || crypto.randomUUID();
+      checkout = {lines, requestId, storageKey, fromCart: !productId};
+      const form = document.getElementById("checkoutForm");
+      form.querySelector('[type="submit"]').hidden = false;
+      form.reset();
+      form.elements.recipient.value = currentUser.id === "flowerday1585" ? "" : currentUser.name;
+      const profile = currentUser.profile;
+      if (profile) {
+        form.elements.phone.value = profile.shop_phone ?? "";
+        form.elements.address.value = [profile.shop_postal_code, profile.shop_addr, profile.shop_addr_detail].filter(Boolean).join(" ");
+      }
+      document.getElementById("checkoutItems").textContent = [...lines.map(line =>
+        line.name + " × " + line.qty + " · " + won(line.price * line.qty)),
+        "상품 합계 " + won(lines.reduce((sum,line) => sum + line.qty * line.price,0))].join("\n");
+      document.getElementById("checkoutStatus").textContent = "";
+      closeModal("cartModal");
+      openModal("checkoutModal");
+    }
+
+    async function submitOrder(event) {
+      event.preventDefault();
+      if (!checkout || checkoutBusy) return;
+      const form = event.currentTarget;
+      const button = form.querySelector('[type="submit"]');
+      const status = document.getElementById("checkoutStatus");
+      const fields = new FormData(form);
+      const order = checkout;
+      checkoutBusy = button.disabled = true;
+      try {
+        sessionStorage.setItem(order.storageKey, order.requestId);
+        const id = await catalogApi.shopRpc("hansol_submit_order", {
+          p_id: order.requestId, p_lines: order.lines,
+          p_recipient: fields.get("recipient"), p_phone: fields.get("phone").trim(),
+          p_address: fields.get("address"), p_customs: fields.get("customs").trim().toUpperCase()
+        });
+        sessionStorage.removeItem(order.storageKey);
+        checkout = null;
+        if (order.fromCart) {
+          const submitted = new Set(order.lines.map(line => line.id));
+          cart = cart.filter(line => !submitted.has(line.id));
+          localStorage.setItem("hansol_cart", JSON.stringify(cart));
+          updateCartBadge();
+        }
+        form.reset();
+        button.hidden = true;
+        document.getElementById("checkoutItems").textContent = "";
+        status.textContent = "주문이 접수되었습니다. 주문번호 " + id;
+        await refreshCatalog();
+      } catch (error) {
+        if (["OUT_OF_STOCK","PRICE_CHANGED","INVALID_ORDER","EMAIL_REQUIRED"].includes(error.code)) {
+          sessionStorage.removeItem(order.storageKey);
+        }
+        status.textContent = ({
+          OUT_OF_STOCK: "재고가 변경되었습니다. 창을 닫고 수량을 다시 확인해 주세요.",
+          PRICE_CHANGED: "가격이 변경되었습니다. 창을 닫고 상품을 다시 확인해 주세요.",
+          INVALID_ORDER: "수량과 배송 정보를 확인해 주세요.",
+          EMAIL_REQUIRED: "이메일 인증 후 다시 로그인해 주세요."
+        })[error.code] || (error.status === 401 ? "다시 로그인한 뒤 주문해 주세요." : "접수 결과를 확인하지 못했습니다. 같은 상품과 수량으로 다시 시도해 주세요.");
+        await refreshCatalog();
+      } finally {
+        checkoutBusy = button.disabled = false;
+      }
+    }
+
+    const shopDate = new Intl.DateTimeFormat("ko-KR", {dateStyle:"medium", timeStyle:"short", timeZone:"Asia/Seoul"});
+    let managementGeneration = 0;
+    const orderLabels = {received:"입금 대기",paid:"입금 확인",preparing:"상품 준비 중",shipped:"배송 중",delivered:"배송 완료",canceled:"취소"};
+    let myOrderPage = 0;
+    let memberPage = 0;
+    let orderPage = 0;
+    function closeShopManagement() {
+      managementGeneration++;
+      document.getElementById("shopAdminList").replaceChildren();
+      closeModal("shopAdminModal");
+      myOrderPage = 0;
+    }
+
+    async function showShopManagement(tab, direction = 0) {
+      const customer = tab === "mine";
+      if (!currentUser || (!customer && currentUser.id !== "flowerday1585")) return;
+      const generation = ++managementGeneration;
+      const members = tab === "members";
+      if (members) memberPage = Math.max(0, memberPage + direction);
+      else if (customer) myOrderPage = Math.max(0, myOrderPage + direction);
+      else orderPage = Math.max(0, orderPage + direction);
+      const page = members ? memberPage : customer ? myOrderPage : orderPage;
+      const size = members ? 200 : 50;
+      const list = document.getElementById("shopAdminList");
+      const prev = document.getElementById("shopAdminPrev");
+      const next = document.getElementById("shopAdminNext");
+      prev.hidden = next.hidden = true;
+      list.textContent = "불러오는 중…";
+      document.getElementById("shopAdminTitle").textContent = members ? "가입 회원" : customer ? "내 주문·배송 조회" : "주문 관리";
+      openModal("shopAdminModal");
+      try {
+        const rows = await catalogApi.shopRpc(members ? "hansol_shop_members" : customer ? "hansol_my_orders" : "hansol_shop_orders", {p_offset: page * size});
+        if (generation !== managementGeneration) return;
+        list.replaceChildren();
+        if (!rows.length) list.textContent = members ? "표시할 가입 내역이 없습니다." : "표시할 주문이 없습니다.";
+        for (const row of rows) {
+          const item = document.createElement("article");
+          item.className = "shop-admin-row";
+          if (members) {
+            item.textContent = [row.name, row.email, row.kakao_id && "카톡 아이디 " + row.kakao_id, shopDate.format(new Date(row.joined_at)),
+              row.verified ? "이메일 인증 완료" : "이메일 인증 대기"].filter(Boolean).join(" · ");
+          } else {
+            item.textContent = [
+              shopDate.format(new Date(row.created_at)) + " · " + orderLabels[row.status],
+              "주문번호 " + row.id, ...row.lines.map(line => line.name + " × " + line.qty + " · " + won(line.price * line.qty)),
+              "상품 합계 " + won(row.subtotal),
+              row.tracking ? row.carrier + " · 운송장번호 " + row.tracking : "",
+              customer ? "" : [row.recipient, row.email, row.phone].filter(Boolean).join(" · "), row.address,
+              row.customs ? "개인통관고유부호 " + row.customs : ""
+            ].filter(Boolean).join("\n");
+            if (customer && row.tracking) {
+              const copy = document.createElement("button");
+              copy.className = "auth-btn";
+              copy.textContent = "운송장번호 복사";
+              copy.onclick = async () => {
+                try { await navigator.clipboard.writeText(row.tracking); copy.textContent = "복사 완료"; }
+                catch { alert("운송장번호: " + row.tracking); }
+              };
+              const track = document.createElement("a");
+              track.className = "auth-btn";
+              track.href = "https://tracker.delivery/tracking";
+              track.target = "_blank";
+              track.rel = "noopener noreferrer";
+              track.textContent = "택배 위치 조회";
+              item.append(copy,track);
+            }
+            if (!customer && ["received","paid","preparing","shipped"].includes(row.status)) {
+              const actions = document.createElement("div");
+              const forward = {received:["입금 확인","paid"],paid:["상품 준비","preparing"],preparing:["운송장 등록 및 발송","shipped"],shipped:["배송 완료","delivered"]}[row.status];
+              const controls = [forward];
+              if (row.status !== "shipped") controls.push(["취소 및 재고 복구", "canceled"]);
+              for (const [label, state] of controls) {
+                const button = document.createElement("button");
+                button.className = "auth-btn";
+                button.textContent = label;
+                button.onclick = async () => {
+                  const question = row.status !== "received" && state === "canceled"
+                    ? "입금 건의 환불을 직접 완료하셨습니까? 취소하면 재고가 복구됩니다."
+                    : label + " 처리하시겠습니까?";
+                  let carrier = null;
+                  let tracking = null;
+                  if (state === "shipped") {
+                    carrier = prompt("택배사를 입력해 주세요.")?.trim();
+                    if (!carrier) return;
+                    tracking = prompt("운송장번호를 입력해 주세요.")?.trim();
+                    if (!tracking) return;
+                  } else if (!confirm(question)) return;
+                  for (const control of actions.children) control.disabled = true;
+                  try {
+                    await catalogApi.shopRpc("hansol_shop_order_status", {p_id:row.id, p_status:state, p_carrier:carrier, p_tracking:tracking});
+                    if (generation === managementGeneration) await showShopManagement(tab);
+                    await refreshCatalog();
+                  } catch {
+                    alert("상태를 저장하지 못했습니다. 목록을 새로 열어 확인해 주세요.");
+                    for (const control of actions.children) control.disabled = false;
+                  }
+                };
+                actions.append(button);
+              }
+              item.append(actions);
+            }
+          }
+          list.append(item);
+        }
+        prev.hidden = page === 0;
+        next.hidden = rows.length < size;
+        prev.onclick = () => showShopManagement(tab, -1);
+        next.onclick = () => showShopManagement(tab, 1);
+      } catch {
+        if (generation === managementGeneration) list.textContent = "서버 연결 또는 로그인 상태를 확인해 주세요.";
+      }
+    }
+
+    async function downloadMembers(button, updateFile = false) {
+      if (currentUser?.id !== "flowerday1585") return;
+      button.disabled = true;
+      const generationUser = currentUser;
+      try {
+        let target;
+        if (updateFile) {
+          if (!window.showSaveFilePicker) {
+            alert("이 브라우저에서는 같은 파일을 갱신할 수 없습니다. PC의 Chrome 또는 Edge를 이용해 주세요.");
+            return;
+          }
+          target = await window.showSaveFilePicker({suggestedName:"hansol-members.xlsx",
+            types:[{description:"Excel 통합 문서", accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]});
+        }
+        const rows = [["이름", "이메일", "카카오톡 아이디", "가입 시간 (한국)", "이메일 인증"]];
+        for (let offset = 0; ; offset += 200) {
+          const page = await catalogApi.shopRpc("hansol_shop_members", {p_offset: offset});
+          if (currentUser !== generationUser) return;
+          for (const member of page) rows.push([
+            member.name, member.email, member.kakao_id, shopDate.format(new Date(member.joined_at)), member.verified ? "완료" : "대기"
+          ]);
+          if (page.length < 200) break;
+        }
+        const workbook = makeMemberWorkbook(rows);
+        if (target) {
+          const stream = await target.createWritable();
+          try { await stream.write(workbook); await stream.close(); }
+          catch (error) { await stream.abort().catch(() => {}); throw error; }
+          alert("선택한 엑셀 파일을 최신 가입 명단으로 갱신했습니다.");
+          return;
+        }
+        const href = URL.createObjectURL(workbook);
+        const link = document.createElement("a");
+        link.href = href;
+        link.download = "hansol-members.xlsx";
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(href), 1000);
+      } catch (error) { if (error.name !== "AbortError") alert("회원 엑셀을 받지 못했습니다. 관리자 로그인과 서버 연결을 확인해 주세요."); }
+      finally { button.disabled = false; }
+    }
+
+    function makeMemberWorkbook(rows) {
+      const spreadsheet = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+      const office = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+      const rels = "http://schemas.openxmlformats.org/package/2006/relationships";
+      const xmlText = value => escapeCatalogHtml(String(value ?? "").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFE\uFFFF]/g, ""));
+      const sheetRows = rows.map((row, index) => '<row r="' + (index + 1) + '">' +
+        row.map(value => '<c t="inlineStr"><is><t xml:space="preserve">' + xmlText(value) + '</t></is></c>').join("") +
+        '</row>').join("");
+      return zipWorkbook({
+        "[Content_Types].xml": '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+        "_rels/.rels": '<Relationships xmlns="' + rels + '"><Relationship Id="rId1" Type="' + office + '/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+        "xl/workbook.xml": '<workbook xmlns="' + spreadsheet + '" xmlns:r="' + office + '"><sheets><sheet name="가입 회원" sheetId="1" r:id="rId1"/></sheets></workbook>',
+        "xl/_rels/workbook.xml.rels": '<Relationships xmlns="' + rels + '"><Relationship Id="rId1" Type="' + office + '/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+        "xl/worksheets/sheet1.xml": '<worksheet xmlns="' + spreadsheet + '"><cols><col min="1" max="1" width="22" customWidth="1"/><col min="2" max="2" width="38" customWidth="1"/><col min="3" max="3" width="24" customWidth="1"/><col min="4" max="5" width="28" customWidth="1"/></cols><sheetData>' + sheetRows + '</sheetData></worksheet>'
+      });
+    }
+
+    function zipWorkbook(files) {
+      const encoder = new TextEncoder();
+      const local = [];
+      const directory = [];
+      let offset = 0;
+      let directorySize = 0;
+      for (const [path, xml] of Object.entries(files)) {
+        const name = encoder.encode(path);
+        const data = encoder.encode('<?xml version="1.0" encoding="UTF-8"?>' + xml);
+        let crc = 0xffffffff;
+        for (const byte of data) {
+          crc ^= byte;
+          for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+        }
+        crc = (crc ^ 0xffffffff) >>> 0;
+        const header = new DataView(new ArrayBuffer(30));
+        header.setUint32(0, 0x04034b50, true);
+        header.setUint16(4, 20, true);
+        header.setUint16(12, 33, true);
+        header.setUint32(14, crc, true);
+        header.setUint32(18, data.length, true);
+        header.setUint32(22, data.length, true);
+        header.setUint16(26, name.length, true);
+        const central = new DataView(new ArrayBuffer(46));
+        central.setUint32(0, 0x02014b50, true);
+        central.setUint16(4, 20, true);
+        new Uint8Array(central.buffer).set(new Uint8Array(header.buffer, 4, 26), 6);
+        central.setUint32(42, offset, true);
+        local.push(header.buffer, name, data);
+        directory.push(central.buffer, name);
+        offset += 30 + name.length + data.length;
+        directorySize += 46 + name.length;
+      }
+      const end = new DataView(new ArrayBuffer(22));
+      end.setUint32(0, 0x06054b50, true);
+      end.setUint16(8, directory.length / 2, true);
+      end.setUint16(10, directory.length / 2, true);
+      end.setUint32(12, directorySize, true);
+      end.setUint32(16, offset, true);
+      return new Blob([...local,...directory,end.buffer], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    }
+
+    async function openBankSettings() {
+      const form = document.getElementById("bankForm");
+      const status = document.getElementById("bankStatus");
+      const button = form.querySelector('[type="submit"]');
+      form.reset();
+      status.textContent = "불러오는 중…";
+      button.disabled = true;
+      openModal("bankModal");
+      try {
+        const bank = await catalogApi.shopRpc("hansol_shop_bank", {});
+        if (bank) for (const key of ["bank","account","holder"]) form.elements[key].value = bank[key];
+        status.textContent = "";
+        button.disabled = false;
+      } catch { status.textContent = "서버 연결과 관리자 로그인을 확인해 주세요."; }
+    }
+
+    async function saveShopBank(event) {
+      event.preventDefault();
+      const fields = new FormData(event.currentTarget);
+      const status = document.getElementById("bankStatus");
+      const button = event.currentTarget.querySelector('[type="submit"]');
+      button.disabled = true;
+      try {
+        await catalogApi.shopRpc("hansol_shop_save_bank", {
+          p_bank: fields.get("bank"), p_account: fields.get("account"), p_holder: fields.get("holder")
+        });
+        status.textContent = "입금 계좌를 저장했습니다.";
+      } catch { status.textContent = "저장하지 못했습니다. 계좌번호와 관리자 로그인을 확인해 주세요."; }
+      finally { button.disabled = false; }
+    }
+
+    function openWithdrawal() {
+      if (!currentUser || currentUser.id === "flowerday1585") return;
+      document.getElementById("withdrawForm").reset();
+      document.getElementById("withdrawStatus").textContent = "";
+      openModal("withdrawModal");
+      document.getElementById("withdrawEmail").focus();
+    }
+
+    function closeWithdrawal() {
+      document.getElementById("withdrawForm").reset();
+      closeModal("withdrawModal");
+    }
+
+    async function submitWithdrawal(event) {
+      event.preventDefault();
+      if (!currentUser || currentUser.id === "flowerday1585") return;
+      const form = event.currentTarget;
+      const submit = form.querySelector('button[type="submit"]');
+      const cancel = document.getElementById("withdrawCancel");
+      const status = document.getElementById("withdrawStatus");
+      if (submit.disabled || !form.reportValidity()) return;
+      const email = document.getElementById("withdrawEmail").value.trim();
+      const password = document.getElementById("withdrawPassword");
+      const reason = document.getElementById("withdrawReason").value;
+      submit.disabled = cancel.disabled = true;
+      status.textContent = "계정 정보를 확인하고 있습니다…";
+      try {
+        await catalogApi.withdraw(email,password.value,reason,currentUser.id);
+        handleLogout();
+        alert("회원 탈퇴가 완료되었습니다.");
+      } catch (error) {
+        password.value = "";
+        status.textContent = error.code === "ACTIVE_ORDER" ? "진행 중인 주문이 있습니다. 주문 완료 후 다시 시도해 주세요."
+          : error.code === "WRONG_WITHDRAW_ACCOUNT" || error.authCode === "invalid_credentials"
+            ? "현재 로그인한 계정의 이메일과 비밀번호를 확인해 주세요."
+            : error.code === "WITHDRAW_REAUTH_REQUIRED" ? "인증 시간이 지났습니다. 비밀번호를 다시 입력해 주세요."
+            : error.status === 429 ? "요청이 많습니다. 잠시 후 다시 시도해 주세요."
+            : "탈퇴가 완료되지 않았습니다. 잠시 후 다시 시도해 주세요.";
+      } finally { submit.disabled = cancel.disabled = false; }
+    }
+
+    async function showWithdrawStats() {
+      if (currentUser?.id !== "flowerday1585") return;
+      const owner = currentUser;
+      const list = document.getElementById("withdrawStats");
+      list.textContent = "불러오는 중…";
+      openModal("withdrawStatsModal");
+      try {
+        const totals = await catalogApi.shopRpc("hansol_shop_withdraw_stats",{});
+        if (currentUser !== owner) return;
+        list.replaceChildren();
+        for (const option of document.getElementById("withdrawReason").options) {
+          if (!option.value) continue;
+          const row = document.createElement("p");
+          row.className = "shop-admin-row";
+          row.textContent = option.text + " · " + (totals[option.value] ?? 0) + "명";
+          list.append(row);
+        }
+      } catch { if (currentUser === owner) list.textContent = "탈퇴 사유를 불러오지 못했습니다."; }
     }
 
     const categories = [
@@ -1599,7 +2505,7 @@ window.hansolCatalogConfig = {
     }
 
     function getProductCardHtml(item, isAdmin) {
-      const soldOut = Boolean(item.soldOut);
+      const soldOut = Boolean(item.soldOut) || item.stock === 0;
       let imgs = item.imgs || ["", "", ""];
       let validImgs = imgs.filter(url => typeof url === "string" && /^(https:\/\/|data:image\/(jpeg|png|webp|gif);base64,)/i.test(url));
       
@@ -1625,7 +2531,7 @@ window.hansolCatalogConfig = {
         `;
       }
 
-      if (!cardQuantities[item.id]) cardQuantities[item.id] = 1;
+      cardQuantities[item.id] = Math.max(1, Math.min(cardQuantities[item.id] || 1, item.stock ?? 1));
 
       return `
         <article class="product-card${soldOut ? ' is-sold-out' : ''}" id="card-${item.id}" data-category="${item.category}">
@@ -1637,14 +2543,19 @@ window.hansolCatalogConfig = {
           </div>
           <div class="product-info">
             <div class="product-category">${escapeCatalogHtml(item.categoryName || '분류')}</div>
-            <h2 class="product-name">${soldOut ? item.name : `<button type="button" class="product-title-open" onclick="openProductDetail(${item.id})">${escapeCatalogHtml(item.name)}</button>`}</h2>
+            <h2 class="product-name">${soldOut ? escapeCatalogHtml(item.name) : `<button type="button" class="product-title-open" onclick="openProductDetail(${item.id})">${escapeCatalogHtml(item.name)}</button>`}</h2>
             <p class="product-desc">${escapeCatalogHtml(item.desc || '')}</p>
             <div class="price-row">
               <span class="price-krw">${item.price.toLocaleString()}원</span>
               ${soldOut ? "" : `<span class="price-subtotal">소계 <strong id="card-total-${item.id}">${won(item.price * cardQuantities[item.id])}</strong></span>`}
             </div>
             
-            ${soldOut ? "" : `
+            <p class="shop-stock${!soldOut && lowStock(item) ? " shop-stock-low" : ""}">
+              ${soldOut ? "품절" : stockAvailable(item) ? `남은 수량 ${item.stock}개` : "재고 확인 중"}
+              ${!soldOut && lowStock(item) ? "<br>소진까지 얼마 남지 않았습니다." : ""}
+            </p>
+            ${!stockAvailable(item) ? "" : `
+            <button type="button" class="auth-btn primary shop-buy" onclick="startCheckout(${item.id})">주문하기</button>
             <div class="card-cart-control">
               <div class="qty-btn-group">
                 <button class="qty-btn" onclick="adjustCardQty(${item.id}, -1)">-</button>
@@ -1685,6 +2596,9 @@ window.hansolCatalogConfig = {
         document.getElementById(id).hidden = detailPhotos.length < 2;
       }
       if (detailPhotos.length) renderProductDetailPhoto();
+      const orderButton = document.getElementById("detailOrder");
+      orderButton.hidden = !stockAvailable(item);
+      orderButton.onclick = () => { document.getElementById("productDetail").close(); startCheckout(item.id); };
       document.getElementById("productDetail").showModal();
     }
 
@@ -1756,6 +2670,7 @@ window.hansolCatalogConfig = {
       editingRevision = catalogRow.revision;
       const product = id ? products.find(item => item.id === id) : null;
       if (id && !product) return;
+      document.getElementById("prodStock").value = product?.stock ?? "";
       document.getElementById("prodSoldOut").checked = Boolean(product?.soldOut);
       document.getElementById("productSaveStatus").textContent = "";
       document.querySelector("#productModal .btn-submit").disabled = false;
@@ -1807,7 +2722,13 @@ window.hansolCatalogConfig = {
         return;
       }
 
-      const details = { category, categoryName: catNames[category], code, name, price, desc, imgs: [...tempImages], soldOut };
+      const stockField = document.getElementById("prodStock");
+      const stock = stockField.value === "" ? null : stockField.valueAsNumber;
+      if (stock !== null && (!Number.isSafeInteger(stock) || stock < 0 || stock > 999999)) {
+        alert("재고는 0부터 999999 사이의 정수로 입력해 주세요.");
+        return;
+      }
+      const details = { stock, category, categoryName: catNames[category], code, name, price, desc, imgs: [...tempImages], soldOut };
       if (catalogWriting || !catalogRow) return;
       const formStatus = document.getElementById("productSaveStatus");
       const submit = document.querySelector("#productModal .btn-submit");
@@ -1880,6 +2801,7 @@ window.hansolCatalogConfig = {
     renderPolicyLinks();
     setupCustomerFeedback();
     updateUI();
+    openEmailResetFromLink();
     refreshCatalog();
     setInterval(() => { if (!document.hidden) refreshCatalog(); }, 20000);
     window.addEventListener("pageshow", refreshCatalog);
