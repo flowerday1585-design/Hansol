@@ -773,6 +773,7 @@
     <div class="modal-content">
       <h3>관리자 설정</h3>
       <button class="auth-btn" type="button" onclick="openAlertPreferences()">주문·가입 알림 설정</button>
+      <button class="auth-btn" type="button" onclick="openSalesLedger()">회원·주문 엑셀 장부</button>
       <div class="form-group"><label for="adminShipping">주문당 배송비 (원)</label><input type="number" id="adminShipping" min="0" step="1"></div>
       <div class="form-group"><label for="adminFee">주문당 수수료 (원)</label><input type="number" id="adminFee" min="0" step="1"></div>
       <div class="modal-btns">
@@ -790,6 +791,21 @@
       <div id="alertRecipients"></div>
       <p id="alertSettingsStatus" role="status" aria-live="polite"></p>
       <button class="btn-cancel" type="button" onclick="closeModal('alertPreferences')">닫기</button>
+    </div>
+  </div>
+
+  <div class="modal" id="salesLedgerModal" role="dialog" aria-modal="true" aria-labelledby="salesLedgerTitle">
+    <div class="modal-content">
+      <h3 id="salesLedgerTitle">회원·주문 엑셀 장부</h3>
+      <p>판매장에는 입금 확인된 상품 매출이 합산됩니다. 전체 주문과 이메일 인증을 마친 회원은 각각 엑셀 시트에서 확인할 수 있습니다.</p>
+      <p>자동 저장을 연결할 때는 새 장부 파일을 선택하세요. 관리자 탭이 열린 동안 1분마다 확인하고, 변경 시 선택한 파일을 덮어씁니다.</p>
+      <p id="salesLedgerStatus" role="status" aria-live="polite"></p>
+      <div class="modal-btns">
+        <button class="btn-submit" type="button" onclick="saveSalesLedger(this)">엑셀 내려받기</button>
+        <button class="btn-submit" id="salesLedgerConnect" type="button" onclick="saveSalesLedger(this, true)">PC 자동 저장 연결</button>
+        <button class="btn-cancel" id="salesLedgerStop" type="button" onclick="stopSalesLedger()" disabled>자동 저장 중지</button>
+        <button class="btn-cancel" type="button" onclick="closeModal('salesLedgerModal')">닫기</button>
+      </div>
     </div>
   </div>
 
@@ -1581,6 +1597,8 @@ window.hansolCatalogConfig = {
     }
 
     function handleLogout() {
+      stopSalesLedger();
+      closeModal("salesLedgerModal");
       closeWithdrawal();
       closeModal("withdrawStatsModal");
       document.getElementById("withdrawStats").replaceChildren();
@@ -2182,6 +2200,261 @@ window.hansolCatalogConfig = {
       } catch {
         if (generation === managementGeneration) list.textContent = "서버 연결 또는 로그인 상태를 확인해 주세요.";
       }
+    }
+
+    const salesLedgerName = "hansol-sales-ledger.xlsx";
+    let salesLedgerSync = null;
+    let salesLedgerBusy = false;
+
+    function setSalesLedgerStatus(message) {
+      document.getElementById("salesLedgerStatus").textContent = message;
+    }
+
+    function openSalesLedger() {
+      if (currentUser?.id !== "flowerday1585") return;
+      closeModal("adminModal");
+      openModal("salesLedgerModal");
+    }
+
+    function stopSalesLedger() {
+      clearInterval(salesLedgerSync?.timer);
+      salesLedgerSync = null;
+      document.getElementById("salesLedgerConnect").disabled = false;
+      document.getElementById("salesLedgerStop").disabled = true;
+      setSalesLedgerStatus("자동 저장이 중지되었습니다.");
+    }
+
+    async function collectSalesLedger(owner) {
+      function assertOwner() {
+        if (currentUser !== owner) throw new DOMException("Session changed", "AbortError");
+      }
+
+      const members = [];
+      let cursor = null;
+      for (;;) {
+        assertOwner();
+        const batch = await catalogApi.shopRpc("hansol_members_workbook", {p_after:cursor});
+        members.push(...batch);
+        if (batch.length < 200) break;
+        const next = batch[batch.length - 1].member_id;
+        if (!next || next === cursor) throw new Error("Invalid member page");
+        cursor = next;
+      }
+
+      // Orders are newest first. Retry when a new order shifts the existing offset pages.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const orders = new Map();
+        let firstPage;
+        let duplicates = false;
+        for (let offset = 0; ; offset += 50) {
+          assertOwner();
+          const page = await catalogApi.shopRpc("hansol_shop_orders", {p_offset:offset});
+          if (offset === 0) firstPage = page;
+          for (const order of page) {
+            if (orders.has(order.id)) duplicates = true;
+            orders.set(order.id, order);
+          }
+          if (duplicates || page.length < 50) break;
+        }
+        assertOwner();
+        if (duplicates) continue;
+        if (orders.size >= 50) {
+          const head = await catalogApi.shopRpc("hansol_shop_orders", {p_offset:0});
+          if (head.length !== firstPage.length || head.some((order, i) => order.id !== firstPage[i].id)) continue;
+          for (const order of head) orders.set(order.id, order);
+        }
+        assertOwner();
+        return buildSalesLedger(members, [...orders.values()]);
+      }
+      throw new Error("Order list changed during export");
+    }
+
+    function buildSalesLedger(members, orders) {
+      const date = value => value ? {excelDate:Date.parse(value) / 86400000 + 25569 + 9 / 24} : "";
+      const sales = [[
+        "주문일시 (한국)", "주문번호", "회원 ID", "회원 이메일", "상품명", "수량", "단가 (원)", "상품 매출 (원)"
+      ]];
+      const orderRows = [[
+        "주문일시 (한국)", "주문번호", "회원 ID", "회원 이메일", "받는 분", "배송 연락처", "배송 주소",
+        "주문 상품", "상품 합계 (원)", "주문 상태", "택배사", "운송장번호"
+      ]];
+      const memberRows = [[
+        "회원 ID", "이름", "이메일", "카카오톡 아이디", "휴대전화", "주소", "상세 주소", "영문 주소",
+        "영문 상세 주소", "영문 도시", "우편번호", "가입 신청 (한국)", "이메일 인증 완료 (한국)"
+      ]];
+      const paidStatuses = new Set(["paid", "preparing", "shipped", "delivered"]);
+      for (const order of orders) {
+        const identity = [date(order.created_at), order.id, order.customer_id, order.email];
+        orderRows.push([...identity, order.recipient, order.phone, order.address,
+          order.lines.map(line => line.name + " × " + line.qty).join(" / "),
+          Number(order.subtotal), orderLabels[order.status] ?? order.status, order.carrier, order.tracking]);
+        if (!paidStatuses.has(order.status)) continue;
+        for (const line of order.lines) {
+          const quantity = Number(line.qty);
+          const price = Number(line.price);
+          sales.push([...identity, line.name, quantity, price, price * quantity]);
+        }
+      }
+      for (const member of members) {
+        memberRows.push([member.member_id, member.name, member.email, member.kakao_id, member.phone,
+          member.address, member.address_detail, member.address_english, member.address_detail_english,
+          member.city_english, member.postal_code, date(member.joined_at), date(member.verified_at)]);
+      }
+      return [
+        {name:"판매장", rows:sales, widths:[31,39,39,32,44,12,16,20], total:true},
+        {name:"주문 내역", rows:orderRows, widths:[25,39,39,32,20,20,50,55,20,18,18,24]},
+        {name:"가입 회원", rows:memberRows, widths:[39,20,32,25,20,48,30,48,36,24,14,25,25]}
+      ];
+    }
+
+    async function saveSalesLedger(button, automatic = false) {
+      const owner = currentUser;
+      if (owner?.id !== "flowerday1585" || salesLedgerBusy) return;
+      if (automatic && !window.showSaveFilePicker) {
+        setSalesLedgerStatus("PC Chrome 또는 Edge에서 자동 저장을 연결할 수 있습니다. 여기서는 엑셀을 내려받을 수 있습니다.");
+        return;
+      }
+      salesLedgerBusy = true;
+      button.disabled = true;
+      try {
+        if (automatic) {
+          const handle = await window.showSaveFilePicker({
+            suggestedName:salesLedgerName,
+            types:[{description:"Excel 통합 문서", accept:{
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]
+            }}]
+          });
+          if (currentUser !== owner) return;
+          salesLedgerSync = {handle, owner, lastSaved:null, writing:false, timer:null};
+          document.getElementById("salesLedgerStop").disabled = false;
+          salesLedgerSync.timer = setInterval(refreshSalesLedger, 60000);
+          await refreshSalesLedger();
+        } else {
+          setSalesLedgerStatus("장부를 준비하고 있습니다.");
+          const sheets = await collectSalesLedger(owner);
+          if (currentUser !== owner) return;
+          const href = URL.createObjectURL(makeSalesLedgerWorkbook(sheets));
+          const link = document.createElement("a");
+          link.href = href;
+          link.download = salesLedgerName;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(href), 1000);
+          setSalesLedgerStatus("엑셀 장부를 내려받았습니다.");
+        }
+      } catch (error) {
+        if (error.name !== "AbortError" && currentUser === owner) {
+          setSalesLedgerStatus("장부를 저장하지 못했습니다. 관리자 로그인과 저장 권한을 확인해 주세요.");
+        }
+      } finally {
+        salesLedgerBusy = false;
+        button.disabled = automatic && Boolean(salesLedgerSync);
+      }
+    }
+
+    async function refreshSalesLedger() {
+      const sync = salesLedgerSync;
+      if (!sync || sync.writing || currentUser !== sync.owner) return;
+      sync.writing = true;
+      setSalesLedgerStatus("최신 회원·주문 내역을 확인하는 중입니다.");
+      try {
+        const sheets = await collectSalesLedger(sync.owner);
+        if (salesLedgerSync !== sync || currentUser !== sync.owner) return;
+        const revision = JSON.stringify(sheets);
+        if (revision !== sync.lastSaved) {
+          const workbook = makeSalesLedgerWorkbook(sheets);
+          const stream = await sync.handle.createWritable();
+          try {
+            if (salesLedgerSync !== sync || currentUser !== sync.owner) {
+              await stream.abort();
+              return;
+            }
+            await stream.write(workbook);
+            if (salesLedgerSync !== sync || currentUser !== sync.owner) {
+              await stream.abort();
+              return;
+            }
+            await stream.close();
+            sync.lastSaved = revision;
+          } catch (error) {
+            await stream.abort().catch(() => {});
+            throw error;
+          }
+        }
+        if (salesLedgerSync === sync) setSalesLedgerStatus("자동 저장 중 · 마지막 확인 " + shopDate.format(new Date()));
+      } catch {
+        if (salesLedgerSync === sync) {
+          setSalesLedgerStatus("이번 갱신에 실패했습니다. 엑셀에 파일이 열려 있으면 닫아 주세요. 1분 후 다시 시도합니다.");
+        }
+      } finally {
+        sync.writing = false;
+      }
+    }
+
+    function makeSalesLedgerWorkbook(sheets) {
+      const spreadsheet = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+      const office = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+      const rels = "http://schemas.openxmlformats.org/package/2006/relationships";
+      const types = "http://schemas.openxmlformats.org/package/2006/content-types";
+      const content = "application/vnd.openxmlformats-officedocument.spreadsheetml";
+      const xmlText = value => escapeCatalogHtml(String(value ?? "").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFE\uFFFF]/g, ""));
+      const files = {
+        "_rels/.rels": '<Relationships xmlns="' + rels + '"><Relationship Id="rId1" Type="' + office + '/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+        "xl/styles.xml": '<styleSheet xmlns="' + spreadsheet + '">' +
+          '<numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy-mm-dd hh:mm"/></numFmts>' +
+          '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+          '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF20394C"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+          '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+          '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+          '<cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>' +
+          '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'
+      };
+      const workbookSheets = [];
+      const relationships = ['<Relationship Id="style" Type="' + office + '/styles" Target="styles.xml"/>'];
+      const overrides = [
+        '<Override PartName="/xl/workbook.xml" ContentType="' + content + '.sheet.main+xml"/>',
+        '<Override PartName="/xl/styles.xml" ContentType="' + content + '.styles+xml"/>'
+      ];
+
+      sheets.forEach(({name, rows, widths, total}, index) => {
+        const id = index + 1;
+        const target = "worksheets/sheet" + id + ".xml";
+        workbookSheets.push('<sheet name="' + xmlText(name) + '" sheetId="' + id + '" r:id="rId' + id + '"/>');
+        relationships.push('<Relationship Id="rId' + id + '" Type="' + office + '/worksheet" Target="' + target + '"/>');
+        overrides.push('<Override PartName="/xl/' + target + '" ContentType="' + content + '.worksheet+xml"/>');
+        if (rows.length + (total ? 3 : 0) > 1048576) throw new Error("Excel row limit");
+        const header = total ? 3 : 1;
+        const end = header + rows.length - 1;
+        const columns = widths.map((width, column) => '<col min="' + (column + 1) + '" max="' + (column + 1) +
+          '" width="' + width + '" customWidth="1"/>').join("");
+        const body = rows.map((row, rowIndex) => {
+          const number = header + rowIndex;
+          const cells = row.map((value, column) => {
+            const ref = String.fromCharCode(65 + column) + number;
+            if (Number.isFinite(value?.excelDate)) return '<c r="' + ref + '" s="3"><v>' + value.excelDate + '</v></c>';
+            if (typeof value === "number" && Number.isFinite(value)) return '<c r="' + ref + '" s="2"><v>' + value + '</v></c>';
+            return '<c r="' + ref + '" t="inlineStr"' + (rowIndex === 0 ? ' s="1"' : '') +
+              '><is><t xml:space="preserve">' + xmlText(value) + '</t></is></c>';
+          }).join("");
+          return '<row r="' + number + '">' + cells + '</row>';
+        }).join("");
+        let top = "";
+        if (total) {
+          const sum = rows.slice(1).reduce((result, row) => result + row[7], 0);
+          const formula = rows.length > 1 ? "<f>SUM(H4:H" + end + ")</f>" : "";
+          top = '<row r="1"><c r="A1" s="1" t="inlineStr"><is><t>입금 확인 상품 매출 합계 (원)</t></is></c>' +
+            '<c r="B1" s="2">' + formula + '<v>' + sum + '</v></c></row>';
+        }
+        files["xl/" + target] = '<worksheet xmlns="' + spreadsheet + '"><sheetViews><sheetView workbookViewId="0">' +
+          '<pane ySplit="' + header + '" topLeftCell="A' + (header + 1) + '" activePane="bottomLeft" state="frozen"/>' +
+          '</sheetView></sheetViews><cols>' + columns + '</cols><sheetData>' + top + body + '</sheetData>' +
+          '<autoFilter ref="A' + header + ":" + String.fromCharCode(64 + widths.length) + end + '"/></worksheet>';
+      });
+      files["[Content_Types].xml"] = '<Types xmlns="' + types + '"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+        overrides.join("") + '</Types>';
+      files["xl/workbook.xml"] = '<workbook xmlns="' + spreadsheet + '" xmlns:r="' + office + '"><bookViews><workbookView/></bookViews><sheets>' +
+        workbookSheets.join("") + '</sheets></workbook>';
+      files["xl/_rels/workbook.xml.rels"] = '<Relationships xmlns="' + rels + '">' + relationships.join("") + '</Relationships>';
+      return zipWorkbook(files);
     }
 
     async function downloadMembers(button, updateFile = false) {
