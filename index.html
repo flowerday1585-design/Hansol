@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-eZGRrQ3mVePcWHxGqMcN9Ebt8CSqxssmgHuLjkhNvYE=' 'sha256-lIpV9uaRgrHkhaepeAF7YS+Qr9Ou1Z4B2lFVxTAM21U=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-m9R81LZw+bNQ6cPS0RUdP9i+VPUKrnQeey68CJJk5QU=' 'sha256-uTX4z/2oOo/JtmgfdmW5mfbIA9ydvD4lEkj8STXHjUM=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -10,6 +10,11 @@
   <link rel="canonical" href="https://hansolarchive.com/">
 
   <style>
+    .site-visitors { display:inline-flex; align-items:center; gap:5px; margin-right:auto; color:#d8e0eb; white-space:nowrap; }
+    .site-visitors strong { color:#a7f3d0; font-variant-numeric:tabular-nums; }
+    .shipping-address-heading { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; margin-bottom:8px; }
+    .shipping-address-heading p { font-size:.875rem; color:#475569; }
+    .inquiry-text { white-space:pre-wrap; overflow-wrap:anywhere; }
     :root {
       --bg-body: #f5f6f8;
       --bg-white: #ffffff;
@@ -378,6 +383,7 @@
       </div>
     </div>
     <div class="container yen-reference">
+      <span class="site-visitors" title="한국 시간 기준, 같은 브라우저는 하루 한 번 집계합니다."><span aria-hidden="true">👤</span> 오늘 방문 <strong id="visitorCount">—</strong></span>
       <div class="yen-reference-value"><span class="yen-reference-unit">100엔</span><strong id="yenReference">—</strong></div>
       <span class="yen-reference-date" id="yenReferenceDate"></span>
       <span class="yen-reference-status" id="yenReferenceStatus">환율 조회 중…</span>
@@ -390,7 +396,7 @@
       <div class="market-links">
         <div class="store-buttons">
           <a class="store-link store-naver" href="https://smartstore.naver.com/hansolarchive" target="_blank" rel="noopener noreferrer">네이버 스마트스토어</a>
-          <a class="store-link store-coupang" href="https://shop.coupang.com/A01815921" target="_blank" rel="noopener noreferrer" aria-label="쿠팡에서 한솔아카이브 전체 상품 보기" title="쿠팡에서 한솔아카이브 전체 상품 보기"><img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Coupang_logo.svg" alt="쿠팡 전체 상품 보기"></a>
+          <a class="store-link store-coupang" href="https://shop.coupang.com/hansolarchive" target="_blank" rel="noopener noreferrer" aria-label="쿠팡에서 한솔아카이브 전체 상품 보기" title="쿠팡에서 한솔아카이브 전체 상품 보기"><img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Coupang_logo.svg" alt="쿠팡 전체 상품 보기"></a>
         </div>
         <span id="userInfoDisplay">방문객 모드</span>
         <button class="cart-badge-btn" data-click="open-cart-modal">🛒 장바구니 <span class="cart-count" id="cartBadgeCount">0</span></button>
@@ -405,13 +411,14 @@
         <div class="logo-sub">한솔아카이브 · 일본판 TCG 수집몰</div>
       </a>
       <div class="search-box">
-        <input type="text" id="searchInput" placeholder="상품명 검색..." onkeyup="filterProducts()">
+        <input type="text" id="searchInput" placeholder="상품명 검색...">
         <button data-click="filter-products">검색</button>
       </div>
       <div class="header-actions" id="headerActions">
         <button class="auth-btn" data-click="open-modal-login-modal">로그인</button>
         <button class="auth-btn primary" data-click="open-signup-modal">회원가입</button>
       </div>
+      <button type="button" class="auth-btn" id="memberInquiryButton" data-click="open-inquiry" hidden>문의하기</button>
     </div>
   </header>
 
@@ -549,7 +556,17 @@
       <p>배송비가 필요한 경우 접수 후 안내드립니다. 최종 금액을 안내받은 뒤 입금해 주세요.</p>
       <div class="form-group"><label for="orderRecipient">받는 분</label><input id="orderRecipient" name="recipient" autocomplete="name" maxlength="80" required></div>
       <div class="form-group"><label for="orderPhone">휴대전화번호 (배송 알림톡 수신)</label><input id="orderPhone" name="phone" type="tel" autocomplete="tel" maxlength="25" required></div>
-      <div class="form-group"><label for="orderAddress">배송 주소 (상세주소 포함)</label><textarea id="orderAddress" name="address" autocomplete="street-address" minlength="5" maxlength="350" required></textarea></div>
+      <fieldset class="form-group" aria-describedby="orderAddressHelp" style="border:0; min-width:0;">
+        <legend>배송 주소</legend>
+        <div class="shipping-address-heading">
+          <p id="orderAddressHelp">가입할 때 입력한 주소가 표시됩니다. 배송지가 다르면 기존 주소를 지우고 한글·영문 주소를 다시 입력해 주세요.</p>
+          <button type="button" class="auth-btn" data-click="clear-shipping-address">다른 배송지 입력</button>
+        </div>
+        <label for="orderAddress">한글 주소 (상세주소 포함)</label>
+        <textarea id="orderAddress" name="address" autocomplete="section-shipping street-address" minlength="5" maxlength="350" required></textarea>
+        <label for="orderAddressEnglish">영문 주소 (상세주소 포함)</label>
+        <textarea id="orderAddressEnglish" name="addressEnglish" autocomplete="off" minlength="5" maxlength="350" required></textarea>
+      </fieldset>
       <div class="form-group"><label for="orderCustoms">개인통관고유부호 (해외 직배송 상품만)</label><input id="orderCustoms" name="customs" maxlength="13" pattern="[Pp][0-9]{12}"></div>
       <p id="checkoutStatus" role="status" aria-live="polite"></p>
       <div class="modal-btns">
@@ -557,6 +574,30 @@
         <button class="btn-cancel" type="button" data-click="cancel-checkout">닫기</button>
       </div>
     </form>
+  </div>
+  <div class="modal" id="inquiryModal" role="dialog" aria-modal="true" aria-labelledby="inquiryTitle">
+    <form class="modal-content" id="inquiryForm" data-submit="send-inquiry">
+      <h3 id="inquiryTitle">문의하기</h3>
+      <p id="inquiryStatus" role="status" aria-live="polite"></p>
+      <div class="form-group"><label for="inquirySubject">제목</label><input id="inquirySubject" name="subject" maxlength="100" required></div>
+      <div class="form-group"><label for="inquiryBody">문의 내용</label><textarea id="inquiryBody" name="message" maxlength="2000" required></textarea></div>
+      <div class="modal-btns">
+        <button class="btn-submit" type="submit">문의 보내기</button>
+        <button class="btn-cancel" type="button" data-click="close-inquiry">닫기</button>
+      </div>
+    </form>
+  </div>
+  <div class="modal" id="inquiryInbox" role="dialog" aria-modal="true" aria-labelledby="inquiryInboxTitle">
+    <div class="modal-content">
+      <h3 id="inquiryInboxTitle">고객 문의함</h3>
+      <p id="inquiryInboxStatus" role="status"></p>
+      <div id="inquiryInboxList"></div>
+      <div class="modal-btns">
+        <button type="button" class="auth-btn" id="inquiryPrev" data-click="previous-inquiries" hidden>이전</button>
+        <button type="button" class="auth-btn" id="inquiryNext" data-click="next-inquiries" hidden>다음</button>
+        <button type="button" class="btn-cancel" data-click="close-inquiry-inbox">닫기</button>
+      </div>
+    </div>
   </div>
   <div class="modal" id="shopAdminModal" role="dialog" aria-modal="true" aria-labelledby="shopAdminTitle">
     <div class="modal-content">
@@ -574,6 +615,13 @@
   <div class="modal" id="stockModal" role="dialog" aria-modal="true" aria-labelledby="stockTitle">
     <div class="modal-content">
       <h3 id="stockTitle">상품별 재고 관리</h3>
+      <form id="stockWarningForm" class="form-group">
+        <label for="stockWarningThreshold">품절 임박 안내 기준 (개)</label>
+        <p id="stockWarningHelp">전체 상품에 적용됩니다. 재고가 1개 이상이고 이 숫자 이하이면 ‘소진까지 얼마 남지 않았습니다’를 표시합니다. 0개로 설정하면 안내를 끕니다.</p>
+        <input id="stockWarningThreshold" type="number" min="0" max="999999" step="1" required aria-describedby="stockWarningHelp" disabled>
+        <button class="auth-btn primary" type="submit" disabled>안내 기준 저장</button>
+        <p id="stockWarningStatus" role="status"></p>
+      </form>
       <p>상품별 남은 수량을 수정하고 저장하세요. 주문 접수 시 주문 수량만큼 줄어듭니다.</p>
       <p id="stockStatus" role="status" aria-live="polite"></p>
       <div id="stockRows"></div>
@@ -1094,6 +1142,9 @@ window.hansolCatalogConfig = {
       try { return await request("/rest/v1/rpc/hansol_shop_ready", {method:"POST", body:{}}) === true; }
       catch { return false; }
     },
+    countVisitors(visitorId) {
+      return request("/rest/v1/rpc/hansol_visit_today", {method:"POST", body:{p_visitor:visitorId}});
+    },
     async shopRpc(name, body) {
       const token = await requireAccessToken();
       return request("/rest/v1/rpc/" + name, {method:"POST", body, token});
@@ -1177,15 +1228,14 @@ window.hansolCatalogConfig = {
     };
     let editingBanner = banners.home;
     let editingBannerRevision = null;
-    let bannerRefreshing = false;
+    let bannerRefresh = null;
     let bannerSaving = false;
     let bannerServerReady = false;
-    async function refreshBanners() {
-      if (bannerRefreshing || bannerSaving) return;
-      bannerRefreshing = true;
-      try {
-        const rows = await window.hansolCatalog.readBanners();
+    function refreshBanners() {
+      if (bannerRefresh || bannerSaving) return bannerRefresh || Promise.resolve();
+      bannerRefresh = window.hansolCatalog.readBanners().then(rows => {
         if (!['home', 'notice'].every(id => rows.some(row => row.id === id))) throw new Error('배너 초기 설정이 필요합니다.');
+        const previousThreshold = stockWarningThreshold();
         for (const row of rows) {
           const entry = banners[row.id];
           if (!entry || !row.settings || typeof row.settings !== 'object') continue;
@@ -1194,10 +1244,12 @@ window.hansolCatalogConfig = {
           renderBanner(entry);
         }
         bannerServerReady = true;
-      } catch (error) {
+        if (stockWarningThreshold() !== previousThreshold) refreshStockWarnings();
+      }).catch(() => {
         bannerServerReady = false;
         console.warn('배너 서버 조회 실패: 기존 배포 내용을 유지합니다.');
-      } finally { bannerRefreshing = false; }
+      }).finally(() => { bannerRefresh = null; });
+      return bannerRefresh;
     }
 
 
@@ -1322,7 +1374,7 @@ window.hansolCatalogConfig = {
     const productPhotoReaders = new Map();
     let productPhotoSaving = false;
     let productSavedTimer;
-    let cart = JSON.parse(localStorage.getItem('hansol_cart')) || [];
+    let cart = JSON.parse(localStorage.getItem("hansol_cart")) || [];
     let cardQuantities = {};
     let cartCharges = JSON.parse(localStorage.getItem("hansol_cart_charges")) || {shipping: 0, fee: 0};
     const won = amount => amount.toLocaleString("ko-KR") + "원";
@@ -1385,8 +1437,33 @@ window.hansolCatalogConfig = {
       const elapsedToday = (Date.now() + koreaOffsetMs) % dayMs;
       setTimeout(() => {
         updateYenReference();
+        refreshVisitorCount();
         scheduleKoreanMidnight();
       }, dayMs - elapsedToday);
+    }
+
+    let visitorCountPending = false;
+    async function refreshVisitorCount() {
+      if (visitorCountPending || document.hidden) return;
+      visitorCountPending = true;
+      const today = new Date(Date.now() + koreaOffsetMs).toISOString().slice(0, 10);
+      let visitorId = null;
+      try {
+        const key = "hansol_visit_today";
+        const saved = JSON.parse(localStorage.getItem(key) || "null");
+        if (saved?.day === today && /^[0-9a-f-]{36}$/i.test(saved.id)) visitorId = saved.id;
+        else {
+          const id = crypto.randomUUID();
+          localStorage.setItem(key, JSON.stringify({day:today,id}));
+          visitorId = id;
+        }
+      } catch {}
+      try {
+        const count = await catalogApi.countVisitors(visitorId);
+        if (Number.isSafeInteger(count) && count >= 0) {
+          document.getElementById("visitorCount").textContent = count.toLocaleString("ko-KR") + "명";
+        }
+      } catch {} finally { visitorCountPending = false; }
     }
 
     async function updateYenReference() {
@@ -1502,6 +1579,15 @@ window.hansolCatalogConfig = {
       openModal('cartModal');
     }
 
+    function closeCart() {
+      if (!currentUser && !restoringLogin) {
+        cart = [];
+        localStorage.removeItem("hansol_cart");
+        updateCartBadge();
+      }
+      closeModal("cartModal");
+    }
+
     function changeCartQty(idx, val) {
       const line = cart[idx];
       if (!line || !Number.isSafeInteger(val)) return;
@@ -1610,6 +1696,9 @@ window.hansolCatalogConfig = {
     }
 
     function updateUI() {
+      const inquiryAllowed = canSendInquiry(currentUser);
+      document.getElementById("memberInquiryButton").hidden = !inquiryAllowed;
+      if (!inquiryAllowed) closeModal("inquiryModal");
       document.getElementById("bannerEditButton").hidden = currentUser?.id !== "flowerday1585";
       document.getElementById("noticeBannerEditButton").hidden = document.getElementById("bannerEditButton").hidden;
       const reviewForm = document.getElementById("reviewForm");
@@ -1638,6 +1727,7 @@ window.hansolCatalogConfig = {
              <button type="button" class="auth-btn" data-click="open-bank-settings">입금 계좌</button>
              <button type="button" class="auth-btn" data-click="show-shop-management-orders">주문 관리</button>
              <button type="button" class="auth-btn" data-click="show-shop-management-members">가입 회원</button>
+             <button type="button" class="auth-btn" data-click="open-inquiry-inbox">고객 문의함</button>
           <button type="button" class="auth-btn" data-click="show-withdraw-stats">탈퇴 사유</button>
              <button type="button" class="auth-btn" data-click="download-members">회원 엑셀 받기</button>
              <button type="button" class="auth-btn" data-click="update-members-file">엑셀 파일 갱신</button>
@@ -1720,7 +1810,7 @@ window.hansolCatalogConfig = {
 
     async function saveBanner(event) {
       event.preventDefault();
-      if (currentUser?.id !== "flowerday1585") return;
+      if (currentUser?.id !== "flowerday1585" || bannerSaving) return;
       const form = event.currentTarget;
       const submit = form.querySelector('[type="submit"]');
       const status = document.getElementById("bannerEditorStatus");
@@ -1822,6 +1912,7 @@ window.hansolCatalogConfig = {
           document.getElementById("adminActionContainer").scrollIntoView({block:"center"});
         }
         await refreshCatalog();
+        openInquiryInboxFromLink();
         if (pendingCheckout !== null) {
           const requested = pendingCheckout;
           pendingCheckout = null;
@@ -1844,6 +1935,7 @@ window.hansolCatalogConfig = {
       } finally {
         restoringLogin = false;
         updateUI();
+        openInquiryInboxFromLink();
       }
     }
 
@@ -1862,7 +1954,11 @@ window.hansolCatalogConfig = {
       checkout = null;
       pendingCheckout = null;
       document.getElementById("checkoutForm").reset();
-      for (const id of ["checkoutModal","bankModal","adminModal","alertPreferences","productModal","bannerModal","stockModal"]) closeModal(id);
+      inquiryOpenedFromLink = false;
+      document.getElementById("inquiryForm").reset();
+      inquiryRequest = null;
+      document.getElementById("inquiryInboxList").replaceChildren();
+      for (const id of ["checkoutModal","bankModal","adminModal","alertPreferences","productModal","bannerModal","stockModal","inquiryModal","inquiryInbox"]) closeModal(id);
       closeShopManagement();
       updateUI();
     }
@@ -2322,18 +2418,82 @@ window.hansolCatalogConfig = {
     }
 
     function lowStock(product) {
-      return Number.isSafeInteger(product.stock) && product.stock > 0 && product.stock <= 10;
+      return stockAvailable(product) && product.stock <= stockWarningThreshold();
     }
+
+    function validStockWarningThreshold(value) {
+      return Number.isSafeInteger(value) && value >= 0 && value <= 999999;
+    }
+
+    function stockWarningThreshold() {
+      const value = banners.home.settings.stockWarningThreshold;
+      return validStockWarningThreshold(value) ? value : 10;
+    }
+
+    const stockWarningForm = document.getElementById("stockWarningForm");
+    const stockWarningInput = document.getElementById("stockWarningThreshold");
+    const stockWarningButton = stockWarningForm.querySelector('button[type="submit"]');
+    const stockWarningStatus = document.getElementById("stockWarningStatus");
+    let stockWarningRevision = null;
+
+    function refreshStockWarnings() {
+      filterProducts();
+      const stockById = new Map(products.map(product => [product.id, product]));
+      for (const badge of document.querySelectorAll("#stockRows [data-stock-product]")) {
+        badge.classList.toggle("shop-stock-low", lowStock(stockById.get(Number(badge.dataset.stockProduct))));
+      }
+    }
+
+    stockWarningForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (currentUser?.id !== "flowerday1585" || stockWarningButton.disabled) return;
+      const threshold = stockWarningInput.valueAsNumber;
+      if (!validStockWarningThreshold(threshold)) return;
+      const home = banners.home;
+      if (bannerSaving || bannerRefresh) {
+        stockWarningStatus.textContent = "설정을 불러오거나 저장하는 중입니다. 잠시 후 다시 시도해 주세요.";
+        return;
+      }
+      if (stockWarningRevision !== home.revision) {
+        stockWarningStatus.textContent = "설정이 바뀌었습니다. ‘최신 재고 불러오기’를 누른 뒤 다시 입력해 주세요.";
+        return;
+      }
+      const owner = currentUser;
+      bannerSaving = stockWarningInput.disabled = stockWarningButton.disabled = true;
+      stockWarningStatus.textContent = "안내 기준을 저장하는 중…";
+      try {
+        const saved = await catalogApi.writeBanner("home", stockWarningRevision, {...home.settings, stockWarningThreshold: threshold});
+        home.settings = saved.settings;
+        home.revision = stockWarningRevision = saved.revision;
+        refreshStockWarnings();
+        if (currentUser === owner) stockWarningStatus.textContent = threshold === 0
+          ? "품절 임박 안내를 껐습니다." : "전체 상품의 안내 기준을 " + threshold + "개로 저장했습니다.";
+      } catch {
+        if (currentUser === owner) stockWarningStatus.textContent = "안내 기준을 저장하지 못했습니다. 최신 재고를 불러온 뒤 다시 시도해 주세요.";
+      } finally {
+        bannerSaving = stockWarningInput.disabled = stockWarningButton.disabled = false;
+      }
+    });
 
     let stockLoading = false;
     async function openStockManager() {
-      if (currentUser?.id !== "flowerday1585" || stockLoading || catalogWriting) return;
+      if (currentUser?.id !== "flowerday1585" || stockLoading || catalogWriting || bannerSaving) return;
       const owner = currentUser;
       const status = document.getElementById("stockStatus");
       const reload = document.getElementById("stockReload");
       stockLoading = reload.disabled = true;
       openModal("stockModal");
       status.textContent = "최신 재고를 불러오는 중…";
+      stockWarningStatus.textContent = "";
+      stockWarningRevision = null;
+      stockWarningInput.disabled = stockWarningButton.disabled = true;
+      const warningReady = refreshBanners().then(() => {
+        if (currentUser !== owner) return;
+        stockWarningRevision = banners.home.revision;
+        stockWarningInput.value = stockWarningThreshold();
+        stockWarningInput.disabled = stockWarningButton.disabled = !bannerServerReady || !Number.isSafeInteger(stockWarningRevision);
+        if (stockWarningButton.disabled) stockWarningStatus.textContent = "안내 기준을 불러오지 못했습니다. 최신 재고를 다시 불러와 주세요.";
+      });
       const list = document.getElementById("stockRows");
       list.replaceChildren();
       try {
@@ -2345,6 +2505,7 @@ window.hansolCatalogConfig = {
       } catch {
         if (currentUser === owner) status.textContent = "재고를 불러오지 못했습니다. 다시 시도해 주세요.";
       } finally {
+        await warningReady;
         stockLoading = reload.disabled = false;
       }
     }
@@ -2361,6 +2522,7 @@ window.hansolCatalogConfig = {
         const name = document.createElement("strong");
         name.textContent = product.name;
         const state = document.createElement("small");
+        state.dataset.stockProduct = product.id;
         state.textContent = [
           product.categoryName,
           product.stock == null ? "재고 미설정" : "현재 " + product.stock + "개",
@@ -2449,6 +2611,9 @@ window.hansolCatalogConfig = {
       if (profile) {
         form.elements.phone.value = profile.shop_phone ?? "";
         form.elements.address.value = [profile.shop_postal_code, profile.shop_addr, profile.shop_addr_detail].filter(Boolean).join(" ");
+        form.elements.addressEnglish.value = profile.shop_addr_english
+          ? [profile.shop_addr_detail_english, profile.shop_addr_english, profile.shop_city_english, profile.shop_postal_code].filter(Boolean).join(", ")
+          : "";
       }
       document.getElementById("checkoutItems").textContent = [...lines.map(line =>
         line.name + " × " + line.qty + " · " + won(line.price * line.qty)),
@@ -2458,6 +2623,14 @@ window.hansolCatalogConfig = {
       openModal("checkoutModal");
     }
 
+    function clearShippingAddress() {
+      if (checkoutBusy) return;
+      const {address, addressEnglish} = document.getElementById("checkoutForm").elements;
+      address.value = addressEnglish.value = "";
+      document.getElementById("checkoutStatus").textContent = "";
+      address.focus();
+    }
+
     async function submitOrder(event) {
       event.preventDefault();
       if (!checkout || checkoutBusy) return;
@@ -2465,6 +2638,17 @@ window.hansolCatalogConfig = {
       const button = form.querySelector('[type="submit"]');
       const status = document.getElementById("checkoutStatus");
       const fields = new FormData(form);
+      const korean = fields.get("address").trim();
+      const english = fields.get("addressEnglish").trim();
+      if (korean.length < 5 || !/[가-힣]/.test(korean) || english.length < 5 || !/[a-z]/i.test(english) || /[가-힣]/.test(english)) {
+        status.textContent = "한글 배송 주소와 영문 배송 주소를 각각 입력해 주세요.";
+        return;
+      }
+      const address = korean + "\n" + english;
+      if ([...address].length > 350) {
+        status.textContent = "한글·영문 배송 주소를 합해 350자 이내로 입력해 주세요.";
+        return;
+      }
       const order = checkout;
       checkoutBusy = button.disabled = true;
       try {
@@ -2472,7 +2656,7 @@ window.hansolCatalogConfig = {
         const id = await catalogApi.shopRpc("hansol_submit_order", {
           p_id: order.requestId, p_lines: order.lines,
           p_recipient: fields.get("recipient"), p_phone: fields.get("phone").trim(),
-          p_address: fields.get("address"), p_customs: fields.get("customs").trim().toUpperCase()
+          p_address: address, p_customs: fields.get("customs").trim().toUpperCase()
         });
         sessionStorage.removeItem(order.storageKey);
         checkout = null;
@@ -2504,6 +2688,116 @@ window.hansolCatalogConfig = {
     }
 
     const shopDate = new Intl.DateTimeFormat("ko-KR", {dateStyle:"medium", timeStyle:"short", timeZone:"Asia/Seoul"});
+    let inquiryRequest = null;
+    let inquiryPage = 0;
+    let inquiryLoad = 0;
+    let inquiryOpenedFromLink = false;
+
+    function canSendInquiry(user) {
+      return user?.emailConfirmed === true && String(user.profile?.hansol_member) === "true";
+    }
+
+    function openInquiry() {
+      if (restoringLogin || !canSendInquiry(currentUser)) return;
+      openModal("inquiryModal");
+      document.getElementById("inquirySubject").focus();
+    }
+
+    async function sendInquiry(event) {
+      event.preventDefault();
+      const owner = currentUser;
+      if (!canSendInquiry(owner)) return;
+      const form = event.currentTarget;
+      const button = form.querySelector('[type="submit"]');
+      if (button.disabled) return;
+      const fields = new FormData(form);
+      const subject = fields.get("subject").trim();
+      const message = fields.get("message").trim();
+      const status = document.getElementById("inquiryStatus");
+      if (!subject || !message) {
+        status.textContent = "문의 제목과 내용을 입력해 주세요.";
+        return;
+      }
+      if (inquiryRequest?.subject !== subject || inquiryRequest.message !== message) {
+        inquiryRequest = {id:crypto.randomUUID(), subject, message};
+      }
+      button.disabled = true;
+      status.textContent = "문의를 접수하는 중입니다…";
+      try {
+        await catalogApi.shopRpc("hansol_submit_inquiry", {p_id:inquiryRequest.id, p_subject:subject, p_message:message});
+        if (currentUser !== owner) return;
+        inquiryRequest = null;
+        form.reset();
+        status.textContent = "문의가 접수되었습니다.";
+      } catch (error) {
+        if (currentUser !== owner) return;
+        status.textContent = error.code === "INQUIRY_RATE_LIMIT" ? "잠시 후에 다시 문의를 보내 주세요."
+          : error.code === "EMAIL_REQUIRED" ? "이메일 인증 후 다시 로그인해 주세요."
+          : "문의를 접수하지 못했습니다. 입력 내용은 남아 있습니다. 다시 시도해 주세요.";
+      } finally { button.disabled = false; }
+    }
+
+    function openInquiryInboxFromLink() {
+      if (inquiryOpenedFromLink || currentUser?.id !== "flowerday1585" || new URL(location.href).searchParams.get("inquiries") !== "1") return;
+      inquiryOpenedFromLink = true;
+      openInquiryInbox();
+    }
+
+    async function openInquiryInbox(direction = 0) {
+      const owner = currentUser;
+      if (owner?.id !== "flowerday1585") return;
+      const generation = ++inquiryLoad;
+      const page = direction ? Math.max(inquiryPage + direction, 0) : 0;
+      const list = document.getElementById("inquiryInboxList");
+      const status = document.getElementById("inquiryInboxStatus");
+      const prev = document.getElementById("inquiryPrev");
+      const next = document.getElementById("inquiryNext");
+      openModal("inquiryInbox");
+      prev.hidden = next.hidden = true;
+      list.replaceChildren();
+      status.textContent = "문의를 불러오는 중입니다…";
+      try {
+        const rows = await catalogApi.shopRpc("hansol_list_inquiries", {p_offset:page * 25});
+        if (generation !== inquiryLoad || currentUser !== owner) return;
+        inquiryPage = page;
+        status.textContent = rows.length ? "" : "표시할 문의가 없습니다.";
+        for (const row of rows.slice(0, 25)) {
+          const card = document.createElement("article");
+          card.className = "shop-admin-row";
+          const title = document.createElement("strong");
+          title.textContent = row.subject;
+          const info = document.createElement("p");
+          info.textContent = [shopDate.format(new Date(row.created_at)), row.sender_name, row.sender_email].filter(Boolean).join(" · ");
+          const message = document.createElement("p");
+          message.className = "inquiry-text";
+          message.textContent = row.message;
+          card.append(title, info, message);
+          list.append(card);
+        }
+        prev.hidden = page === 0;
+        next.hidden = rows.length <= 25;
+      } catch {
+        if (generation === inquiryLoad && currentUser === owner) status.textContent = "문의함을 불러오지 못했습니다. 잠시 후 다시 열어 주세요.";
+      }
+    }
+
+    async function removeShopMember(row, button) {
+      const owner = currentUser;
+      if (owner?.id !== "flowerday1585" || button.disabled || row.member_id === owner.accountId) return;
+      if (!confirm((row.name || "선택한 회원") + " 님을 강제 탈퇴시키시겠습니까? 계정은 복구할 수 없고, 처리 중인 주문이 있으면 탈퇴할 수 없습니다.")) return;
+      button.disabled = true;
+      try {
+        await catalogApi.shopRpc("hansol_admin_remove_member", {p_member:row.member_id});
+        if (currentUser !== owner) return;
+        await showShopManagement("members");
+        alert("회원 탈퇴 처리가 완료되었습니다.");
+      } catch (error) {
+        if (currentUser !== owner) return;
+        alert(error.code === "ACTIVE_ORDER" ? "처리 중인 주문을 완료하거나 취소한 뒤 탈퇴를 진행해 주세요."
+          : "탈퇴를 처리하지 못했습니다. 회원 목록을 새로 불러와 주세요.");
+      } finally { button.disabled = false; }
+    }
+
     let managementGeneration = 0;
     const orderLabels = {received:"입금 대기",paid:"입금 확인",preparing:"상품 준비 중",shipped:"배송 중",delivered:"배송 완료",canceled:"취소"};
     let myOrderPage = 0;
@@ -2535,7 +2829,10 @@ window.hansolCatalogConfig = {
       document.getElementById("shopAdminTitle").textContent = members ? "가입 회원" : customer ? "내 주문·배송 조회" : "주문 관리";
       openModal("shopAdminModal");
       try {
-        const rows = await catalogApi.shopRpc(members ? "hansol_member_directory" : customer ? "hansol_my_orders" : "hansol_shop_orders", {p_offset: page * size});
+        const [rows, canRemoveMember] = await Promise.all([
+          catalogApi.shopRpc(members ? "hansol_member_directory" : customer ? "hansol_my_orders" : "hansol_shop_orders", {p_offset: page * size}),
+          members ? catalogApi.shopRpc("hansol_admin_removal_available", {}).catch(() => false) : false
+        ]);
         if (generation !== managementGeneration) return;
         list.replaceChildren();
         if (!rows.length) list.textContent = members ? "표시할 가입 내역이 없습니다." : "표시할 주문이 없습니다.";
@@ -2559,6 +2856,14 @@ window.hansolCatalogConfig = {
               row.verified_at ? "이메일 인증 완료  " + shopDate.format(new Date(row.verified_at)) : "이메일 인증 대기"
             ].join("\n");
             item.append(heading, details);
+            if (canRemoveMember === true && row.member_id && row.member_id !== currentUser?.accountId) {
+              const remove = document.createElement("button");
+              remove.type = "button";
+              remove.className = "auth-btn";
+              remove.textContent = "강제 탈퇴";
+              remove.addEventListener("click", () => removeShopMember(row, remove));
+              item.append(remove);
+            }
           } else {
             item.textContent = [
               shopDate.format(new Date(row.created_at)) + " · " + orderLabels[row.status],
@@ -3676,6 +3981,13 @@ window.hansolCatalogConfig = {
 
     // Event handlers stay in trusted script so the CSP can block inline event code.
     const clickActions = Object.assign(Object.create(null), {
+      "clear-shipping-address": clearShippingAddress,
+      "open-inquiry": openInquiry,
+      "close-inquiry": () => closeModal("inquiryModal"),
+      "open-inquiry-inbox": () => openInquiryInbox(),
+      "close-inquiry-inbox": () => { inquiryLoad++; closeModal("inquiryInbox"); },
+      "previous-inquiries": () => openInquiryInbox(-1),
+      "next-inquiries": () => openInquiryInbox(1),
       "open-cart-modal": () => openCartModal(),
       "filter-products": () => filterProducts(),
       "open-modal-login-modal": () => openModal('loginModal'),
@@ -3692,7 +4004,7 @@ window.hansolCatalogConfig = {
       "previous-detail-photo": () => stepProductDetail(-1),
       "next-detail-photo": () => stepProductDetail(1),
       "start-checkout": () => startCheckout(),
-      "close-modal-cart-modal": () => closeModal('cartModal'),
+      "close-modal-cart-modal": closeCart,
       "cancel-checkout": () => { if (!checkoutBusy) closeModal('checkoutModal'); },
       "download-members": (event, element) => downloadMembers(element),
       "update-members-file": (event, element) => downloadMembers(element, true),
@@ -3783,6 +4095,7 @@ window.hansolCatalogConfig = {
     {
       const actions = {
         "submit-order": event => submitOrder(event),
+        "send-inquiry": event => sendInquiry(event),
         "save-shop-bank": event => saveShopBank(event),
         "send-password-reset": event => sendPasswordReset(event),
         "save-email-reset": event => saveEmailReset(event),
@@ -3805,6 +4118,7 @@ window.hansolCatalogConfig = {
     setupProductDetail();
 
     // 실행 시작
+    document.getElementById("searchInput").addEventListener("input", filterProducts);
     renderPolicyLinks();
     setupCustomerFeedback();
     updateUI();
@@ -3825,16 +4139,21 @@ window.hansolCatalogConfig = {
     window.addEventListener("pageshow", refreshCatalog);
     window.addEventListener("focus", refreshCatalog);
     updateYenReference();
+    refreshVisitorCount();
     scheduleKoreanMidnight();
     updateMobileCoinQuotes();
     setInterval(() => {
-      if (!document.hidden) updateYenReference();
+      if (!document.hidden) {
+        updateYenReference();
+        refreshVisitorCount();
+      }
     }, 30000);
     setInterval(updateMobileCoinQuotes, 30000);
     marketMobile.addEventListener("change", updateMobileCoinQuotes);
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) return;
       updateYenReference();
+      refreshVisitorCount();
       updateMobileCoinQuotes();
     });
   </script></body></html>
