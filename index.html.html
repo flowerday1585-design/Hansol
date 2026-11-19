@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-FjEnpGMYCmF9KRltihRmJokgE0cP0oSgd9bxC7Oa+6Q=' 'sha256-ls1FBvkKuUwTE38TFqIKkwsjmXddapv7mrZtIRs41qM=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-FjEnpGMYCmF9KRltihRmJokgE0cP0oSgd9bxC7Oa+6Q=' 'sha256-kaPFJ8vnKxVt8IMZQtghYmvJcG13KQotYCdD9GJhxtQ=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -2396,6 +2396,11 @@ window.hansolCatalogConfig = {
       }
     });
 
+    function finishPendingSignup() {
+      closeModal("signupModal");
+      alert("받은편지함이나 스팸함에서 인증 링크를 열어야 가입이 완료됩니다. 메일이 없다면 회원가입 창을 다시 열어 인증메일을 다시 보내 주세요.");
+    }
+
     async function handleSignup(finish = false) {
       const email = document.getElementById("signupId");
       const password = document.getElementById("signupPw");
@@ -2421,7 +2426,7 @@ window.hansolCatalogConfig = {
       const submittedEmail = email.value.trim();
       if (signupPendingEmail === signupEmailKey(submittedEmail)) {
         if (finish) {
-          message("받은편지함이나 스팸함에서 최신 인증 링크를 열어 주세요. 메일을 못 받으셨다면 인증메일을 다시 보내 주세요.", true);
+          finishPendingSignup();
           return;
         }
         signupRequestActive = true;
@@ -2489,7 +2494,8 @@ window.hansolCatalogConfig = {
         }
         signupPendingEmail = signupEmailKey(submittedEmail);
         saveSignupDraft();
-        message("가입 신청을 받았습니다. 받은편지함이나 스팸함에서 인증 링크를 열어야 회원가입이 완료됩니다. 입력 내용은 유지됩니다.", true);
+        if (finish) finishPendingSignup();
+        else message("가입 신청을 받았습니다. 받은편지함이나 스팸함에서 인증 링크를 열어야 회원가입이 완료됩니다. 입력 내용은 유지됩니다.", true);
       } catch (error) {
         message(error.status === 429 ? "요청이 많습니다. 잠시 후 다시 시도해 주세요."
           : "가입을 완료하지 못했습니다. 이메일을 확인하거나 잠시 후 다시 시도해 주세요.");
