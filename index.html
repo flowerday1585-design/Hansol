@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-9QKhZF0EaqF329V6qBL5UdxloxNQp7tfyQ5lwjgpRYE=' 'sha256-xWfNKBRrA9lqv/CGwu4NL71AWOA3li66WgTjhS61clg=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-wBOjDAjhQKsMXSjVHmkuKo94gzGNRU6aVn5TYhyzgnQ=' 'sha256-Us6bXCqi1RFPT/+8ciyaLXVwaU+wmFyuoO8oCyUMDJI=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -1172,8 +1172,11 @@ window.hansolCatalogConfig = {
       if (!rows.length) throw new Error('다른 기기에서 배너가 변경되었습니다. 창을 닫고 다시 열어 최신 내용을 확인해 주세요.');
       return rows[0];
     },
-    async read() {
-      const [row] = await request(catalogPath);
+    async read(knownRevision) {
+      const hasKnownRevision = Number.isSafeInteger(knownRevision);
+      const path = hasKnownRevision ? catalogPath + "&revision=gt." + knownRevision : catalogPath;
+      const [row] = await request(path);
+      if (!row && hasKnownRevision) return null;
       if (!row) throw new Error("상품 목록을 찾을 수 없습니다.");
       return row;
     },
@@ -1309,9 +1312,9 @@ window.hansolCatalogConfig = {
       if (!catalogApi.enabled || catalogFetching || catalogWriting) return;
       catalogFetching = true;
       try {
-        const row = await catalogApi.read();
-        if (!catalogWriting && row.revision >= (catalogRow?.revision ?? 0)) {
-          displayCatalog(row);
+        const row = await catalogApi.read(catalogRow?.revision);
+        if (!catalogWriting && (!row || row.revision >= (catalogRow?.revision ?? 0))) {
+          if (row) displayCatalog(row);
           showCatalogStatus("");
         }
       } catch {
