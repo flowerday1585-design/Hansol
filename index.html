@@ -3575,15 +3575,18 @@ window.hansolCatalogConfig = {
       group.append(heading);
       const address = alertInput("email",row?.email || "", "수신 이메일");
       address.input.maxLength = 254;
-      const email = alertInput("checkbox",row?.email_enabled ?? slot !== alertRecipientLimit,"이메일 받기");
+      const email = alertInput("checkbox",row?.email_enabled ?? true,"이메일 받기");
+      const channelNote = document.createElement("p");
+      channelNote.textContent = "이메일과 카카오톡을 함께 받을 수 있습니다. 두 채널 모두 사용하려면 이메일 주소를 입력하고 ‘이메일 받기’를 켠 상태로 저장한 뒤, 카카오톡 연결 링크를 만들어 연결해 주세요.";
+      channelNote.style.cssText = "margin:0;color:#475569;font-size:14px;line-height:1.55";
       const signup = alertInput("checkbox",row?.signup ?? true,"회원가입 알림");
       const orders = alertInput("checkbox",row?.order_updates ?? true,"주문·입금·배송 알림");
       const kakao = alertInput("text",row?.kakao_label || "", "직원 구분 이름 (예: 주문 담당)");
       kakao.input.maxLength = 60;
-      group.append(address.wrapper,kakao.wrapper,email.wrapper,signup.wrapper,orders.wrapper,
+      group.append(address.wrapper,kakao.wrapper,email.wrapper,channelNote,signup.wrapper,orders.wrapper,
           alertAction("수신자 저장",async () => {
             if ((email.input.checked && !address.input.value.trim()) || !address.input.reportValidity()) {
-              alertSettingsStatus.textContent = "알림을 받을 이메일 주소를 입력해 주세요.";
+              alertSettingsStatus.textContent = "이메일과 카카오톡을 함께 사용하려면 수신 이메일 주소를 입력해 주세요.";
               return;
             }
             if (!address.input.value.trim() && !kakao.input.value.trim()) {
