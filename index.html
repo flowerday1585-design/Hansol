@@ -1,6 +1,9 @@
 <!doctype html>
 <html lang="ko"><head>
   <meta charset="UTF-8">
+  <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-eZGRrQ3mVePcWHxGqMcN9Ebt8CSqxssmgHuLjkhNvYE=' 'sha256-zTccKIlp72aNtkWBBV6KvoV6m0+/QHacaIRbDUOl9hA=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
   <meta name="description" content="한솔아카이브는 일본판 포켓몬 카드와 원피스 카드게임 부스터팩·박스를 소개하는 TCG 전문 스토어입니다.">
@@ -390,7 +393,7 @@
           <a class="store-link store-coupang" href="https://shop.coupang.com/A01815921" target="_blank" rel="noopener noreferrer"><img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Coupang_logo.svg" alt="Coupang"></a>
         </div>
         <span id="userInfoDisplay">방문객 모드</span>
-        <button class="cart-badge-btn" onclick="openCartModal()">🛒 장바구니 <span class="cart-count" id="cartBadgeCount">0</span></button>
+        <button class="cart-badge-btn" data-click="open-cart-modal">🛒 장바구니 <span class="cart-count" id="cartBadgeCount">0</span></button>
       </div>
     </div>
   </div>
@@ -403,11 +406,11 @@
       </a>
       <div class="search-box">
         <input type="text" id="searchInput" placeholder="상품명 검색..." onkeyup="filterProducts()">
-        <button onclick="filterProducts()">검색</button>
+        <button data-click="filter-products">검색</button>
       </div>
       <div class="header-actions" id="headerActions">
-        <button class="auth-btn" onclick="openModal('loginModal')">로그인</button>
-        <button class="auth-btn primary" onclick="openSignupModal()">회원가입</button>
+        <button class="auth-btn" data-click="open-modal-login-modal">로그인</button>
+        <button class="auth-btn primary" data-click="open-signup-modal">회원가입</button>
       </div>
     </div>
   </header>
@@ -415,10 +418,10 @@
   <nav class="nav-bar">
     <div class="container">
       <ul class="nav-list" id="categoryTabs">
-        <li><button class="active" data-category="all" onclick="setCategory('all')">전체 상품 보기</button></li>
-        <li><button data-category="pokemon" onclick="setCategory('pokemon')">포켓몬 카드</button></li>
-        <li><button data-category="onepiece" onclick="setCategory('onepiece')">원피스 카드</button></li>
-        <li><button data-category="supply" onclick="setCategory('supply')">보관용품</button></li>
+        <li><button class="active" data-category="all" data-click="set-category-all">전체 상품 보기</button></li>
+        <li><button data-category="pokemon" data-click="set-category-pokemon">포켓몬 카드</button></li>
+        <li><button data-category="onepiece" data-click="set-category-onepiece">원피스 카드</button></li>
+        <li><button data-category="supply" data-click="set-category-supply">보관용품</button></li>
       </ul>
     </div>
   </nav>
@@ -426,7 +429,7 @@
   <section class="hero-section">
     <div class="container">
       <div class="hero-main" id="homeBanner">
-        <button type="button" class="auth-btn hero-edit" id="bannerEditButton" onclick="openBannerEditor()" hidden="">배너 편집</button>
+        <button type="button" class="auth-btn hero-edit" id="bannerEditButton" data-click="open-banner-editor" hidden="">배너 편집</button>
         <div class="hero-content">
           <div class="hero-copy">
             <span class="hero-tag" id="bannerTag">HANSOL ARCHIVE OFFICIAL</span>
@@ -437,7 +440,7 @@
         </div>
       </div>
       <div class="hero-main" id="noticeBanner">
-        <button type="button" class="auth-btn hero-edit" id="noticeBannerEditButton" onclick="openBannerEditor('notice')" hidden="">공지 배너 편집</button>
+        <button type="button" class="auth-btn hero-edit" id="noticeBannerEditButton" data-click="open-banner-editor-notice" hidden="">공지 배너 편집</button>
         <div class="hero-content">
           <div class="hero-copy">
             <span class="hero-tag" id="noticeTag">공지사항</span>
@@ -460,14 +463,14 @@
         <div id="adminActionContainer"></div>
       </div>
       
-      <input id="catalogImport" type="file" accept=".html,.htm" hidden="" onchange="importCatalog(this)"><p id="catalogSyncStatus" role="status" hidden=""></p><p class="product-save-notice" id="productSavedNotice" role="status" hidden></p><div id="productSectionsContainer"></div>
+      <input id="catalogImport" type="file" accept=".html,.htm" hidden="" data-change="import-catalog"><p id="catalogSyncStatus" role="status" hidden=""></p><p class="product-save-notice" id="productSavedNotice" role="status" hidden></p><div id="productSectionsContainer"></div>
       <section id="customerFeedback" class="customer-feedback" aria-label="고객 리뷰">
         <div class="feedback-card">
           <h2>고객 리뷰</h2>
           <p>작성한 후기는 이 브라우저에 저장됩니다.</p>
           <div id="reviewLogin">
             <p>회원 로그인 후 후기를 작성하실 수 있습니다.</p>
-            <button class="auth-btn" type="button" onclick="openModal('loginModal')">로그인</button>
+            <button class="auth-btn" type="button" data-click="open-modal-login-modal">로그인</button>
           </div>
           <form id="reviewForm" hidden="">
             <label for="reviewMessage">후기 내용</label>
@@ -496,9 +499,9 @@
       <div id="policyAdmin" hidden="">
         <label for="policyEditor">정책 내용</label>
         <textarea id="policyEditor"></textarea>
-        <button class="btn-submit" type="button" onclick="savePolicy()">저장</button>
+        <button class="btn-submit" type="button" data-click="save-policy">저장</button>
       </div>
-      <button class="btn-cancel" type="button" onclick="closeModal('policyModal')">닫기</button>
+      <button class="btn-cancel" type="button" data-click="close-modal-policy-modal">닫기</button>
     </div>
   </div>
 
@@ -506,12 +509,12 @@
   <dialog id="productDetail" class="product-detail" aria-labelledby="detailTitle">
     <div class="detail-heading">
       <h2 id="detailTitle"></h2>
-      <button type="button" class="auth-btn" onclick="this.closest('dialog').close()" autofocus="">닫기</button>
+      <button type="button" class="auth-btn" data-click="close-dialog" autofocus="">닫기</button>
     </div>
     <div id="detailGallery" class="detail-gallery" hidden="">
       <button type="button" id="detailImageClose" class="detail-image-close" aria-label="확대 사진 닫기"><img id="detailImage" alt=""></button>
-      <button type="button" id="detailPrev" class="thumb-arrow prev" aria-label="이전 사진" onclick="stepProductDetail(-1)">‹</button>
-      <button type="button" id="detailNext" class="thumb-arrow next" aria-label="다음 사진" onclick="stepProductDetail(1)">›</button>
+      <button type="button" id="detailPrev" class="thumb-arrow prev" aria-label="이전 사진" data-click="previous-detail-photo">‹</button>
+      <button type="button" id="detailNext" class="thumb-arrow next" aria-label="다음 사진" data-click="next-detail-photo">›</button>
       <div id="detailCounter" class="detail-counter" aria-live="polite"></div>
     </div>
     <p id="detailDescription" class="detail-description"></p>
@@ -532,14 +535,14 @@
         <span id="cartTotalPrice" style="color:var(--primary);">0원</span>
       </div>
       <div class="modal-btns">
-        <button class="btn-submit" onclick="startCheckout()">주문하기</button>
-        <button class="btn-cancel" onclick="closeModal('cartModal')">닫기</button>
+        <button class="btn-submit" data-click="start-checkout">주문하기</button>
+        <button class="btn-cancel" data-click="close-modal-cart-modal">닫기</button>
       </div>
     </div>
   </div>
 
   <div class="modal" id="checkoutModal" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle">
-    <form id="checkoutForm" class="modal-content" onsubmit="submitOrder(event)">
+    <form id="checkoutForm" class="modal-content" data-submit="submit-order">
       <h3 id="checkoutTitle">계좌이체 주문</h3>
       <p id="checkoutItems" class="shop-admin-row"></p>
       <p id="checkoutBank" class="shop-admin-row"></p>
@@ -551,7 +554,7 @@
       <p id="checkoutStatus" role="status" aria-live="polite"></p>
       <div class="modal-btns">
         <button class="btn-submit" type="submit">주문 접수</button>
-        <button class="btn-cancel" type="button" onclick="if (!checkoutBusy) closeModal('checkoutModal')">닫기</button>
+        <button class="btn-cancel" type="button" data-click="cancel-checkout">닫기</button>
       </div>
     </form>
   </div>
@@ -559,13 +562,13 @@
     <div class="modal-content">
       <h3 id="shopAdminTitle"></h3>
       <div id="memberExportActions" hidden>
-        <button type="button" class="auth-btn" onclick="downloadMembers(this)">회원 엑셀 받기</button>
-        <button type="button" class="auth-btn" onclick="downloadMembers(this, true)">PC 엑셀 갱신</button>
+        <button type="button" class="auth-btn" data-click="download-members">회원 엑셀 받기</button>
+        <button type="button" class="auth-btn" data-click="update-members-file">PC 엑셀 갱신</button>
       </div>
       <div id="shopAdminList" role="status"></div>
       <button type="button" class="auth-btn" id="shopAdminPrev">이전</button>
       <button type="button" class="auth-btn" id="shopAdminNext">다음</button>
-      <button type="button" class="auth-btn" onclick="closeShopManagement()">닫기</button>
+      <button type="button" class="auth-btn" data-click="close-shop-management">닫기</button>
     </div>
   </div>
   <div class="modal" id="stockModal" role="dialog" aria-modal="true" aria-labelledby="stockTitle">
@@ -575,20 +578,20 @@
       <p id="stockStatus" role="status" aria-live="polite"></p>
       <div id="stockRows"></div>
       <div class="modal-btns">
-        <button type="button" class="auth-btn" id="stockReload" onclick="openStockManager()">최신 재고 불러오기</button>
-        <button type="button" class="btn-cancel" onclick="closeModal('stockModal')">닫기</button>
+        <button type="button" class="auth-btn" id="stockReload" data-click="open-stock-manager">최신 재고 불러오기</button>
+        <button type="button" class="btn-cancel" data-click="close-modal-stock-modal">닫기</button>
       </div>
     </div>
   </div>
   <div class="modal" id="bankModal" role="dialog" aria-modal="true" aria-labelledby="bankTitle">
-    <form class="modal-content" id="bankForm" onsubmit="saveShopBank(event)">
+    <form class="modal-content" id="bankForm" data-submit="save-shop-bank">
       <h3 id="bankTitle">입금 계좌 설정</h3>
       <div class="form-group"><label for="bankName">은행</label><input id="bankName" name="bank" maxlength="60" required></div>
       <div class="form-group"><label for="bankNumber">계좌번호</label><input id="bankNumber" name="account" maxlength="50" required></div>
       <div class="form-group"><label for="bankHolder">예금주</label><input id="bankHolder" name="holder" maxlength="60" required></div>
       <div class="modal-btns">
         <button type="submit" class="btn-submit">저장</button>
-        <button type="button" class="btn-cancel" onclick="closeModal('bankModal')">닫기</button>
+        <button type="button" class="btn-cancel" data-click="close-modal-bank-modal">닫기</button>
       </div>
       <p id="bankStatus" role="status"></p>
     </form>
@@ -602,12 +605,12 @@
       <div class="form-group"><label for="loginId">이메일</label><input type="email" id="loginId" placeholder="이메일 주소" autocomplete="username"></div>
       <div class="form-group"><label>비밀번호</label><input type="password" id="loginPw" placeholder="비밀번호 입력" autocomplete="current-password"></div>
       <div class="modal-btns">
-        <button class="btn-submit" onclick="handleLogin()">로그인</button>
-        <button class="auth-btn" onclick="closeModal('loginModal'); openSignupModal()">회원가입</button>
-        <button class="btn-cancel" onclick="closeModal('loginModal')">취소</button>
+        <button class="btn-submit" data-click="handle-login">로그인</button>
+        <button class="auth-btn" data-click="signup-from-login">회원가입</button>
+        <button class="btn-cancel" data-click="close-modal-login-modal">취소</button>
       </div>
       <div style="margin-top:12px">
-        <button type="button" class="auth-btn" onclick="openEmailRecovery()">비밀번호 찾기</button>
+        <button type="button" class="auth-btn" data-click="open-email-recovery">비밀번호 찾기</button>
       </div>
     </div>
   </div>
@@ -617,10 +620,10 @@
     <div class="modal-content">
       <h3 id="emailRecoveryTitle">이메일로 비밀번호 찾기</h3>
       <p>가입할 때 사용한 이메일 주소를 입력해 주세요. 링크는 요청한 브라우저에서 열어 주세요.</p>
-      <form onsubmit="sendPasswordReset(event)">
+      <form data-submit="send-password-reset">
         <div class="form-group"><label for="emailRecoveryAddress">가입 이메일</label><input id="emailRecoveryAddress" type="email" autocomplete="email" maxlength="254" required></div>
         <button class="auth-btn primary" type="submit">재설정 링크 보내기</button>
-        <button class="auth-btn" type="button" onclick="closeModal('emailRecoveryModal'); openModal('loginModal')">닫기</button>
+        <button class="auth-btn" type="button" data-click="login-from-recovery">닫기</button>
       </form>
       <p id="emailRecoveryStatus" role="status" aria-live="polite" style="margin-top:10px"></p>
     </div>
@@ -628,13 +631,13 @@
   <div class="modal" id="emailResetModal" role="dialog" aria-modal="true" aria-labelledby="emailResetTitle">
     <div class="modal-content">
       <h3 id="emailResetTitle">새 비밀번호 설정</h3>
-      <form id="emailResetForm" hidden onsubmit="saveEmailReset(event)">
+      <form id="emailResetForm" hidden data-submit="save-email-reset">
         <div class="form-group"><label for="emailResetPassword">새 비밀번호 (8자 이상)</label><input id="emailResetPassword" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></div>
         <div class="form-group"><label for="emailResetPasswordCheck">새 비밀번호 확인</label><input id="emailResetPasswordCheck" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></div>
         <button class="auth-btn primary" type="submit">새 비밀번호 저장</button>
       </form>
       <p id="emailResetStatus" role="status" aria-live="polite" style="margin-top:10px"></p>
-      <button class="auth-btn" type="button" id="emailResetClose" onclick="closeEmailReset()">닫기</button>
+      <button class="auth-btn" type="button" id="emailResetClose" data-click="close-email-reset">닫기</button>
     </div>
   </div>
 
@@ -642,7 +645,7 @@
     <div class="modal-content">
       <h3 id="withdrawTitle">회원 탈퇴</h3>
       <p style="margin-bottom:12px">탈퇴하면 계정과 가입 정보가 삭제됩니다. 진행 중인 주문이 있다면 주문 완료 후 탈퇴해 주세요.</p>
-      <form id="withdrawForm" onsubmit="submitWithdrawal(event)">
+      <form id="withdrawForm" data-submit="submit-withdrawal">
         <div class="form-group"><label for="withdrawEmail">아이디 (가입 이메일)</label><input id="withdrawEmail" type="email" maxlength="254" autocomplete="username" required></div>
         <div class="form-group"><label for="withdrawPassword">현재 비밀번호</label><input id="withdrawPassword" type="password" autocomplete="current-password" required></div>
         <div class="form-group"><label for="withdrawReason">탈퇴 사유 (필수)</label>
@@ -659,7 +662,7 @@
         <label><input type="checkbox" required> 탈퇴하면 계정을 복구할 수 없음을 확인했습니다.</label>
         <p id="withdrawStatus" role="status" aria-live="polite" style="margin-top:8px"></p>
         <div class="modal-btns">
-          <button class="btn-cancel" id="withdrawCancel" type="button" onclick="closeWithdrawal()">취소</button>
+          <button class="btn-cancel" id="withdrawCancel" type="button" data-click="close-withdrawal">취소</button>
           <button class="btn-submit" type="submit" style="background:#b91c1c;color:white">회원 탈퇴</button>
         </div>
       </form>
@@ -669,7 +672,7 @@
     <div class="modal-content">
       <h3 id="withdrawStatsTitle">탈퇴 사유 집계</h3>
       <div id="withdrawStats" aria-live="polite"></div>
-      <button class="auth-btn" type="button" onclick="closeModal('withdrawStatsModal')">닫기</button>
+      <button class="auth-btn" type="button" data-click="close-modal-withdraw-stats-modal">닫기</button>
     </div>
   </div>
 
@@ -686,11 +689,11 @@
         <label for="signupAddr">도로명 주소 (필수)</label>
         <div style="display:flex; gap:6px">
           <input id="signupAddr" autocomplete="address-line1" maxlength="250" required style="min-width:0" placeholder="직접 입력하거나 주소를 검색하세요">
-          <button type="button" class="auth-btn" id="signupAddressButton" aria-controls="signupAddressSearch" aria-expanded="false" onclick="searchSignupAddress()">주소검색</button>
+          <button type="button" class="auth-btn" id="signupAddressButton" aria-controls="signupAddressSearch" aria-expanded="false" data-click="search-signup-address">주소검색</button>
         </div>
         <div id="signupAddressSearch" role="region" aria-label="도로명 주소 검색" hidden>
           <div id="signupAddressResults"></div>
-          <button type="button" class="auth-btn signup-address-close" onclick="closeSignupAddressSearch(true)">검색 닫기</button>
+          <button type="button" class="auth-btn signup-address-close" data-click="close-signup-address-search-true">검색 닫기</button>
         </div>
       </div>
       <div class="form-group"><label for="signupAddrDetail">한글 상세주소 (동·호수)</label><input id="signupAddrDetail" autocomplete="address-line2" maxlength="90" placeholder="예: 101동 1203호"></div>
@@ -703,7 +706,7 @@
       <div class="form-group"><label for="signupPostal">Postal Code · 우편번호 (필수)</label><input id="signupPostal" autocomplete="postal-code" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" required placeholder="숫자 5자리"></div>
       <p id="signupEnglishReminder" style="color:#b91c1c;font-weight:700;margin-bottom:6px">영문 주소는 정확하게 확인하시고 틀린 부분 있으면 고쳐서 다시 수정해 주세요.</p>
       <p style="color:#111827;margin-bottom:6px">동·호수는 한글 상세주소에 입력하면 Address 2에 영문으로 표시됩니다. 자동 입력이 안 된 부분은 직접 수정할 수 있습니다.</p>
-      <button type="button" class="auth-btn" onclick="confirmSignupAddress()" style="margin-bottom:6px">주소 확인</button>
+      <button type="button" class="auth-btn" data-click="confirm-signup-address" style="margin-bottom:6px">주소 확인</button>
       <p id="signupAddressStatus" role="status" aria-live="polite" style="margin-bottom:12px"></p>
       <div class="form-group"><label for="signupCustoms">개인통관고유부호 (선택)</label><input id="signupCustoms" autocomplete="off" maxlength="13" placeholder="해외 직배송에 필요한 경우 P로 시작하는 13자리"></div>
       <p>가입 정보는 계정 관리, 연락과 주문에 사용합니다. 탈퇴하면 가입 정보가 삭제됩니다.</p>
@@ -717,8 +720,8 @@
         <label for="signupId">이메일 주소 (필수)</label>
         <div class="signup-email-row">
           <input type="email" id="signupId" autocomplete="email" maxlength="254" aria-describedby="signupEmailHint signupEmailStatus" required>
-          <button type="button" class="auth-btn" id="signupEmailClear" onclick="clearSignupEmailField()">이메일만 지우기</button>
-          <button type="button" class="auth-btn primary" id="signupEmailSend" onclick="handleSignup()">인증메일 보내기</button>
+          <button type="button" class="auth-btn" id="signupEmailClear" data-click="clear-signup-email-field">이메일만 지우기</button>
+          <button type="button" class="auth-btn primary" id="signupEmailSend" data-click="handle-signup">인증메일 보내기</button>
         </div>
         <small id="signupEmailHint">주소를 잘못 입력했다면 이메일만 고친 뒤 다시 보내세요. 다른 가입 정보는 유지됩니다.</small>
         <p id="signupEmailStatus" role="status" aria-live="polite"></p>
@@ -726,8 +729,8 @@
       <p id="signupAgeHint">한솔아카이브는 만 15세부터 가입하실 수 있습니다. 연령을 사실과 다르게 확인한 경우 회원 이용이 제한될 수 있습니다. 구매와 관련한 권리와 책임은 관계 법령에 따릅니다.</p>
       <p id="signupStatus" role="status"></p>
       <div class="modal-btns">
-        <button type="button" class="btn-submit" id="signupSubmit" onclick="handleSignup(true)" disabled="">가입하기</button>
-        <button class="btn-cancel" onclick="closeModal('signupModal')">취소</button>
+        <button type="button" class="btn-submit" id="signupSubmit" data-click="handle-signup-true" disabled="">가입하기</button>
+        <button class="btn-cancel" data-click="close-modal-signup-modal">취소</button>
       </div>
     </div>
   </div>
@@ -755,33 +758,33 @@
         <label for="prodFile1">상품 사진 1</label>
         <div class="product-photo-tools">
           <img id="prodPreview1" alt="상품 사진 1 미리보기" hidden>
-          <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 1 삭제" onclick="removeProductPhoto(1)" disabled>사진 삭제</button>
+          <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 1 삭제" data-click="remove-product-photo-1" disabled>사진 삭제</button>
         </div>
-        <input type="file" id="prodFile1" accept="image/jpeg,image/png,image/webp,image/gif" onchange="previewFile(1)">
+        <input type="file" id="prodFile1" accept="image/jpeg,image/png,image/webp,image/gif" data-change="preview-file-1">
         <p id="preview1Name" class="product-photo-status" role="status"></p>
       </div>
       <div class="form-group product-photo-slot">
         <label for="prodFile2">상품 사진 2</label>
         <div class="product-photo-tools">
           <img id="prodPreview2" alt="상품 사진 2 미리보기" hidden>
-          <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 2 삭제" onclick="removeProductPhoto(2)" disabled>사진 삭제</button>
+          <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 2 삭제" data-click="remove-product-photo-2" disabled>사진 삭제</button>
         </div>
-        <input type="file" id="prodFile2" accept="image/jpeg,image/png,image/webp,image/gif" onchange="previewFile(2)">
+        <input type="file" id="prodFile2" accept="image/jpeg,image/png,image/webp,image/gif" data-change="preview-file-2">
         <p id="preview2Name" class="product-photo-status" role="status"></p>
       </div>
       <div class="form-group product-photo-slot">
         <label for="prodFile3">상품 사진 3</label>
         <div class="product-photo-tools">
           <img id="prodPreview3" alt="상품 사진 3 미리보기" hidden>
-          <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 3 삭제" onclick="removeProductPhoto(3)" disabled>사진 삭제</button>
+          <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 3 삭제" data-click="remove-product-photo-3" disabled>사진 삭제</button>
         </div>
-        <input type="file" id="prodFile3" accept="image/jpeg,image/png,image/webp,image/gif" onchange="previewFile(3)">
+        <input type="file" id="prodFile3" accept="image/jpeg,image/png,image/webp,image/gif" data-change="preview-file-3">
         <p id="preview3Name" class="product-photo-status" role="status"></p>
       </div>
 
       <div class="modal-btns">
-        <button class="btn-submit" onclick="saveProduct()">저장하기</button>
-        <button class="btn-cancel" onclick="closeModal('productModal')">취소</button>
+        <button class="btn-submit" data-click="save-product">저장하기</button>
+        <button class="btn-cancel" data-click="close-modal-product-modal">취소</button>
       </div>
       <p id="productSaveStatus" role="status"></p>
     </div>
@@ -791,13 +794,13 @@
   <div class="modal" id="adminModal">
     <div class="modal-content">
       <h3>관리자 설정</h3>
-      <button class="auth-btn" type="button" onclick="openAlertPreferences()">주문·가입 알림 설정</button>
-      <button class="auth-btn" type="button" onclick="openSalesLedger()">회원·주문 엑셀 장부</button>
+      <button class="auth-btn" type="button" data-click="open-alert-preferences">주문·가입 알림 설정</button>
+      <button class="auth-btn" type="button" data-click="open-sales-ledger">회원·주문 엑셀 장부</button>
       <div class="form-group"><label for="adminShipping">주문당 배송비 (원)</label><input type="number" id="adminShipping" min="0" step="1"></div>
       <div class="form-group"><label for="adminFee">주문당 수수료 (원)</label><input type="number" id="adminFee" min="0" step="1"></div>
       <div class="modal-btns">
-        <button class="btn-submit" onclick="saveAdminSettings()">변경하기</button>
-        <button class="btn-cancel" onclick="closeModal('adminModal')">닫기</button>
+        <button class="btn-submit" data-click="save-admin-settings">변경하기</button>
+        <button class="btn-cancel" data-click="close-modal-admin-modal">닫기</button>
       </div>
     </div>
   </div>
@@ -810,7 +813,7 @@
       <p>수신자는 최대 5명입니다. 카카오톡 연결 링크를 받은 직원은 본인 카카오 계정으로 메시지 전송에 동의합니다.</p>
       <div id="alertRecipients"></div>
       <p id="alertSettingsStatus" role="status" aria-live="polite"></p>
-      <button class="btn-cancel" type="button" onclick="closeModal('alertPreferences')">닫기</button>
+      <button class="btn-cancel" type="button" data-click="close-modal-alert-preferences">닫기</button>
     </div>
   </div>
 
@@ -821,10 +824,10 @@
       <p>자동 저장을 연결할 때는 새 장부 파일을 선택하세요. 관리자 탭이 열린 동안 1분마다 확인하고, 변경 시 선택한 파일을 덮어씁니다.</p>
       <p id="salesLedgerStatus" role="status" aria-live="polite"></p>
       <div class="modal-btns">
-        <button class="btn-submit" type="button" onclick="saveSalesLedger(this)">엑셀 내려받기</button>
-        <button class="btn-submit" id="salesLedgerConnect" type="button" onclick="saveSalesLedger(this, true)">PC 자동 저장 연결</button>
-        <button class="btn-cancel" id="salesLedgerStop" type="button" onclick="stopSalesLedger()" disabled>자동 저장 중지</button>
-        <button class="btn-cancel" type="button" onclick="closeModal('salesLedgerModal')">닫기</button>
+        <button class="btn-submit" type="button" data-click="save-sales-ledger">엑셀 내려받기</button>
+        <button class="btn-submit" id="salesLedgerConnect" type="button" data-click="update-sales-ledger-file">PC 자동 저장 연결</button>
+        <button class="btn-cancel" id="salesLedgerStop" type="button" data-click="stop-sales-ledger" disabled>자동 저장 중지</button>
+        <button class="btn-cancel" type="button" data-click="close-modal-sales-ledger-modal">닫기</button>
       </div>
     </div>
   </div>
@@ -845,9 +848,9 @@
       <label><input id="removeBannerPhoto" type="checkbox"> 기존 사진 제거</label>
       <div class="modal-btns">
         <button class="btn-submit" type="submit">저장</button>
-        <button class="btn-cancel" type="button" onclick="closeModal('bannerModal')">닫기</button>
+        <button class="btn-cancel" type="button" data-click="close-modal-banner-modal">닫기</button>
       </div>
-      <button class="auth-btn" type="button" onclick="downloadBannerSite()" style="margin-top:12px">배포용 HTML 받기</button>
+      <button class="auth-btn" type="button" data-click="download-banner-site" style="margin-top:12px">배포용 HTML 받기</button>
       <p id="bannerEditorStatus" role="status"></p>
     </form>
   </div>
@@ -1479,14 +1482,14 @@ window.hansolCatalogConfig = {
             <div class="cart-item-row">
               <div>
                 <div style="font-weight:700; font-size:14px;">${escapeCatalogHtml(item.name)}</div>
-                <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">단가: ${item.price.toLocaleString()}원</div>
+                <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">단가: ${Number(item.price).toLocaleString()}원</div>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
-                <button class="qty-btn" type="button" aria-label="수량 줄이기" onclick="changeCartQty(${idx}, cart[${idx}].qty - 1)">−</button>
-                <span class="qty-display">${item.qty}</span>
-                <button class="qty-btn" type="button" aria-label="수량 늘리기" onclick="changeCartQty(${idx}, cart[${idx}].qty + 1)">+</button>
+                <button class="qty-btn" type="button" aria-label="수량 줄이기" data-click="cart-decrease" data-index="${idx}">−</button>
+                <span class="qty-display">${Number(item.qty)}</span>
+                <button class="qty-btn" type="button" aria-label="수량 늘리기" data-click="cart-increase" data-index="${idx}">+</button>
                 <span style="font-weight:800; width:80px; text-align:right;">${subtotal.toLocaleString()}원</span>
-                <button onclick="removeCartItem(${idx})" style="background:#fee2e2; color:#b91c1c; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">삭제</button>
+                <button data-click="remove-cart-item" data-index="${idx}" style="background:#fee2e2; color:#b91c1c; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">삭제</button>
               </div>
             </div>
           `;
@@ -1573,12 +1576,25 @@ window.hansolCatalogConfig = {
       productPhotoReaders.set(slot, reader);
       renderProductPhoto(slot, "사진을 불러오는 중입니다.");
       setProductPhotoControls();
-      reader.onload = () => {
+      reader.onload = async () => {
         if (productPhotoReaders.get(slot) !== reader) return;
-        productPhotoReaders.delete(slot);
-        tempImages[slot - 1] = reader.result;
-        renderProductPhoto(slot, `선택한 사진: ${file.name}`);
-        setProductPhotoControls();
+        try {
+          const image = new Image();
+          image.src = reader.result;
+          await image.decode();
+          if (productPhotoReaders.get(slot) !== reader) return;
+          tempImages[slot - 1] = reader.result;
+          renderProductPhoto(slot, `선택한 사진: ${file.name}`);
+        } catch {
+          if (productPhotoReaders.get(slot) !== reader) return;
+          input.value = "";
+          renderProductPhoto(slot, "열 수 있는 JPG, PNG, WebP 또는 GIF 사진을 선택해 주세요.");
+        } finally {
+          if (productPhotoReaders.get(slot) === reader) {
+            productPhotoReaders.delete(slot);
+            setProductPhotoControls();
+          }
+        }
       };
       reader.onerror = () => {
         if (productPhotoReaders.get(slot) !== reader) return;
@@ -1607,24 +1623,24 @@ window.hansolCatalogConfig = {
         userInfoDisplay.textContent = `${currentUser.name}님 환영합니다!`;
         if (currentUser.id === "flowerday1585") {
           headerActions.innerHTML = `
-            <button class="auth-btn primary" onclick="openAdminModal()">관리자설정</button>
-            <button type="button" class="auth-btn" onclick="openStockManager()">재고 관리</button>
-            <button class="auth-btn" onclick="handleLogout()">로그아웃</button>
+            <button class="auth-btn primary" data-click="open-admin-modal">관리자설정</button>
+            <button type="button" class="auth-btn" data-click="open-stock-manager">재고 관리</button>
+            <button class="auth-btn" data-click="handle-logout">로그아웃</button>
           `;
           adminContainer.innerHTML = `
-            <button onclick="openProductModal()" style="padding:10px 16px; background:var(--primary); color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">+ 새 상품 등록</button>
-            <button type="button" class="auth-btn" onclick="document.getElementById('catalogImport').click()">이전 상품 목록 가져오기</button>
-             <button type="button" class="auth-btn" onclick="downloadBannerSite()">배포용 HTML 받기</button>
-             <button type="button" class="auth-btn" onclick="openStockManager()">재고 관리</button>
-             <button type="button" class="auth-btn" onclick="openBankSettings()">입금 계좌</button>
-             <button type="button" class="auth-btn" onclick="showShopManagement('orders')">주문 관리</button>
-             <button type="button" class="auth-btn" onclick="showShopManagement('members')">가입 회원</button>
-          <button type="button" class="auth-btn" onclick="showWithdrawStats()">탈퇴 사유</button>
-             <button type="button" class="auth-btn" onclick="downloadMembers(this)">회원 엑셀 받기</button>
-             <button type="button" class="auth-btn" onclick="downloadMembers(this, true)">엑셀 파일 갱신</button>
+            <button data-click="open-product-modal" style="padding:10px 16px; background:var(--primary); color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">+ 새 상품 등록</button>
+            <button type="button" class="auth-btn" data-click="choose-catalog-import">이전 상품 목록 가져오기</button>
+             <button type="button" class="auth-btn" data-click="download-banner-site">배포용 HTML 받기</button>
+             <button type="button" class="auth-btn" data-click="open-stock-manager">재고 관리</button>
+             <button type="button" class="auth-btn" data-click="open-bank-settings">입금 계좌</button>
+             <button type="button" class="auth-btn" data-click="show-shop-management-orders">주문 관리</button>
+             <button type="button" class="auth-btn" data-click="show-shop-management-members">가입 회원</button>
+          <button type="button" class="auth-btn" data-click="show-withdraw-stats">탈퇴 사유</button>
+             <button type="button" class="auth-btn" data-click="download-members">회원 엑셀 받기</button>
+             <button type="button" class="auth-btn" data-click="update-members-file">엑셀 파일 갱신</button>
           `;
         } else {
-          headerActions.innerHTML = `<button class="auth-btn" onclick="handleLogout()">로그아웃</button><button class="auth-btn primary" onclick="showShopManagement('mine')">내 주문·배송</button><button class="auth-btn" onclick="openWithdrawal()">회원 탈퇴</button>`;
+          headerActions.innerHTML = `<button class="auth-btn" data-click="handle-logout">로그아웃</button><button class="auth-btn primary" data-click="show-shop-management-mine">내 주문·배송</button><button class="auth-btn" data-click="open-withdrawal">회원 탈퇴</button>`;
           adminContainer.innerHTML = "";
         }
       } else if (restoringLogin) {
@@ -1634,8 +1650,8 @@ window.hansolCatalogConfig = {
       } else {
         userInfoDisplay.textContent = "방문객 모드";
         headerActions.innerHTML = `
-          <button class="auth-btn" onclick="openModal('loginModal')">로그인</button>
-          <button class="auth-btn primary" onclick="openSignupModal()">회원가입</button>
+          <button class="auth-btn" data-click="open-modal-login-modal">로그인</button>
+          <button class="auth-btn primary" data-click="open-signup-modal">회원가입</button>
         `;
         adminContainer.innerHTML = "";
       }
@@ -3195,8 +3211,8 @@ window.hansolCatalogConfig = {
         return `
           <section class="product-section">
             <div class="category-heading">
-              ${currentCategory === "all" ? `<button type="button" class="auth-btn category-link" onclick="setCategory('${category.key}')">${category.title} (${items.length})</button>` : ""}
-              ${isAdmin ? `<button type="button" class="auth-btn primary" onclick="openProductModal(null, '${category.key}')">+ 상품 추가</button>` : ""}
+              ${currentCategory === "all" ? `<button type="button" class="auth-btn category-link" data-click="choose-category" data-category-key="${category.key}">${category.title} (${items.length})</button>` : ""}
+              ${isAdmin ? `<button type="button" class="auth-btn primary" data-click="create-product-in-category" data-category-key="${category.key}">+ 상품 추가</button>` : ""}
             </div>
             ${items.length ? `<div class="product-grid">${items.map(item => getProductCardHtml(item, isAdmin)).join("")}</div>`
               : "<p>등록된 상품이 없습니다.</p>"}
@@ -3205,6 +3221,7 @@ window.hansolCatalogConfig = {
     }
 
     function getProductCardHtml(item, isAdmin) {
+      if (!Number.isSafeInteger(item.id) || item.id < 1 || !categories.some(category => category.key === item.category)) return "";
       const soldOut = Boolean(item.soldOut) || item.stock === 0;
       let imgs = item.imgs || ["", "", ""];
       let validImgs = imgs.filter(url => typeof url === "string" && /^(https:\/\/|data:image\/(jpeg|png|webp|gif);base64,)/i.test(url));
@@ -3217,10 +3234,10 @@ window.hansolCatalogConfig = {
         imgHtml = validImgs.map((url, idx) => `<img src="${escapeCatalogHtml(url)}" class="${idx === 0 ? 'active' : ''}" alt="상품이미지" />`).join("");
         if (validImgs.length > 1) {
           arrowsHtml = `
-            <button class="thumb-arrow prev" type="button" aria-label="이전 상품 사진" onclick="stepThumb(event, ${item.id}, -1)">‹</button>
-            <button class="thumb-arrow next" type="button" aria-label="다음 상품 사진" onclick="stepThumb(event, ${item.id}, 1)">›</button>`;
+            <button class="thumb-arrow prev" type="button" aria-label="이전 상품 사진" data-click="previous-thumb" data-product-id="${item.id}">‹</button>
+            <button class="thumb-arrow next" type="button" aria-label="다음 상품 사진" data-click="next-thumb" data-product-id="${item.id}">›</button>`;
 
-          dotsHtml = `<div class="thumb-dots">` + validImgs.map((_, idx) => `<span class="thumb-dot ${idx === 0 ? 'active' : ''}" onclick="switchThumb(event, ${item.id}, ${idx})"></span>`).join("") + `</div>`;
+          dotsHtml = `<div class="thumb-dots">` + validImgs.map((_, idx) => `<span class="thumb-dot ${idx === 0 ? 'active' : ''}" data-click="switch-thumb" data-product-id="${item.id}" data-index="${idx}"></span>`).join("") + `</div>`;
         }
       } else {
         imgHtml = `
@@ -3236,39 +3253,39 @@ window.hansolCatalogConfig = {
       return `
         <article class="product-card${soldOut ? ' is-sold-out' : ''}" id="card-${item.id}" data-category="${item.category}">
           <div class="product-thumb">
-            ${validImgs.length ? `<button type="button" class="thumb-open" aria-label="상품 사진 확대" onclick="openProductDetail(${item.id})">${imgHtml}</button>` : imgHtml}
+            ${validImgs.length ? `<button type="button" class="thumb-open" aria-label="상품 사진 확대" data-click="open-product-detail" data-product-id="${item.id}">${imgHtml}</button>` : imgHtml}
             ${dotsHtml}
             ${arrowsHtml}
           </div>
           <div class="product-info">
             <div class="product-category">${escapeCatalogHtml(item.categoryName || '분류')}</div>
-            <h2 class="product-name"><button type="button" class="product-title-open" onclick="openProductDetail(${item.id})">${escapeCatalogHtml(item.name)}</button></h2>
+            <h2 class="product-name"><button type="button" class="product-title-open" data-click="open-product-detail" data-product-id="${item.id}">${escapeCatalogHtml(item.name)}</button></h2>
             <p class="product-desc">${escapeCatalogHtml(item.desc || '')}</p>
             <div class="price-row">
-              <span class="price-krw">${item.price.toLocaleString()}원</span>
+              <span class="price-krw">${Number(item.price).toLocaleString()}원</span>
               ${soldOut ? "" : `<span class="price-subtotal">소계 <strong id="card-total-${item.id}">${won(item.price * cardQuantities[item.id])}</strong></span>`}
             </div>
             
             ${soldOut ? '<p class="product-sold-out">품절</p>' : `
               <p class="shop-stock${lowStock(item) ? " shop-stock-low" : ""}">
-                ${stockAvailable(item) ? `남은 수량 ${item.stock}개` : "재고 확인 중"}
+                ${stockAvailable(item) ? `남은 수량 ${Number(item.stock)}개` : "재고 확인 중"}
                 ${lowStock(item) ? "<br>소진까지 얼마 남지 않았습니다." : ""}
               </p>`}
             ${!stockAvailable(item) ? "" : `
-            <button type="button" class="auth-btn primary shop-buy" onclick="startCheckout(${item.id})">주문하기</button>
+            <button type="button" class="auth-btn primary shop-buy" data-click="checkout-product" data-product-id="${item.id}">주문하기</button>
             <div class="card-cart-control">
               <div class="qty-btn-group">
-                <button class="qty-btn" onclick="adjustCardQty(${item.id}, -1)">-</button>
+                <button class="qty-btn" data-click="decrease-product-quantity" data-product-id="${item.id}">-</button>
                 <span class="qty-display" id="qty-num-${item.id}">${cardQuantities[item.id]}</span>
-                <button class="qty-btn" onclick="adjustCardQty(${item.id}, 1)">+</button>
+                <button class="qty-btn" data-click="increase-product-quantity" data-product-id="${item.id}">+</button>
               </div>
-              <button class="btn-card-add" onclick="addCardToCart(${item.id})" aria-label="장바구니 담기"><span class="cart-button-text">장바구니 담기</span><span class="cart-button-icon" aria-hidden="true">🛒</span></button>
+              <button class="btn-card-add" data-click="add-card-to-cart" data-product-id="${item.id}" aria-label="장바구니 담기"><span class="cart-button-text">장바구니 담기</span><span class="cart-button-icon" aria-hidden="true">🛒</span></button>
             </div>`}
 
             ${isAdmin ? `
               <div class="admin-controls">
-                <button class="admin-btn" onclick="openProductModal(${item.id})">수정</button>
-                <button class="admin-btn delete" onclick="deleteProduct(${item.id})">삭제</button>
+                <button class="admin-btn" data-click="edit-product" data-product-id="${item.id}">수정</button>
+                <button class="admin-btn delete" data-click="delete-product" data-product-id="${item.id}">삭제</button>
               </div>
             ` : ''}
           </div>
@@ -3637,6 +3654,125 @@ window.hansolCatalogConfig = {
       cartCharges = {shipping, fee};
       localStorage.setItem("hansol_cart_charges", JSON.stringify(cartCharges));
       closeModal('adminModal');
+    }
+
+    // Event handlers stay in trusted script so the CSP can block inline event code.
+    const clickActions = Object.assign(Object.create(null), {
+      "open-cart-modal": () => openCartModal(),
+      "filter-products": () => filterProducts(),
+      "open-modal-login-modal": () => openModal('loginModal'),
+      "open-signup-modal": () => openSignupModal(),
+      "set-category-all": () => setCategory('all'),
+      "set-category-pokemon": () => setCategory('pokemon'),
+      "set-category-onepiece": () => setCategory('onepiece'),
+      "set-category-supply": () => setCategory('supply'),
+      "open-banner-editor": () => openBannerEditor(),
+      "open-banner-editor-notice": () => openBannerEditor('notice'),
+      "save-policy": () => savePolicy(),
+      "close-modal-policy-modal": () => closeModal('policyModal'),
+      "close-dialog": (event, element) => element.closest('dialog').close(),
+      "previous-detail-photo": () => stepProductDetail(-1),
+      "next-detail-photo": () => stepProductDetail(1),
+      "start-checkout": () => startCheckout(),
+      "close-modal-cart-modal": () => closeModal('cartModal'),
+      "cancel-checkout": () => { if (!checkoutBusy) closeModal('checkoutModal'); },
+      "download-members": (event, element) => downloadMembers(element),
+      "update-members-file": (event, element) => downloadMembers(element, true),
+      "close-shop-management": () => closeShopManagement(),
+      "open-stock-manager": () => openStockManager(),
+      "close-modal-stock-modal": () => closeModal('stockModal'),
+      "close-modal-bank-modal": () => closeModal('bankModal'),
+      "handle-login": () => handleLogin(),
+      "signup-from-login": () => { closeModal('loginModal'); openSignupModal(); },
+      "close-modal-login-modal": () => closeModal('loginModal'),
+      "open-email-recovery": () => openEmailRecovery(),
+      "login-from-recovery": () => { closeModal('emailRecoveryModal'); openModal('loginModal'); },
+      "close-email-reset": () => closeEmailReset(),
+      "close-withdrawal": () => closeWithdrawal(),
+      "close-modal-withdraw-stats-modal": () => closeModal('withdrawStatsModal'),
+      "search-signup-address": () => searchSignupAddress(),
+      "close-signup-address-search-true": () => closeSignupAddressSearch(true),
+      "confirm-signup-address": () => confirmSignupAddress(),
+      "clear-signup-email-field": () => clearSignupEmailField(),
+      "handle-signup": () => handleSignup(),
+      "handle-signup-true": () => handleSignup(true),
+      "close-modal-signup-modal": () => closeModal('signupModal'),
+      "remove-product-photo-1": () => removeProductPhoto(1),
+      "remove-product-photo-2": () => removeProductPhoto(2),
+      "remove-product-photo-3": () => removeProductPhoto(3),
+      "save-product": () => saveProduct(),
+      "close-modal-product-modal": () => closeModal('productModal'),
+      "open-alert-preferences": () => openAlertPreferences(),
+      "open-sales-ledger": () => openSalesLedger(),
+      "save-admin-settings": () => saveAdminSettings(),
+      "close-modal-admin-modal": () => closeModal('adminModal'),
+      "close-modal-alert-preferences": () => closeModal('alertPreferences'),
+      "save-sales-ledger": (event, element) => saveSalesLedger(element),
+      "update-sales-ledger-file": (event, element) => saveSalesLedger(element, true),
+      "stop-sales-ledger": () => stopSalesLedger(),
+      "close-modal-sales-ledger-modal": () => closeModal('salesLedgerModal'),
+      "close-modal-banner-modal": () => closeModal('bannerModal'),
+      "download-banner-site": () => downloadBannerSite(),
+      "cart-decrease": (event, element, {index}) => changeCartQty(index, cart[index].qty - 1),
+      "cart-increase": (event, element, {index}) => changeCartQty(index, cart[index].qty + 1),
+      "remove-cart-item": (event, element, {index}) => removeCartItem(index),
+      "open-admin-modal": () => openAdminModal(),
+      "handle-logout": () => handleLogout(),
+      "open-product-modal": () => openProductModal(),
+      "choose-catalog-import": () => document.getElementById('catalogImport').click(),
+      "open-bank-settings": () => openBankSettings(),
+      "show-shop-management-orders": () => showShopManagement('orders'),
+      "show-shop-management-members": () => showShopManagement('members'),
+      "show-withdraw-stats": () => showWithdrawStats(),
+      "show-shop-management-mine": () => showShopManagement('mine'),
+      "open-withdrawal": () => openWithdrawal(),
+      "choose-category": (event, element, {categoryKey}) => setCategory(categoryKey),
+      "create-product-in-category": (event, element, {categoryKey}) => openProductModal(null, categoryKey),
+      "previous-thumb": (event, element, {productId}) => stepThumb(event, productId, -1),
+      "next-thumb": (event, element, {productId}) => stepThumb(event, productId, 1),
+      "switch-thumb": (event, element, {productId, index}) => switchThumb(event, productId, index),
+      "open-product-detail": (event, element, {productId}) => openProductDetail(productId),
+      "checkout-product": (event, element, {productId}) => startCheckout(productId),
+      "decrease-product-quantity": (event, element, {productId}) => adjustCardQty(productId, -1),
+      "increase-product-quantity": (event, element, {productId}) => adjustCardQty(productId, 1),
+      "add-card-to-cart": (event, element, {productId}) => addCardToCart(productId),
+      "edit-product": (event, element, {productId}) => openProductModal(productId),
+      "delete-product": (event, element, {productId}) => deleteProduct(productId)
+    });
+    document.addEventListener("click", event => {
+      const element = event.target.closest?.("[data-click]");
+      if (!element) return;
+      const {click, productId: rawId, index: rawIndex, categoryKey} = element.dataset;
+      const productId = Number(rawId);
+      const index = Number(rawIndex);
+      if (rawId !== undefined && (!Number.isSafeInteger(productId) || productId < 1)) return;
+      if (rawIndex !== undefined && (!Number.isSafeInteger(index) || index < 0)) return;
+      if (click.startsWith("cart-") && !cart[index]) return;
+      if (categoryKey !== undefined && !categories.some(category => category.key === categoryKey)) return;
+      clickActions[click]?.(event, element, {productId, index, categoryKey});
+    });
+    {
+      const actions = {
+        "import-catalog": (event, element) => importCatalog(element),
+        "preview-file-1": () => previewFile(1),
+        "preview-file-2": () => previewFile(2),
+        "preview-file-3": () => previewFile(3)
+      };
+      for (const element of document.querySelectorAll("[data-change]")) {
+        element.addEventListener("change", event => actions[element.dataset.change](event, element));
+      }
+    }
+    {
+      const actions = {
+        "submit-order": event => submitOrder(event),
+        "save-shop-bank": event => saveShopBank(event),
+        "send-password-reset": event => sendPasswordReset(event),
+        "save-email-reset": event => saveEmailReset(event),
+        "submit-withdrawal": event => submitWithdrawal(event)
+      };
+      for (const element of document.querySelectorAll("[data-submit]")) {
+        element.addEventListener("submit", event => actions[element.dataset.submit](event, element));
+      }
     }
 
     setupSignupDraft();
