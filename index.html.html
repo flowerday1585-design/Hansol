@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-m9R81LZw+bNQ6cPS0RUdP9i+VPUKrnQeey68CJJk5QU=' 'sha256-uTX4z/2oOo/JtmgfdmW5mfbIA9ydvD4lEkj8STXHjUM=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-9QKhZF0EaqF329V6qBL5UdxloxNQp7tfyQ5lwjgpRYE=' 'sha256-xWfNKBRrA9lqv/CGwu4NL71AWOA3li66WgTjhS61clg=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -396,7 +396,7 @@
       <div class="market-links">
         <div class="store-buttons">
           <a class="store-link store-naver" href="https://smartstore.naver.com/hansolarchive" target="_blank" rel="noopener noreferrer">네이버 스마트스토어</a>
-          <a class="store-link store-coupang" href="https://shop.coupang.com/hansolarchive?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer" aria-label="쿠팡에서 한솔아카이브 전체 상품 보기" title="쿠팡에서 한솔아카이브 전체 상품 보기"><img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Coupang_logo.svg" alt="쿠팡 전체 상품 보기"></a>
+          <a class="store-link store-coupang" href="https://shop.coupang.com/hansolarchive" target="_blank" rel="noopener noreferrer" aria-label="쿠팡에서 한솔아카이브 전체 상품 보기" title="쿠팡에서 한솔아카이브 전체 상품 보기"><img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Coupang_logo.svg" alt="쿠팡 전체 상품 보기"></a>
         </div>
         <span id="userInfoDisplay">방문객 모드</span>
         <button class="cart-badge-btn" data-click="open-cart-modal">🛒 장바구니 <span class="cart-count" id="cartBadgeCount">0</span></button>
@@ -530,6 +530,7 @@
   <div class="modal" id="cartModal">
     <div class="modal-content" style="max-width:540px;">
       <h3>장바구니</h3>
+      <p id="cartReservationNotice" role="status"></p>
       <div id="cartItemsList" style="max-height:300px; overflow-y:auto;">
         <!-- 장바구니 상품 목록 -->
       </div>
@@ -1145,6 +1146,10 @@ window.hansolCatalogConfig = {
     countVisitors(visitorId) {
       return request("/rest/v1/rpc/hansol_visit_today", {method:"POST", body:{p_visitor:visitorId}});
     },
+    async cartSnapshot(accountId) {
+      const token = accountId ? await requireAccessToken() : undefined;
+      return request("/rest/v1/rpc/hansol_cart_snapshot", {method:"POST", body:{}, token});
+    },
     async shopRpc(name, body) {
       const token = await requireAccessToken();
       return request("/rest/v1/rpc/" + name, {method:"POST", body, token});
@@ -1294,6 +1299,7 @@ window.hansolCatalogConfig = {
       catalogRow = row;
       products = row.items;
       if (changed) {
+        syncMemberCart();
         filterProducts();
         updateCartBadge();
       }
@@ -1374,7 +1380,13 @@ window.hansolCatalogConfig = {
     const productPhotoReaders = new Map();
     let productPhotoSaving = false;
     let productSavedTimer;
-    let cart = JSON.parse(localStorage.getItem("hansol_cart")) || [];
+    let cart = [];
+    let cartStock = new Map();
+    let cartReading = false;
+    let cartReadOwner;
+    let cartReadSequence = 0;
+    let cartWriting = false;
+    const memberHasHolds = () => currentUser?.emailConfirmed === true;
     let cardQuantities = {};
     let cartCharges = JSON.parse(localStorage.getItem("hansol_cart_charges")) || {shipping: 0, fee: 0};
     const won = amount => amount.toLocaleString("ko-KR") + "원";
@@ -1499,11 +1511,72 @@ window.hansolCatalogConfig = {
       }
     }
 
+    function availableStock(product) {
+      if (!stockAvailable(product)) return 0;
+      const state = cartStock.get(product.id);
+      return Math.max(0, Math.min(product.stock, state ? state.free + state.held : product.stock));
+    }
+
+    function syncMemberCart() {
+      if (!memberHasHolds() || !catalogRow) return;
+      cart = products.flatMap(product => {
+        const state = cartStock.get(product.id);
+        return stockAvailable(product) && state?.held > 0
+          ? [{id:product.id,name:product.name,price:product.price,qty:state.held,expiresAt:state.expires_at}]
+          : [];
+      });
+    }
+
+    function applyCartSnapshot(rows) {
+      const next = new Map(rows.map(row => [row.id, row]));
+      if (next.size === cartStock.size && rows.every(row => {
+        const previous = cartStock.get(row.id);
+        return previous?.free === row.free && previous.held === row.held && previous.expires_at === row.expires_at;
+      })) return;
+      cartStock = next;
+      syncMemberCart();
+      filterProducts();
+      updateCartBadge();
+      if (document.getElementById("cartModal").style.display === "flex") openCartModal();
+    }
+
+    async function refreshCartState() {
+      const owner = currentUser;
+      if (!catalogApi.enabled || (cartReading && cartReadOwner === owner) || cartWriting) return;
+      const sequence = ++cartReadSequence;
+      cartReadOwner = owner;
+      cartReading = true;
+      try {
+        const rows = await catalogApi.cartSnapshot(owner?.accountId);
+        if (currentUser === owner && sequence === cartReadSequence) applyCartSnapshot(rows);
+      } catch {} finally { if (sequence === cartReadSequence) cartReading = false; }
+    }
+
+    async function changeMemberCart(lines) {
+      if (cartWriting) return false;
+      const owner = currentUser;
+      cartReadSequence++;
+      cartReading = false;
+      cartWriting = true;
+      try {
+        const rows = await catalogApi.shopRpc("hansol_cart_change", {p_lines:lines});
+        if (currentUser !== owner) return false;
+        applyCartSnapshot(rows);
+        return true;
+      } catch (error) {
+        if (currentUser === owner) alert(error.code === "OUT_OF_STOCK"
+          ? "다른 고객이 먼저 담았거나 재고가 줄었습니다. 남은 수량을 다시 확인해 주세요."
+          : "장바구니 재고를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        return false;
+      } finally { cartWriting = false; }
+    }
+
     function adjustCardQty(productId, delta) {
       const product = products.find(item => item.id === productId);
-      if (!stockAvailable(product)) return;
+      const available = availableStock(product);
+      if (!available) return;
       if (!cardQuantities[productId]) cardQuantities[productId] = 1;
-      cardQuantities[productId] = Math.min(product.stock, cardQuantities[productId] + delta);
+      cardQuantities[productId] = Math.min(available, cardQuantities[productId] + delta);
       if (cardQuantities[productId] < 1) cardQuantities[productId] = 1;
       
       const span = document.getElementById(`qty-num-${productId}`);
@@ -1512,38 +1585,43 @@ window.hansolCatalogConfig = {
       if (price) price.textContent = won(product.price * cardQuantities[productId]);
     }
 
-    function addCardToCart(productId) {
+    async function addCardToCart(productId) {
       const qty = cardQuantities[productId] || 1;
       const p = products.find(x => x.id === productId);
-      if (!stockAvailable(p)) return;
+      if (!availableStock(p) || cartWriting) return;
 
       let item = cart.find(x => x.id === productId);
-      if ((item?.qty || 0) + qty > p.stock) { alert("남은 수량을 초과했습니다."); return; }
+      const quantity = (item?.qty || 0) + qty;
+      if (quantity > availableStock(p)) { alert("남은 수량을 초과했습니다."); return; }
+      if (memberHasHolds()) {
+        if (await changeMemberCart([{id:productId,qty:quantity}])) {
+          alert(`[${p.name}] ${qty}개를 담았습니다. 먼저 담은 시점부터 10분 동안 재고가 보관됩니다.`);
+        } else { void refreshCartState(); }
+        return;
+      }
       if(item) {
         item.qty += qty;
       } else {
         cart.push({ id: p.id, name: p.name, price: p.price, qty: qty });
       }
-      localStorage.setItem('hansol_cart', JSON.stringify(cart));
       updateCartBadge();
       alert(`[${p.name}] ${qty}개가 장바구니에 담겼습니다!`);
     }
 
     function updateCartBadge() {
-      const availableCart = cart.filter(line => {
+      cart = cart.filter(line => {
         const product = products.find(item => item.id === line.id);
         return product ? !product.soldOut : catalogRow === null;
       });
-      if (availableCart.length !== cart.length) {
-        cart = availableCart;
-        localStorage.setItem("hansol_cart", JSON.stringify(cart));
-      }
       const totalCnt = cart.reduce((sum, item) => sum + item.qty, 0);
       document.getElementById("cartBadgeCount").textContent = totalCnt;
     }
 
     function openCartModal() {
       updateCartBadge();
+      document.getElementById("cartReservationNotice").textContent = memberHasHolds()
+        ? "먼저 담은 재고는 10분간 보관됩니다. 시간이 지나거나 상품을 삭제하면 재고가 풀립니다."
+        : "로그인 후에 재고가 보관됩니다. 방문객 장바구니는 닫거나 새로고침하면 비워집니다.";
       const listContainer = document.getElementById("cartItemsList");
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
       const {shipping, fee} = {shipping: 0, fee: 0};
@@ -1562,7 +1640,7 @@ window.hansolCatalogConfig = {
             <div class="cart-item-row">
               <div>
                 <div style="font-weight:700; font-size:14px;">${escapeCatalogHtml(item.name)}</div>
-                <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">단가: ${Number(item.price).toLocaleString()}원</div>
+                <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">단가: ${Number(item.price).toLocaleString()}원${item.expiresAt ? ' · ' + new Date(item.expiresAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Asia/Seoul'}) + '까지 보관' : ''}</div>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <button class="qty-btn" type="button" aria-label="수량 줄이기" data-click="cart-decrease" data-index="${idx}">−</button>
@@ -1580,15 +1658,14 @@ window.hansolCatalogConfig = {
     }
 
     function closeCart() {
-      if (!currentUser && !restoringLogin) {
+      if (!memberHasHolds() && !restoringLogin) {
         cart = [];
-        localStorage.removeItem("hansol_cart");
         updateCartBadge();
       }
       closeModal("cartModal");
     }
 
-    function changeCartQty(idx, val) {
+    async function changeCartQty(idx, val) {
       const line = cart[idx];
       if (!line || !Number.isSafeInteger(val)) return;
       if (products.some(product => product.id === line.id && product.soldOut)) {
@@ -1596,15 +1673,22 @@ window.hansolCatalogConfig = {
         return;
       }
       const product = products.find(item => item.id === line.id);
-      cart[idx].qty = Math.max(1, Math.min(product?.stock ?? val, val));
-      localStorage.setItem('hansol_cart', JSON.stringify(cart));
+      const qty = Math.max(1, Math.min(product ? availableStock(product) : val, val));
+      if (memberHasHolds()) {
+        if (!await changeMemberCart([{id:line.id,qty}])) void refreshCartState();
+        return;
+      }
+      cart[idx].qty = qty;
       updateCartBadge();
       openCartModal();
     }
 
-    function removeCartItem(idx) {
+    async function removeCartItem(idx) {
+      if (memberHasHolds()) {
+        if (cart[idx] && !await changeMemberCart([{id:cart[idx].id,qty:0}])) void refreshCartState();
+        return;
+      }
       cart.splice(idx, 1);
-      localStorage.setItem('hansol_cart', JSON.stringify(cart));
       updateCartBadge();
       openCartModal();
     }
@@ -1903,7 +1987,10 @@ window.hansolCatalogConfig = {
       signingIn = true;
       submit.disabled = true;
       try {
+        const guestCart = cart;
         currentUser = await catalogApi.login(email, password.value);
+        cart = [];
+        cartStock = new Map();
         if (currentUser.emailConfirmed) clearConfirmedSignup(email);
         password.value = "";
         closeModal("loginModal");
@@ -1912,6 +1999,15 @@ window.hansolCatalogConfig = {
           document.getElementById("adminActionContainer").scrollIntoView({block:"center"});
         }
         await refreshCatalog();
+        await refreshCartState();
+        if (memberHasHolds() && guestCart.length) {
+          const lines = guestCart.map(item => ({id:item.id,qty:Math.max(item.qty,cartStock.get(item.id)?.held ?? 0)}));
+          if (!await changeMemberCart(lines)) {
+            pendingCheckout = null;
+            openCartModal();
+            return;
+          }
+        }
         openInquiryInboxFromLink();
         if (pendingCheckout !== null) {
           const requested = pendingCheckout;
@@ -1935,6 +2031,7 @@ window.hansolCatalogConfig = {
       } finally {
         restoringLogin = false;
         updateUI();
+        void refreshCartState();
         openInquiryInboxFromLink();
       }
     }
@@ -1951,6 +2048,9 @@ window.hansolCatalogConfig = {
       closeModal("withdrawStatsModal");
       document.getElementById("withdrawStats").replaceChildren();
       currentUser = null;
+      cart = [];
+      cartStock = new Map();
+      closeModal("cartModal");
       checkout = null;
       pendingCheckout = null;
       document.getElementById("checkoutForm").reset();
@@ -1961,6 +2061,7 @@ window.hansolCatalogConfig = {
       for (const id of ["checkoutModal","bankModal","adminModal","alertPreferences","productModal","bannerModal","stockModal","inquiryModal","inquiryInbox"]) closeModal(id);
       closeShopManagement();
       updateUI();
+      void refreshCartState();
     }
 
     let emailRecovery = null;
@@ -2581,7 +2682,7 @@ window.hansolCatalogConfig = {
       if (!catalogRow) { alert("상품 서버 연결을 확인해 주세요."); return; }
       const lines = selected.map(line => {
         const product = products.find(item => item.id === line.id);
-        return stockAvailable(product) && line.qty <= product.stock ? {
+        return line.qty <= availableStock(product) ? {
           id: line.id, qty: line.qty, price: product.price, name: product.name
         } : null;
       });
@@ -2663,9 +2764,11 @@ window.hansolCatalogConfig = {
         if (order.fromCart) {
           const submitted = new Set(order.lines.map(line => line.id));
           cart = cart.filter(line => !submitted.has(line.id));
-          localStorage.setItem("hansol_cart", JSON.stringify(cart));
           updateCartBadge();
         }
+        cartReadSequence++;
+        cartReading = false;
+        void refreshCartState();
         form.reset();
         button.hidden = true;
         document.getElementById("checkoutItems").textContent = "";
@@ -3540,6 +3643,7 @@ window.hansolCatalogConfig = {
     function getProductCardHtml(item, isAdmin) {
       if (!Number.isSafeInteger(item.id) || item.id < 1 || !categories.some(category => category.key === item.category)) return "";
       const soldOut = Boolean(item.soldOut) || item.stock === 0;
+      const available = availableStock(item);
       let imgs = item.imgs || ["", "", ""];
       let validImgs = imgs.filter(url => typeof url === "string" && /^(https:\/\/|data:image\/(jpeg|png|webp|gif);base64,)/i.test(url));
       
@@ -3565,7 +3669,7 @@ window.hansolCatalogConfig = {
         `;
       }
 
-      cardQuantities[item.id] = Math.max(1, Math.min(cardQuantities[item.id] || 1, item.stock ?? 1));
+      cardQuantities[item.id] = Math.max(1, Math.min(cardQuantities[item.id] || 1, available));
 
       return `
         <article class="product-card${soldOut ? ' is-sold-out' : ''}" id="card-${item.id}" data-category="${item.category}">
@@ -3585,10 +3689,10 @@ window.hansolCatalogConfig = {
             
             ${soldOut ? '<p class="product-sold-out">품절</p>' : `
               <p class="shop-stock${lowStock(item) ? " shop-stock-low" : ""}">
-                ${stockAvailable(item) ? `남은 수량 ${Number(item.stock)}개` : "재고 확인 중"}
-                ${lowStock(item) ? "<br>소진까지 얼마 남지 않았습니다." : ""}
+                ${available ? `남은 수량 ${available}개` : stockAvailable(item) ? "다른 고객의 장바구니에 보관 중" : "재고 확인 중"}
+                ${available > 0 && available <= stockWarningThreshold() ? "<br>소진까지 얼마 남지 않았습니다." : ""}
               </p>`}
-            ${!stockAvailable(item) ? "" : `
+            ${!available ? "" : `
             <button type="button" class="auth-btn primary shop-buy" data-click="checkout-product" data-product-id="${item.id}">주문하기</button>
             <div class="card-cart-control">
               <div class="qty-btn-group">
@@ -3631,7 +3735,7 @@ window.hansolCatalogConfig = {
       }
       if (detailPhotos.length) renderProductDetailPhoto();
       const orderButton = document.getElementById("detailOrder");
-      orderButton.hidden = !stockAvailable(item);
+      orderButton.hidden = !availableStock(item);
       orderButton.onclick = () => { document.getElementById("productDetail").close(); startCheckout(item.id); };
       document.getElementById("productDetail").showModal();
     }
@@ -4135,6 +4239,8 @@ window.hansolCatalogConfig = {
     openSignupFromLink();
     if (catalogApi.enabled) showCatalogStatus("상품 목록을 불러오는 중입니다…");
     refreshCatalog();
+    refreshCartState();
+    setInterval(() => { if (!document.hidden) refreshCartState(); }, 8000);
     setInterval(() => { if (!document.hidden) refreshCatalog(); }, 20000);
     window.addEventListener("pageshow", refreshCatalog);
     window.addEventListener("focus", refreshCatalog);
