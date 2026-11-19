@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-eZGRrQ3mVePcWHxGqMcN9Ebt8CSqxssmgHuLjkhNvYE=' 'sha256-zTccKIlp72aNtkWBBV6KvoV6m0+/QHacaIRbDUOl9hA=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-eZGRrQ3mVePcWHxGqMcN9Ebt8CSqxssmgHuLjkhNvYE=' 'sha256-Ql8kM2T8+ICrnIAIjYqI+8QGbaXfVKIfmukI8MZ+YSE=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -810,7 +810,7 @@
     <div class="modal-content">
       <h3 id="alertPreferencesTitle">주문·가입 알림 설정</h3>
       <p>개인 카카오톡 알림을 받으려면 수신자를 저장한 뒤, 해당 직원이 연결 링크를 열어 본인 계정으로 동의해야 합니다.</p>
-      <p>수신자는 최대 5명입니다. 카카오톡 연결 링크를 받은 직원은 본인 카카오 계정으로 메시지 전송에 동의합니다.</p>
+      <p>수신자는 최대 6명입니다. 카카오톡 연결 링크를 받은 직원은 본인 카카오 계정으로 메시지 전송에 동의합니다.</p>
       <div id="alertRecipients"></div>
       <p id="alertSettingsStatus" role="status" aria-live="polite"></p>
       <button class="btn-cancel" type="button" data-click="close-modal-alert-preferences">닫기</button>
@@ -1213,7 +1213,9 @@ window.hansolCatalogConfig = {
     let catalogFetching = false;
     let catalogWriting = false;
     let editingRevision = null;
-    let products = publishedCatalog?.items || defaultProducts;
+    // The HTML snapshot is for offline viewing and catalog exports. On the live
+    // storefront, wait for the shared catalog so saved photo removals stay removed.
+    let products = catalogApi.enabled ? [] : (publishedCatalog?.items || defaultProducts);
     let currentUser = null;
     let restoringLogin = false;
     let signingIn = false;
@@ -1236,8 +1238,9 @@ window.hansolCatalogConfig = {
 
     function displayCatalog(row) {
       const changed = catalogRow?.revision !== row.revision;
+      if (!Array.isArray(row.items)) throw new Error("서버 상품 목록을 읽을 수 없습니다.");
       catalogRow = row;
-      products = row.items ?? publishedCatalog?.items ?? defaultProducts;
+      products = row.items;
       if (changed) {
         filterProducts();
         updateCartBadge();
@@ -1772,6 +1775,10 @@ window.hansolCatalogConfig = {
 
     function downloadBannerSite() {
       if (currentUser?.id !== "flowerday1585") return;
+      if (catalogApi.enabled && !catalogRow) {
+        alert("상품 목록이 로드된 뒤 다시 시도해 주세요.");
+        return;
+      }
       const entries = [
         ...Object.values(banners),
         { publishedId: "publishedCatalog", settings: { revision: new Date().toISOString(), items: products } }
@@ -3189,6 +3196,11 @@ window.hansolCatalogConfig = {
     }
 
     function filterProducts() {
+      if (catalogApi.enabled && !catalogRow) {
+        document.getElementById("productCount").textContent = "";
+        document.getElementById("productSectionsContainer").replaceChildren();
+        return;
+      }
       const keyword = document.getElementById("searchInput").value.toLowerCase();
       let filtered = products.filter(item => {
         let matchCat = currentCategory === "all" || item.category === currentCategory;
@@ -3509,6 +3521,7 @@ window.hansolCatalogConfig = {
 
 
     const alertPreferences = document.getElementById("alertPreferences");
+    const alertRecipientLimit = 6;
     const alertRecipients = document.getElementById("alertRecipients");
     const alertSettingsStatus = document.getElementById("alertSettingsStatus");
     const alertRpc = (action, body = {}) => catalogApi.shopRpc("hansol_alert_" + action, body);
@@ -3562,7 +3575,7 @@ window.hansolCatalogConfig = {
       group.append(heading);
       const address = alertInput("email",row?.email || "", "수신 이메일");
       address.input.maxLength = 254;
-      const email = alertInput("checkbox",row?.email_enabled ?? true,"이메일 받기");
+      const email = alertInput("checkbox",row?.email_enabled ?? slot !== alertRecipientLimit,"이메일 받기");
       const signup = alertInput("checkbox",row?.signup ?? true,"회원가입 알림");
       const orders = alertInput("checkbox",row?.order_updates ?? true,"주문·입금·배송 알림");
       const kakao = alertInput("text",row?.kakao_label || "", "직원 구분 이름 (예: 주문 담당)");
@@ -3611,8 +3624,10 @@ window.hansolCatalogConfig = {
       const owner = currentUser;
       const settings = await alertRpc("settings_read");
       if (currentUser !== owner || alertPreferences.style.display !== "flex") return;
-      alertRecipients.replaceChildren(...[1,2,3,4,5].map(slot =>
-        renderAlertRecipient(slot,settings.recipients.find(row => row.slot === slot))));
+      alertRecipients.replaceChildren(...Array.from({length:alertRecipientLimit}, (_, index) => {
+        const slot = index + 1;
+        return renderAlertRecipient(slot,settings.recipients.find(row => row.slot === slot));
+      }));
     }
 
     async function openAlertPreferences() {
@@ -3801,6 +3816,7 @@ window.hansolCatalogConfig = {
     });
     openEmailResetFromLink();
     openSignupFromLink();
+    if (catalogApi.enabled) showCatalogStatus("상품 목록을 불러오는 중입니다…");
     refreshCatalog();
     setInterval(() => { if (!document.hidden) refreshCatalog(); }, 20000);
     window.addEventListener("pageshow", refreshCatalog);
