@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-9QKhZF0EaqF329V6qBL5UdxloxNQp7tfyQ5lwjgpRYE=' 'sha256-xWfNKBRrA9lqv/CGwu4NL71AWOA3li66WgTjhS61clg=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-FjEnpGMYCmF9KRltihRmJokgE0cP0oSgd9bxC7Oa+6Q=' 'sha256-ls1FBvkKuUwTE38TFqIKkwsjmXddapv7mrZtIRs41qM=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -606,6 +606,7 @@
       <div id="memberExportActions" hidden>
         <button type="button" class="auth-btn" data-click="download-members">회원 엑셀 받기</button>
         <button type="button" class="auth-btn" data-click="update-members-file">PC 엑셀 갱신</button>
+        <button type="button" class="auth-btn" id="resetPendingMembers" data-click="reset-pending-members" hidden>미인증 신청 초기화</button>
       </div>
       <div id="shopAdminList" role="status"></div>
       <button type="button" class="auth-btn" id="shopAdminPrev">이전</button>
@@ -1069,6 +1070,10 @@ window.hansolCatalogConfig = {
         }
         throw error;
       }
+      if (!user.email_confirmed_at) {
+        if (readSession()?.refreshToken === saved.refreshToken) storeSession(null);
+        return null;
+      }
       const profile = await readProfile(user, saved.accessToken);
       return readSession()?.userId === user.id ? profile : null;
     },
@@ -1077,6 +1082,7 @@ window.hansolCatalogConfig = {
         method: "POST", body: {email, password}
       });
       if (!account.access_token || !account.refresh_token || !account.user) throw new Error("로그인할 수 없습니다.");
+      if (!account.user.email_confirmed_at) throw Object.assign(new Error("이메일 인증이 필요합니다."), {code:"EMAIL_REQUIRED"});
       const profile = await readProfile(account.user, account.access_token);
       storeSession(sessionFromResponse(account));
       return profile;
@@ -2483,7 +2489,7 @@ window.hansolCatalogConfig = {
         }
         signupPendingEmail = signupEmailKey(submittedEmail);
         saveSignupDraft();
-        message("가입 요청을 받았습니다. 받은편지함이나 스팸함에서 인증 링크를 열어 주세요. 현재 화면의 입력 내용은 유지됩니다.", true);
+        message("가입 신청을 받았습니다. 받은편지함이나 스팸함에서 인증 링크를 열어야 회원가입이 완료됩니다. 입력 내용은 유지됩니다.", true);
       } catch (error) {
         message(error.status === 429 ? "요청이 많습니다. 잠시 후 다시 시도해 주세요."
           : "가입을 완료하지 못했습니다. 이메일을 확인하거나 잠시 후 다시 시도해 주세요.");
@@ -2904,6 +2910,23 @@ window.hansolCatalogConfig = {
       } finally { button.disabled = false; }
     }
 
+    async function resetPendingMembers(button) {
+      const owner = currentUser;
+      if (owner?.id !== "flowerday1585" || button.disabled) return;
+      if (!confirm("이메일 인증을 완료하지 않은 가입 신청을 삭제하시겠습니까? 인증을 마친 회원은 유지됩니다. 삭제한 신청의 인증 링크는 사용할 수 없습니다.")) return;
+      button.disabled = true;
+      try {
+        const count = await catalogApi.shopRpc("hansol_admin_reset_pending_members", {});
+        if (currentUser !== owner) return;
+        await showShopManagement("members");
+        alert(count + "건의 미인증 신청을 정리했습니다.");
+      } catch {
+        if (currentUser === owner) alert("초기화를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
     let managementGeneration = 0;
     const orderLabels = {received:"입금 대기",paid:"입금 확인",preparing:"상품 준비 중",shipped:"배송 중",delivered:"배송 완료",canceled:"취소"};
     let myOrderPage = 0;
@@ -2918,7 +2941,8 @@ window.hansolCatalogConfig = {
 
     async function showShopManagement(tab, direction = 0) {
       const customer = tab === "mine";
-      if (!currentUser || (!customer && currentUser.id !== "flowerday1585")) return;
+      const owner = currentUser;
+      if (!owner || (!customer && owner.id !== "flowerday1585")) return;
       const generation = ++managementGeneration;
       const members = tab === "members";
       if (members) memberPage = Math.max(0, memberPage + direction);
@@ -2931,17 +2955,21 @@ window.hansolCatalogConfig = {
       const next = document.getElementById("shopAdminNext");
       prev.hidden = next.hidden = true;
       list.textContent = "불러오는 중…";
+      const reset = document.getElementById("resetPendingMembers");
+      reset.hidden = true;
       document.getElementById("memberExportActions").hidden = !members;
       document.getElementById("shopAdminTitle").textContent = members ? "가입 회원" : customer ? "내 주문·배송 조회" : "주문 관리";
       openModal("shopAdminModal");
       try {
         const [rows, canRemoveMember] = await Promise.all([
-          catalogApi.shopRpc(members ? "hansol_member_directory" : customer ? "hansol_my_orders" : "hansol_shop_orders", {p_offset: page * size}),
+          catalogApi.shopRpc(members ? "hansol_verified_member_directory" : customer ? "hansol_my_orders" : "hansol_shop_orders", {p_offset: page * size}),
           members ? catalogApi.shopRpc("hansol_admin_removal_available", {}).catch(() => false) : false
         ]);
-        if (generation !== managementGeneration) return;
+        if (generation !== managementGeneration || currentUser !== owner) return;
+        if (members && page > 0 && !rows.length) return showShopManagement(tab, -1);
+        reset.hidden = !(members && canRemoveMember === true);
         list.replaceChildren();
-        if (!rows.length) list.textContent = members ? "표시할 가입 내역이 없습니다." : "표시할 주문이 없습니다.";
+        if (!rows.length) list.textContent = members ? "이메일 인증을 완료한 가입 회원이 없습니다." : "표시할 주문이 없습니다.";
         for (const [index, row] of rows.entries()) {
           const item = document.createElement("article");
           item.className = "shop-admin-row";
@@ -2959,7 +2987,7 @@ window.hansolCatalogConfig = {
               label("영문 주소", [row.address_english, row.address_detail_english, row.city_english].filter(Boolean).join(", ")),
               label("우편번호", row.postal_code),
               "가입 신청  " + shopDate.format(new Date(row.joined_at)),
-              row.verified_at ? "이메일 인증 완료  " + shopDate.format(new Date(row.verified_at)) : "이메일 인증 대기"
+              "이메일 인증 완료  " + shopDate.format(new Date(row.verified_at))
             ].join("\n");
             item.append(heading, details);
             if (canRemoveMember === true && row.member_id && row.member_id !== currentUser?.accountId) {
@@ -3069,17 +3097,7 @@ window.hansolCatalogConfig = {
         if (currentUser !== owner) throw new DOMException("Session changed", "AbortError");
       }
 
-      const members = [];
-      let cursor = null;
-      for (;;) {
-        assertOwner();
-        const batch = await catalogApi.shopRpc("hansol_members_workbook", {p_after:cursor});
-        members.push(...batch);
-        if (batch.length < 200) break;
-        const next = batch[batch.length - 1].member_id;
-        if (!next || next === cursor) throw new Error("Invalid member page");
-        cursor = next;
-      }
+      const members = await readVerifiedMembers(owner);
 
       // Orders are newest first. Retry when a new order shifts the existing offset pages.
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -3297,6 +3315,23 @@ window.hansolCatalogConfig = {
       return zipWorkbook(files);
     }
 
+    async function readVerifiedMembers(owner) {
+      const members = [];
+      let cursor = {};
+      for (;;) {
+        if (currentUser !== owner) throw new DOMException("Session changed", "AbortError");
+        const batch = await catalogApi.shopRpc("hansol_verified_member_directory", cursor);
+        if (currentUser !== owner) throw new DOMException("Session changed", "AbortError");
+        members.push(...batch);
+        if (batch.length < 200) return members;
+        const last = batch[batch.length - 1];
+        if (!last.member_id || !last.joined_at || last.member_id === cursor.p_after_member_id) {
+          throw new Error("Invalid member page");
+        }
+        cursor = {p_after_joined_at:last.joined_at, p_after_member_id:last.member_id};
+      }
+    }
+
     async function downloadMembers(button, updateFile = false) {
       if (currentUser?.id !== "flowerday1585") return;
       button.disabled = true;
@@ -3315,22 +3350,11 @@ window.hansolCatalogConfig = {
           "한글 주소", "상세 주소", "영문 주소", "영문 상세 주소", "영문 도시", "우편번호",
           "가입 신청 (한국)", "이메일 인증 상태", "이메일 인증 일시 (한국)"]];
         const date = value => value ? {excelDate:Date.parse(value) / 86400000 + 25569 + 9 / 24} : "";
-        let after = null;
-        for (;;) {
-          if (currentUser !== generationUser) return;
-          const page = await catalogApi.shopRpc("hansol_member_directory", {p_export:true, p_after:after});
-          if (currentUser !== generationUser) return;
-          for (const member of page) rows.push([
-            rows.length, member.name, member.name_english, member.phone, member.email, member.kakao_id,
-            member.address, member.address_detail, member.address_english, member.address_detail_english,
-            member.city_english, member.postal_code, date(member.joined_at),
-            member.verified_at ? "인증 완료" : "인증 대기", date(member.verified_at)
-          ]);
-          if (page.length < 200) break;
-          const next = page[page.length - 1].member_id;
-          if (!next || next === after) throw new Error("Invalid member page");
-          after = next;
-        }
+        for (const member of await readVerifiedMembers(generationUser)) rows.push([
+          rows.length, member.name, member.name_english, member.phone, member.email, member.kakao_id,
+          member.address, member.address_detail, member.address_english, member.address_detail_english,
+          member.city_english, member.postal_code, date(member.joined_at), "인증 완료", date(member.verified_at)
+        ]);
         const workbook = makeSalesLedgerWorkbook([{
           name:"가입 회원", rows, widths:[10,20,25,19,35,23,52,27,52,31,24,13,24,23,26]
         }]);
@@ -4115,6 +4139,7 @@ window.hansolCatalogConfig = {
       "cancel-checkout": () => { if (!checkoutBusy) closeModal('checkoutModal'); },
       "download-members": (event, element) => downloadMembers(element),
       "update-members-file": (event, element) => downloadMembers(element, true),
+      "reset-pending-members": (event, element) => resetPendingMembers(element),
       "close-shop-management": () => closeShopManagement(),
       "open-stock-manager": () => openStockManager(),
       "close-modal-stock-modal": () => closeModal('stockModal'),
