@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-L/yIY25QBopLySmMePPUp9ILASziWJqt3iws/uey6L0=' 'sha256-Hv+0/V5ogV4XdnLaSSU1qpkTyMF1GJbyw+xkcFeRY1s=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-EbCXWR/IqQu3di4f93ABrMKDPtUAsMsfzLW/LrW4pDg=' 'sha256-mXkQ53cwNzbO8W3ZhmKjPnVlaG1FKzIgkZH7Pfgib+I=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -1215,6 +1215,13 @@ window.hansolCatalogConfig = {
       if (!rows.length) throw new Error('다른 기기에서 배너가 변경되었습니다. 창을 닫고 다시 열어 최신 내용을 확인해 주세요.');
       return rows[0];
     },
+    async readRevision() {
+      // The full catalog can contain multi-megabyte inline photos.
+      // Ask for the revision first so unchanged pages never download those photos again.
+      const [row] = await request("/rest/v1/hansol_catalog?id=eq.1&select=revision,next_id");
+      if (!row || !Number.isSafeInteger(row.revision)) throw new Error("상품 목록 버전을 확인하지 못했습니다.");
+      return row;
+    },
     async read(knownRevision) {
       const hasKnownRevision = Number.isSafeInteger(knownRevision);
       const path = hasKnownRevision ? catalogPath + "&revision=gt." + knownRevision : catalogPath;
@@ -1365,12 +1372,55 @@ window.hansolCatalogConfig = {
       status.hidden = !message;
     }
 
+    // Browser-only cache: no customer information, only public catalog content.
+    // A server revision check is required before using a cached snapshot.
+    const catalogCacheStore = "catalog";
+    function openCatalogCache() {
+      return new Promise((resolve, reject) => {
+        if (!window.indexedDB) { reject(new Error("IndexedDB unavailable")); return; }
+        const req = indexedDB.open("hansol_public_catalog_v1", 1);
+        req.onupgradeneeded = () => req.result.createObjectStore(catalogCacheStore);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    async function readCachedCatalog() {
+      let db;
+      try {
+        db = await openCatalogCache();
+        return await new Promise(resolve => {
+          const tx = db.transaction(catalogCacheStore, "readonly");
+          const req = tx.objectStore(catalogCacheStore).get("current");
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+          tx.onabort = () => resolve(null);
+        });
+      } catch { return null; }
+      finally { if (db) db.close(); }
+    }
+    async function cacheCatalog(row) {
+      let db;
+      try {
+        db = await openCatalogCache();
+        await new Promise(resolve => {
+          const tx = db.transaction(catalogCacheStore, "readwrite");
+          tx.objectStore(catalogCacheStore).put(row, "current");
+          tx.oncomplete = resolve;
+          tx.onerror = resolve;
+          tx.onabort = resolve;
+        });
+      } catch { /* Private browsing / storage quota: normal network operation continues. */ }
+      finally { if (db) db.close(); }
+    }
+
     function displayCatalog(row) {
       const changed = catalogRow?.revision !== row.revision;
       if (!Array.isArray(row.items)) throw new Error("서버 상품 목록을 읽을 수 없습니다.");
       catalogRow = row;
       catalogPreview = false;
       products = row.items;
+      // Keep a local copy so refreshes require only a tiny revision request.
+      void cacheCatalog(row);
       if (changed) {
         syncMemberCart();
         filterProducts();
@@ -1391,7 +1441,20 @@ window.hansolCatalogConfig = {
       catalogFetching = true;
       const previewTimer = catalogRow ? null : setTimeout(showCatalogPreview, 1800);
       try {
-        const row = await catalogApi.read(catalogRow?.revision);
+        const version = await catalogApi.readRevision();
+        let row = null;
+        if (catalogRow?.revision === version.revision) {
+          // No need to fetch any photos when the catalog has not changed.
+        } else if (!catalogRow) {
+          const cached = await readCachedCatalog();
+          if (cached && cached.revision === version.revision && Array.isArray(cached.items)) {
+            row = cached;
+          } else {
+            row = await catalogApi.read();
+          }
+        } else {
+          row = await catalogApi.read();
+        }
         if (!catalogWriting && (!row || row.revision >= (catalogRow?.revision ?? 0))) {
           if (row) displayCatalog(row);
           showCatalogStatus("");
