@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-l7xiXG1EAmPQh04nwiBr/xK0fNaTLGLCCy3Bnbl06dg=' 'sha256-9/4x7kPM09rkZSzf8P2vS20zsz2MeXZ3nOO9hESuSCY=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-l7xiXG1EAmPQh04nwiBr/xK0fNaTLGLCCy3Bnbl06dg=' 'sha256-K3yNEk88oIHVdYCU16WhVWjumJK+tsu6bT1merNL9Jo=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -772,8 +772,9 @@
           <input type="email" id="signupId" autocomplete="email" maxlength="254" aria-describedby="signupEmailHint signupEmailStatus" required>
           <button type="button" class="auth-btn" id="signupEmailClear" data-click="clear-signup-email-field">이메일만 지우기</button>
           <button type="button" class="auth-btn primary" id="signupEmailSend" data-click="handle-signup">인증메일 보내기</button>
+          <button type="button" class="auth-btn" id="signupEmailResendDirect" data-click="resend-signup-email" style="border:1px solid #2563eb;color:#1d4ed8;background:#eff6ff;font-weight:700">인증메일 다시 보내기</button>
         </div>
-        <small id="signupEmailHint">주소를 잘못 입력했다면 이메일만 고친 뒤 다시 보내세요. 다른 가입 정보는 유지됩니다.</small>
+        <small id="signupEmailHint">메일이 안 오면 60초 후 '인증메일 다시 보내기'를 눌러 새 인증 링크를 요청할 수 있습니다. 주소를 고쳐도 다른 가입 정보는 유지됩니다.</small>
         <p id="signupEmailStatus" role="status" aria-live="polite"></p>
       </div>
       <p id="signupAgeHint">한솔아카이브는 만 15세부터 가입하실 수 있습니다. 연령을 사실과 다르게 확인한 경우 회원 이용이 제한될 수 있습니다. 구매와 관련한 권리와 책임은 관계 법령에 따릅니다.</p>
@@ -2203,10 +2204,14 @@ window.hansolCatalogConfig = {
     const signupAge = document.getElementById("signupAgeConfirmed");
     const signupEmail = document.getElementById("signupId");
     const signupSend = document.getElementById("signupEmailSend");
+    const signupResendDirect = document.getElementById("signupEmailResendDirect");
     const signupEmailClear = document.getElementById("signupEmailClear");
     const signupSubmit = document.getElementById("signupSubmit");
     let signupPendingEmail = "";
     let signupRequestActive = false;
+    const signupResendCooldownMs = 60000;
+    let signupLastEmailRequest = 0;
+    let signupCooldownTimer = null;
     let signupAttempt = 0;
     let signupProof = null;
 
@@ -2228,12 +2233,32 @@ window.hansolCatalogConfig = {
     }
 
     function updateSignupButtons() {
-      signupSend.textContent = signupPendingEmail && signupPendingEmail === signupEmailKey(signupEmail.value)
-        ? "인증메일 다시 보내기" : "인증메일 보내기";
-      signupSend.disabled = signupAge.disabled = signupEmail.disabled = signupRequestActive;
+      const isResend = signupPendingEmail && signupPendingEmail === signupEmailKey(signupEmail.value);
+      const remaining = isResend ? Math.max(0, Math.ceil((signupLastEmailRequest + signupResendCooldownMs - Date.now()) / 1000)) : 0;
+      signupSend.textContent = isResend
+        ? (remaining ? `인증메일 다시 보내기 (${remaining}초 후)` : "인증메일 다시 보내기")
+        : "인증메일 보내기";
+      signupSend.disabled = signupRequestActive || remaining > 0;
+      signupResendDirect.disabled = signupRequestActive || Math.max(0, signupLastEmailRequest + signupResendCooldownMs - Date.now()) > 0;
+      const directSeconds = Math.max(0, Math.ceil((signupLastEmailRequest + signupResendCooldownMs - Date.now()) / 1000));
+      signupResendDirect.textContent = directSeconds ? `인증메일 다시 보내기 (${directSeconds}초 후)` : "인증메일 다시 보내기";
+      signupAge.disabled = signupEmail.disabled = signupRequestActive;
       signupEmailClear.disabled = signupRequestActive || !signupEmail.value;
       signupSubmit.disabled = signupRequestActive || !signupAge.checked || !signupPendingEmail ||
         signupPendingEmail !== signupEmailKey(signupEmail.value);
+    }
+
+    function startSignupResendCooldown() {
+      signupLastEmailRequest = Date.now();
+      if (signupCooldownTimer) clearInterval(signupCooldownTimer);
+      signupCooldownTimer = setInterval(() => {
+        updateSignupButtons();
+        if (Date.now() >= signupLastEmailRequest + signupResendCooldownMs) {
+          clearInterval(signupCooldownTimer);
+          signupCooldownTimer = null;
+        }
+      }, 1000);
+      updateSignupButtons();
     }
 
     function clearSignupEmailField() {
@@ -2259,6 +2284,9 @@ window.hansolCatalogConfig = {
       }
       signupAge.checked = false;
       signupPendingEmail = "";
+      signupLastEmailRequest = 0;
+      if (signupCooldownTimer) clearInterval(signupCooldownTimer);
+      signupCooldownTimer = null;
       signupProof = null;
       setSignupAddressStatus("");
       document.getElementById("signupEmailStatus").textContent = "";
@@ -2310,7 +2338,8 @@ window.hansolCatalogConfig = {
         if ((hash.has("error_code") || url.searchParams.has("error_code")) && signupPendingEmail) {
           openSignupModal();
           document.getElementById("signupEmailStatus").textContent =
-            "인증 링크를 확인하지 못했습니다. 최신 메일의 링크를 열거나 인증메일을 다시 보내 주세요.";
+            "인증 링크가 만료되었거나 유효하지 않습니다. 아래 '인증메일 다시 보내기'를 눌러 새 인증 링크를 요청해 주세요.";
+          history.replaceState(history.state, "", url.pathname + url.search);
         }
         return;
       }
@@ -2489,6 +2518,53 @@ window.hansolCatalogConfig = {
       }
     }
 
+    async function resendSignupEmailDirect() {
+      const email = signupEmail.value.trim();
+      const status = document.getElementById("signupEmailStatus");
+      const general = document.getElementById("signupStatus");
+      const notify = (message, success = false) => {
+        status.textContent = general.textContent = message;
+        status.style.color = general.style.color = success ? "#166534" : "#b91c1c";
+      };
+      if (signupRequestActive) return;
+      if (!email || !signupEmail.checkValidity()) {
+        notify("먼저 정확한 이메일 주소를 입력해 주세요.");
+        signupEmail.focus();
+        return;
+      }
+      if (Date.now() < signupLastEmailRequest + signupResendCooldownMs) {
+        notify("60초 후 새 인증메일을 다시 요청할 수 있습니다.");
+        return;
+      }
+      if (signupPendingEmail !== signupEmailKey(email)) {
+        notify("아직 이 이메일로 가입 신청이 확인되지 않습니다. 가입 정보를 입력한 뒤 '인증메일 보내기'를 먼저 눌러 주세요.");
+        return;
+      }
+      const attempt = ++signupAttempt;
+      signupRequestActive = true;
+      updateSignupButtons();
+      notify("새 인증메일을 발송 요청 중입니다…", true);
+      try {
+        // This calls Supabase Auth resend directly, not the unrelated profile readiness RPC.
+        await catalogApi.resendSignup(email);
+        if (attempt !== signupAttempt) return;
+        signupPendingEmail = signupEmailKey(email);
+        saveSignupDraft();
+        startSignupResendCooldown();
+        notify("새 인증메일을 요청했습니다. 방금 받은 이메일을 확인해 주세요. 메일이 없으면 60초 뒤 다시 누를 수 있습니다.", true);
+      } catch (error) {
+        if (attempt !== signupAttempt) return;
+        const detail = String(error?.message || "");
+        notify(error?.status === 429
+          ? "이메일 발송 횟수 제한에 걸렸습니다. 잠시 후 다시 요청해 주세요."
+          : error?.status === 400 || error?.status === 422
+            ? "이 주소의 인증메일을 재발송할 수 없습니다. 아직 가입을 신청하지 않았다면 먼저 '인증메일 보내기'로 가입 신청을 해주세요."
+            : `이메일 재발송 요청이 실패했습니다. ${detail.slice(0, 160) || "네트워크와 Supabase 설정을 확인해 주세요."}`);
+      } finally {
+        if (attempt === signupAttempt) { signupRequestActive = false; updateSignupButtons(); }
+      }
+    }
+
     async function handleSignup(finish = false) {
       const email = document.getElementById("signupId");
       const password = document.getElementById("signupPw");
@@ -2526,16 +2602,23 @@ window.hansolCatalogConfig = {
       }
       const attempt = ++signupAttempt;
       if (signupPendingEmail === signupEmailKey(submittedEmail)) {
+        if (Date.now() < signupLastEmailRequest + signupResendCooldownMs) {
+          message("안전한 메일 발송을 위해 잠시 후 다시 눌러 주세요.");
+          updateSignupButtons();
+          return;
+        }
         signupRequestActive = true;
         updateSignupButtons();
+        message("새 인증메일을 요청하고 있습니다…", true);
         try {
           await catalogApi.resendSignup(submittedEmail);
           if (attempt !== signupAttempt) return;
-          message("인증메일을 다시 요청했습니다. 최신 메일의 인증 링크를 열어 주세요.", true);
+          startSignupResendCooldown();
+          message("새 인증메일 발송을 요청했습니다. 방금 도착한 메일의 인증 링크를 이용해 주세요. 메일이 안 보이면 스팸함·휴지통도 확인해 주세요.", true);
         } catch (error) {
           if (attempt !== signupAttempt) return;
-          message(error.status === 429 ? "잠시 기다린 뒤 인증메일을 다시 요청해 주세요."
-            : "인증메일을 다시 보내지 못했습니다. 입력하신 내용은 유지됩니다.");
+          message(error.status === 429 ? "발송 제한에 걸렸습니다. 잠시 후 다시 요청해 주세요."
+            : "새 인증메일을 요청하지 못했습니다. 잠시 후 다시 눌러 주세요. 입력하신 정보는 유지됩니다.");
         } finally {
           if (attempt === signupAttempt) { signupRequestActive = false; updateSignupButtons(); }
         }
@@ -2584,14 +2667,14 @@ window.hansolCatalogConfig = {
       saveSignupDraft();
       message("인증메일을 요청하고 있습니다…", true);
       try {
-        const ready = await catalogApi.signupReady();
-        if (attempt !== signupAttempt) return;
-        if (!ready) { message("회원가입을 준비 중입니다."); return; }
+        // Submit the real Supabase Auth signup request. A separate optional
+        // readiness RPC must not prevent the verification email from being sent.
         await catalogApi.signup(submittedEmail, submittedPassword, profile);
         if (attempt !== signupAttempt) return;
         signupPendingEmail = signupEmailKey(submittedEmail);
         saveSignupDraft();
-        message("인증메일을 확인해 주세요. 인증 링크를 연 뒤 가입하기를 눌러야 회원가입이 완료됩니다.", true);
+        startSignupResendCooldown();
+        message("인증메일 발송을 요청했습니다. 새로 도착한 인증 링크를 열어 주세요. 못 받으셨다면 60초 후 '인증메일 다시 보내기'를 누를 수 있습니다.", true);
       } catch (error) {
         if (attempt !== signupAttempt) return;
         message(error.status === 429 ? "요청이 많습니다. 잠시 후 다시 시도해 주세요."
@@ -2610,7 +2693,7 @@ window.hansolCatalogConfig = {
         if (draft.addressVerified) setSignupAddressStatus("✓ 주소 입력 확인 완료", true);
         if (signupPendingEmail === signupEmailKey(signupEmail.value) && signupPendingEmail) {
           document.getElementById("signupEmailStatus").textContent =
-            "받은편지함이나 스팸함에서 최신 인증 링크를 열어 주세요.";
+            "메일을 받지 못했거나 링크가 만료되었다면 '인증메일 다시 보내기'를 눌러 새 메일을 요청해 주세요.";
         }
       }
       updateSignupButtons();
@@ -4258,6 +4341,7 @@ window.hansolCatalogConfig = {
       "close-signup-address-search-true": () => closeSignupAddressSearch(true),
       "confirm-signup-address": () => confirmSignupAddress(),
       "clear-signup-email-field": () => clearSignupEmailField(),
+      "resend-signup-email": () => resendSignupEmailDirect(),
       "handle-signup": () => handleSignup(),
       "handle-signup-true": () => handleSignup(true),
       "close-modal-signup-modal": cancelSignup,
