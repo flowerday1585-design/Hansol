@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-l7xiXG1EAmPQh04nwiBr/xK0fNaTLGLCCy3Bnbl06dg=' 'sha256-uC18gWHRiAa72UFP9djFFmZ4BNTexMYYwdxI8zUsofg=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-l7xiXG1EAmPQh04nwiBr/xK0fNaTLGLCCy3Bnbl06dg=' 'sha256-K3yNEk88oIHVdYCU16WhVWjumJK+tsu6bT1merNL9Jo=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -2536,6 +2536,10 @@ window.hansolCatalogConfig = {
         notify("60초 후 새 인증메일을 다시 요청할 수 있습니다.");
         return;
       }
+      if (signupPendingEmail !== signupEmailKey(email)) {
+        notify("아직 이 이메일로 가입 신청이 확인되지 않습니다. 가입 정보를 입력한 뒤 '인증메일 보내기'를 먼저 눌러 주세요.");
+        return;
+      }
       const attempt = ++signupAttempt;
       signupRequestActive = true;
       updateSignupButtons();
@@ -2663,9 +2667,8 @@ window.hansolCatalogConfig = {
       saveSignupDraft();
       message("인증메일을 요청하고 있습니다…", true);
       try {
-        const ready = await catalogApi.signupReady();
-        if (attempt !== signupAttempt) return;
-        if (!ready) { message("회원가입을 준비 중입니다."); return; }
+        // Submit the real Supabase Auth signup request. A separate optional
+        // readiness RPC must not prevent the verification email from being sent.
         await catalogApi.signup(submittedEmail, submittedPassword, profile);
         if (attempt !== signupAttempt) return;
         signupPendingEmail = signupEmailKey(submittedEmail);
