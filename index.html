@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-EbCXWR/IqQu3di4f93ABrMKDPtUAsMsfzLW/LrW4pDg=' 'sha256-Nv79J4bNyxVCVhtA/xI/hB3pnMAZp3XCGVX3/44ruPY=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-EbCXWR/IqQu3di4f93ABrMKDPtUAsMsfzLW/LrW4pDg=' 'sha256-fyZyexlXqlZHqk+BQ/+KGy7/CQvB1dL2MJJVrZY3t3M=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -608,6 +608,15 @@
         <button type="button" class="auth-btn" data-click="update-members-file">PC 엑셀 갱신</button>
         <button type="button" class="auth-btn" id="resetPendingMembers" data-click="reset-pending-members" hidden="">미인증 신청 초기화</button>
       </div>
+      <section id="testOrderTools" hidden="" aria-labelledby="testOrderTitle">
+        <h4 id="testOrderTitle">주문·엑셀 테스트</h4>
+        <p>현재 탭에서 샘플 주문으로 입금 처리와 엑셀 다운로드를 연습할 수 있습니다.</p>
+        <button type="button" class="auth-btn" data-click="add-test-order">테스트 주문 추가</button>
+        <button type="button" class="auth-btn" id="downloadTestOrders" data-click="download-test-orders" disabled="">테스트 주문 엑셀 받기</button>
+        <button type="button" class="auth-btn" id="resetTestOrders" data-click="reset-test-orders" disabled="">테스트 주문 초기화</button>
+        <p id="testOrderStatus" role="status"></p>
+        <div id="testOrderList"></div>
+      </section>
       <div id="shopAdminList" role="status"></div>
       <button type="button" class="auth-btn" id="shopAdminPrev">이전</button>
       <button type="button" class="auth-btn" id="shopAdminNext">다음</button>
@@ -3350,6 +3359,8 @@ window.hansolCatalogConfig = {
       const reset = document.getElementById("resetPendingMembers");
       reset.hidden = true;
       document.getElementById("memberExportActions").hidden = !members;
+      document.getElementById("testOrderTools").hidden = members || customer;
+      if (!members && !customer) renderTestOrders();
       document.getElementById("shopAdminTitle").textContent = members ? "가입 회원" : customer ? "내 주문·배송 조회" : "주문 관리";
       openModal("shopAdminModal");
       try {
@@ -3557,6 +3568,68 @@ window.hansolCatalogConfig = {
       ];
     }
 
+    const testOrders = [];
+
+    function renderTestOrders() {
+      const list = document.getElementById("testOrderList");
+      list.replaceChildren();
+      document.getElementById("testOrderStatus").textContent = `테스트 주문 ${testOrders.length}건`;
+      document.getElementById("downloadTestOrders").disabled = testOrders.length === 0;
+      document.getElementById("resetTestOrders").disabled = testOrders.length === 0;
+      for (const order of testOrders) {
+        const row = document.createElement("article");
+        row.className = "shop-admin-row";
+        const line = order.lines[0];
+        row.textContent = `${order.id} · ${orderLabels[order.status]}\n${line.name} × ${line.qty} · ${won(order.subtotal)}`;
+        if (order.status === "received") {
+          const paid = document.createElement("button");
+          paid.type = "button";
+          paid.className = "auth-btn";
+          paid.textContent = "입금 확인 (테스트)";
+          paid.addEventListener("click", () => {
+            if (currentUser?.id !== "flowerday1585") return;
+            order.status = "paid";
+            renderTestOrders();
+          });
+          row.append(paid);
+        }
+        list.append(row);
+      }
+    }
+
+    function addTestOrder() {
+      if (currentUser?.id !== "flowerday1585") return;
+      const line = { name: "샘플 부스터 박스", qty: 2, price: 10000 };
+      testOrders.push({
+        id: `TEST-${testOrders.length + 1}`, created_at: new Date().toISOString(), status: "received",
+        customer_id: "TEST", recipient: "테스트 수령인", email: "test@example.invalid", phone: "", address: "테스트 주소",
+        lines: [line], subtotal: line.qty * line.price, carrier: "", tracking: ""
+      });
+      renderTestOrders();
+    }
+
+    function resetTestOrders() {
+      if (currentUser?.id !== "flowerday1585") return;
+      testOrders.length = 0;
+      renderTestOrders();
+    }
+
+    function downloadOrderWorkbook(sheets, filename) {
+      const href = URL.createObjectURL(makeSalesLedgerWorkbook(sheets));
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(href), 1000);
+    }
+
+    function downloadTestOrders() {
+      if (currentUser?.id !== "flowerday1585" || !testOrders.length) return;
+      const sheets = buildSalesLedger([], testOrders).slice(0, 2);
+      for (const sheet of sheets) sheet.name = "테스트 " + sheet.name;
+      downloadOrderWorkbook(sheets, "hansol-test-orders.xlsx");
+    }
+
     async function saveSalesLedger(button, automatic = false) {
       const owner = currentUser;
       if (owner?.id !== "flowerday1585" || salesLedgerBusy) return;
@@ -3583,12 +3656,7 @@ window.hansolCatalogConfig = {
           setSalesLedgerStatus("장부를 준비하고 있습니다.");
           const sheets = await collectSalesLedger(owner);
           if (currentUser !== owner) return;
-          const href = URL.createObjectURL(makeSalesLedgerWorkbook(sheets));
-          const link = document.createElement("a");
-          link.href = href;
-          link.download = salesLedgerName;
-          link.click();
-          setTimeout(() => URL.revokeObjectURL(href), 1000);
+          downloadOrderWorkbook(sheets, salesLedgerName);
           setSalesLedgerStatus("엑셀 장부를 내려받았습니다.");
         }
       } catch (error) {
@@ -4619,6 +4687,9 @@ window.hansolCatalogConfig = {
       "download-members": (event, element) => downloadMembers(element),
       "update-members-file": (event, element) => downloadMembers(element, true),
       "reset-pending-members": (event, element) => resetPendingMembers(element),
+      "add-test-order": addTestOrder,
+      "download-test-orders": downloadTestOrders,
+      "reset-test-orders": resetTestOrders,
       "close-shop-management": () => closeShopManagement(),
       "open-stock-manager": () => openStockManager(),
       "close-modal-stock-modal": () => closeModal('stockModal'),
