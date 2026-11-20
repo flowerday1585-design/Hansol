@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-EbCXWR/IqQu3di4f93ABrMKDPtUAsMsfzLW/LrW4pDg=' 'sha256-fyZyexlXqlZHqk+BQ/+KGy7/CQvB1dL2MJJVrZY3t3M=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-fyZyexlXqlZHqk+BQ/+KGy7/CQvB1dL2MJJVrZY3t3M=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -957,6 +957,8 @@ window.hansolCatalogConfig = {
   let memorySession = null;
   let sessionStorageAvailable = true;
   let refreshPending;
+  const sessionIdleMs = 30 * 60 * 1000;
+  let sessionIdleTimer;
   const recoveryKey = "hansol_password_recovery_v1";
   const base64url = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 
@@ -1011,6 +1013,7 @@ window.hansolCatalogConfig = {
 
   function storeSession(saved) {
     memorySession = saved;
+    scheduleSessionExpiry(saved);
     if (!sessionStorageAvailable) return;
     try {
       if (saved) localStorage.setItem(sessionKey, JSON.stringify(saved));
@@ -1018,9 +1021,61 @@ window.hansolCatalogConfig = {
     } catch { sessionStorageAvailable = false; }
   }
 
-  function sessionFromResponse(account, userId = account.user?.id) {
+  function endSession(saved) {
+    storeSession(null);
+    if (saved) request("/auth/v1/logout?scope=local", {method:"POST", token:saved.accessToken}).catch(() => {});
+  }
+
+  function readActiveSession() {
+    const saved = readSession();
+    if (!saved) return null;
+    const now = Date.now();
+    if (!Number.isFinite(saved.lastActiveAt)) {
+      // Give sessions created before this update a first activity timestamp.
+      saved.lastActiveAt = now;
+      storeSession(saved);
+    } else if (now - saved.lastActiveAt >= sessionIdleMs) {
+      endSession(saved);
+      window.dispatchEvent(new Event("hansol-session-ended"));
+      return null;
+    }
+    return saved;
+  }
+
+  function scheduleSessionExpiry(saved) {
+    clearTimeout(sessionIdleTimer);
+    if (saved) {
+      sessionIdleTimer = setTimeout(checkSessionExpiry,
+        Math.max(0, saved.lastActiveAt + sessionIdleMs - Date.now()));
+    }
+  }
+
+  function checkSessionExpiry() {
+    scheduleSessionExpiry(readActiveSession());
+  }
+
+  function recordSessionActivity(event) {
+    if (!event.isTrusted || document.hidden) return;
+    const saved = readActiveSession();
+    if (saved) storeSession({...saved, lastActiveAt: Date.now()});
+  }
+
+  for (const type of ["click", "pointerdown", "keydown", "wheel", "touchmove"]) {
+    document.addEventListener(type, recordSessionActivity, {capture:true, passive:true});
+  }
+  window.addEventListener("storage", event => {
+    if (event.key === sessionKey || event.key === null) checkSessionExpiry();
+  });
+  window.addEventListener("pageshow", checkSessionExpiry);
+  window.addEventListener("focus", checkSessionExpiry);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) checkSessionExpiry();
+  });
+
+  function sessionFromResponse(account, userId = account.user?.id, lastActiveAt = Date.now()) {
     const saved = {
       userId,
+      lastActiveAt,
       accessToken: account.access_token,
       refreshToken: account.refresh_token,
       expiresAt: (account.expires_at || (Date.now() / 1000 + account.expires_in)) * 1000
@@ -1032,20 +1087,20 @@ window.hansolCatalogConfig = {
   }
 
   async function refreshSession() {
-    const saved = readSession();
+    const saved = readActiveSession();
     if (!saved || saved.expiresAt > Date.now() + 60000) return saved;
     try {
       const refreshed = await request("/auth/v1/token?grant_type=refresh_token", {
         method: "POST", body: {refresh_token: saved.refreshToken}
       });
-      const latest = readSession();
+      const latest = readActiveSession();
       // A tab may have signed out or changed accounts while the request was running.
       if (latest?.refreshToken !== saved.refreshToken) return latest;
-      const next = sessionFromResponse(refreshed, saved.userId);
+      const next = sessionFromResponse(refreshed, saved.userId, latest.lastActiveAt);
       storeSession(next);
       return next;
     } catch (error) {
-      const latest = readSession();
+      const latest = readActiveSession();
       if (latest?.refreshToken !== saved.refreshToken) return latest;
       if ([401, 403].includes(error.status) || ["refresh_token_not_found", "refresh_token_already_used", "session_not_found", "session_expired", "user_not_found"].includes(error.authCode)) {
         storeSession(null);
@@ -1059,7 +1114,7 @@ window.hansolCatalogConfig = {
 
   function getSession() {
     if (!refreshPending) {
-      const saved = readSession();
+      const saved = readActiveSession();
       if (!saved || saved.expiresAt > Date.now() + 60000) return Promise.resolve(saved);
       refreshPending = (sessionStorageAvailable && navigator.locks
         ? navigator.locks.request(sessionKey, refreshSession)
@@ -1069,7 +1124,7 @@ window.hansolCatalogConfig = {
   }
 
   async function requireAccessToken() {
-    const userId = readSession()?.userId;
+    const userId = readActiveSession()?.userId;
     const saved = await getSession();
     if (!saved || saved.userId !== userId) throw new Error("다시 로그인해 주세요.");
     return saved.accessToken;
@@ -1087,7 +1142,7 @@ window.hansolCatalogConfig = {
   window.hansolCatalog = {
     enabled,
     sessionKey,
-    sessionAccountId: () => readSession()?.userId,
+    sessionAccountId: () => readActiveSession()?.userId,
     async restoreLogin() {
       const saved = await getSession();
       if (!saved) return null;
@@ -1095,7 +1150,7 @@ window.hansolCatalogConfig = {
       try {
         user = await request("/auth/v1/user", {token: saved.accessToken});
       } catch (error) {
-        if (readSession()?.refreshToken !== saved.refreshToken) return null;
+        if (readActiveSession()?.refreshToken !== saved.refreshToken) return null;
         if ([401, 403].includes(error.status)) {
           storeSession(null);
           return null;
@@ -1103,11 +1158,11 @@ window.hansolCatalogConfig = {
         throw error;
       }
       if (!user.email_confirmed_at || user.app_metadata?.hansol_signup_state === "pending") {
-        if (readSession()?.refreshToken === saved.refreshToken) storeSession(null);
+        if (readActiveSession()?.refreshToken === saved.refreshToken) storeSession(null);
         return null;
       }
       const profile = await readProfile(user, saved.accessToken);
-      return readSession()?.userId === user.id ? profile : null;
+      return readActiveSession()?.userId === user.id ? profile : null;
     },
     async login(email, password) {
       const account = await request("/auth/v1/token?grant_type=password", {
@@ -1215,9 +1270,7 @@ window.hansolCatalogConfig = {
       return request("/rest/v1/rpc/" + name, {method:"POST", body, token});
     },
     logout() {
-      const saved = readSession();
-      storeSession(null);
-      if (saved) request("/auth/v1/logout?scope=local", {method:"POST", token:saved.accessToken}).catch(() => {});
+      endSession(readSession());
     },
     async readBanners() {
       return await request('/rest/v1/hansol_banners?select=id,revision,settings');
