@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-wLmvOczG4EDBzcutGFBRugd4iQD4K0htEcCnfGoMLl8=' 'sha256-ZC9yselg78tm3R2lurXvyHRztWaZsaP+j02G9AdA4UQ=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-wLmvOczG4EDBzcutGFBRugd4iQD4K0htEcCnfGoMLl8=' 'sha256-JSWYuPAHo325fx1F/t05rje1LJ8PGewP7Lhwyj2QaUE=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -774,7 +774,7 @@
           <button type="button" class="auth-btn primary" id="signupEmailSend" data-click="handle-signup">인증메일 보내기</button>
           <button type="button" class="auth-btn" id="signupEmailResendDirect" data-click="resend-signup-email" style="border:1px solid #2563eb;color:#1d4ed8;background:#eff6ff;font-weight:700">인증메일 다시 보내기</button>
         </div>
-        <small id="signupEmailHint">메일이 안 오면 60초 후 '인증메일 다시 보내기'를 눌러 새 인증 링크를 요청할 수 있습니다. 주소를 고쳐도 다른 가입 정보는 유지됩니다.</small>
+        <small id="signupEmailHint">이미 가입 신청한 이메일이라면 이름·비밀번호를 다시 입력하지 않아도 '인증메일 다시 보내기'를 누를 수 있습니다. 주소를 고쳐도 다른 가입 정보는 유지됩니다.</small>
         <p id="signupEmailStatus" role="status" aria-live="polite"></p>
       </div>
       <p id="signupAgeHint">한솔아카이브는 만 15세부터 가입하실 수 있습니다. 연령을 사실과 다르게 확인한 경우 회원 이용이 제한될 수 있습니다. 구매와 관련한 권리와 책임은 관계 법령에 따릅니다.</p>
@@ -2637,10 +2637,10 @@ window.hansolCatalogConfig = {
         notify("60초 후 새 인증메일을 다시 요청할 수 있습니다.");
         return;
       }
-      if (signupPendingEmail !== signupEmailKey(email)) {
-        notify("아직 이 이메일로 가입 신청이 확인되지 않습니다. 가입 정보를 입력한 뒤 '인증메일 보내기'를 먼저 눌러 주세요.");
-        return;
-      }
+      // The Supabase account may exist even when this browser has no saved
+      // signup draft (a different device, cleared storage, or a new session).
+      // Let Supabase decide whether a confirmation email can be resent.
+      // Never require personal profile fields or a password for resend.
       const attempt = ++signupAttempt;
       signupRequestActive = true;
       updateSignupButtons();
@@ -2652,15 +2652,15 @@ window.hansolCatalogConfig = {
         signupPendingEmail = signupEmailKey(email);
         saveSignupDraft();
         startSignupResendCooldown();
-        notify("새 인증메일을 요청했습니다. 방금 받은 이메일을 확인해 주세요. 메일이 없으면 60초 뒤 다시 누를 수 있습니다.", true);
+        notify("인증메일 재발송 요청이 접수됐습니다. 실제 도착 여부는 이메일함에서 확인해 주세요. 메일이 오지 않으면 발송 로그를 확인해야 합니다.", true);
       } catch (error) {
         if (attempt !== signupAttempt) return;
         const detail = String(error?.message || "");
         notify(error?.status === 429
           ? "이메일 발송 횟수 제한에 걸렸습니다. 잠시 후 다시 요청해 주세요."
           : error?.status === 400 || error?.status === 422
-            ? "이 주소의 인증메일을 재발송할 수 없습니다. 아직 가입을 신청하지 않았다면 먼저 '인증메일 보내기'로 가입 신청을 해주세요."
-            : `이메일 재발송 요청이 실패했습니다. ${detail.slice(0, 160) || "네트워크와 Supabase 설정을 확인해 주세요."}`);
+            ? `재발송이 거부됐습니다 (${error.status}${error.authCode ? ", " + String(error.authCode).slice(0, 50) : ""}). Supabase 인증 로그를 확인해 주세요.`
+            : `이메일 재발송 요청이 실패했습니다. ${error.status || "네트워크 오류"}${error.authCode ? " / " + String(error.authCode).slice(0, 60) : ""}`);
       } finally {
         if (attempt === signupAttempt) { signupRequestActive = false; updateSignupButtons(); }
       }
