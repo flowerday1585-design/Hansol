@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-EbCXWR/IqQu3di4f93ABrMKDPtUAsMsfzLW/LrW4pDg=' 'sha256-mXkQ53cwNzbO8W3ZhmKjPnVlaG1FKzIgkZH7Pfgib+I=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-EbCXWR/IqQu3di4f93ABrMKDPtUAsMsfzLW/LrW4pDg=' 'sha256-iKjQqGphKGaIgqe8ESM5IQcgJXLWlXKX7XEGeHdGbf4=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -4245,31 +4245,31 @@ window.hansolCatalogConfig = {
     }
 
     // Optimize uploaded photos in the browser. Existing images and URLs are never recompressed.
-    async function prepareProductPhoto(file) {
+    async function prepareProductPhoto(file, previewSource) {
       if (!file || !/^image\/(jpeg|png|webp|gif)$/i.test(file.type)) {
         throw new Error("JPG, PNG, WebP 또는 GIF 사진을 선택해 주세요.");
       }
       // Keep animated GIFs intact rather than converting them to a static frame.
       if (file.type === "image/gif") return file;
       const image = new Image();
-      const localUrl = URL.createObjectURL(file);
+      // The selected file is already available as the preview data URL.
+      image.src = previewSource;
       try {
-        image.src = localUrl;
         await image.decode();
-        const maxDimension = 1400;
-        const ratio = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
-        canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
-        const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("사진을 처리할 수 없습니다.");
-        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-        return await new Promise((resolve, reject) => {
-          canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("사진을 변환할 수 없습니다.")), "image/webp", 0.8);
-        });
-      } finally {
-        URL.revokeObjectURL(localUrl);
+      } catch {
+        throw new Error("선택한 사진을 읽지 못했습니다. 사진을 다시 선택해 주세요.");
       }
+      const maxDimension = 1400;
+      const ratio = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("사진을 처리할 수 없습니다.");
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      return await new Promise((resolve, reject) => {
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("사진을 변환할 수 없습니다.")), "image/webp", 0.8);
+      });
     }
 
     async function saveProduct() {
@@ -4326,7 +4326,7 @@ window.hansolCatalogConfig = {
           const file = document.getElementById(`prodFile${slot + 1}`).files[0];
           if (!file) throw new Error("새 사진을 다시 선택해 주세요.");
           formStatus.textContent = `사진 ${slot + 1} 업로드 중…`;
-          const blob = await prepareProductPhoto(file);
+          const blob = await prepareProductPhoto(file, source);
           const imageUrl = await catalogApi.uploadProductPhoto(blob);
           // Keep the uploaded URL in the editor for safe retry if DB saving fails.
           tempImages[slot] = imageUrl;
