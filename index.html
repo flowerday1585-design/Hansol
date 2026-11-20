@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-l7xiXG1EAmPQh04nwiBr/xK0fNaTLGLCCy3Bnbl06dg=' 'sha256-K3yNEk88oIHVdYCU16WhVWjumJK+tsu6bT1merNL9Jo=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-l7xiXG1EAmPQh04nwiBr/xK0fNaTLGLCCy3Bnbl06dg=' 'sha256-h12aGz2YstOiq0NVLAtozRFMZ0jLz12FBX0arXdiADI=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -2244,8 +2244,8 @@ window.hansolCatalogConfig = {
       signupResendDirect.textContent = directSeconds ? `인증메일 다시 보내기 (${directSeconds}초 후)` : "인증메일 다시 보내기";
       signupAge.disabled = signupEmail.disabled = signupRequestActive;
       signupEmailClear.disabled = signupRequestActive || !signupEmail.value;
-      signupSubmit.disabled = signupRequestActive || !signupAge.checked || !signupPendingEmail ||
-        signupPendingEmail !== signupEmailKey(signupEmail.value);
+      signupSubmit.disabled = signupRequestActive || !signupAge.checked || !signupProof ||
+        signupProof.email !== signupEmailKey(signupEmail.value);
     }
 
     function startSignupResendCooldown() {
@@ -2310,7 +2310,7 @@ window.hansolCatalogConfig = {
       if (signupEmailKey(signupEmail.value) === confirmed) resetSignupForm();
     }
 
-    function showVerifiedSignup(email, token) {
+    async function showVerifiedSignup(email, token) {
       const sameEmail = signupEmailKey(signupEmail.value) === signupEmailKey(email);
       const editingDraft = signupDraftFields.some(id => document.getElementById(id).value.trim());
       if (!sameEmail && editingDraft) {
@@ -2326,7 +2326,36 @@ window.hansolCatalogConfig = {
       openSignupModal();
       const status = document.getElementById("signupEmailStatus");
       status.style.color = "#166534";
-      status.textContent = "이메일 인증이 완료되었습니다. 아래 가입하기를 눌러 회원가입을 완료해 주세요.";
+      status.textContent = "이메일 인증이 확인되었습니다. 회원가입을 자동으로 완료하는 중입니다…";
+      // The verification URL already contains a valid Supabase access token.
+      // Finalize the pending account with that token, without asking for the password again.
+      const attempt = ++signupAttempt;
+      signupRequestActive = true;
+      updateSignupButtons();
+      try {
+        const done = await catalogApi.completeSignup(email, "", token, () => attempt === signupAttempt);
+        if (attempt !== signupAttempt) return;
+        if (done !== true) throw new Error("가입 완료 응답을 확인하지 못했습니다.");
+        clearConfirmedSignup(email);
+        closeModal("signupModal");
+        openModal("loginModal");
+        const notice = document.getElementById("signupLoginNotice");
+        notice.hidden = false;
+        notice.textContent = "이메일 인증과 회원가입이 완료됐습니다. 가입할 때 정한 비밀번호로 로그인해 주세요.";
+        document.getElementById("loginId").value = email;
+      } catch (error) {
+        if (attempt !== signupAttempt) return;
+        const detail = error.authCode || error.code || "";
+        status.style.color = "#b91c1c";
+        status.textContent = error.status === 401 || error.status === 403
+          ? "이메일 인증은 확인됐지만 가입 완료 권한을 확인하지 못했습니다. 새 인증메일을 요청해 다시 시도하거나 관리자에게 문의해 주세요."
+          : `이메일 인증은 확인됐지만 가입 완료에 실패했습니다${detail ? " (" + String(detail).slice(0, 80) + ")" : ""}. 아래 가입하기를 다시 누를 수 있습니다.`;
+      } finally {
+        if (attempt === signupAttempt) {
+          signupRequestActive = false;
+          updateSignupButtons();
+        }
+      }
     }
 
     async function openSignupFromLink() {
