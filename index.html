@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-EbCXWR/IqQu3di4f93ABrMKDPtUAsMsfzLW/LrW4pDg=' 'sha256-coljf1QJFbS+/VvlL0e5euZOsyEb16mMNUnv+6hZVLk=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-EbCXWR/IqQu3di4f93ABrMKDPtUAsMsfzLW/LrW4pDg=' 'sha256-Nv79J4bNyxVCVhtA/xI/hB3pnMAZp3XCGVX3/44ruPY=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -800,7 +800,15 @@
         </select>
       </div>
       <div class="form-group"><label>코드/시리즈</label><input type="text" id="prodCode" placeholder="예: M3 / MUNIKIS ZERO"></div>
-      <div class="form-group"><label for="prodPrice">가격 (원, 선택)</label><input type="number" id="prodPrice" min="0" step="1" placeholder="미입력 또는 0원은 가격 미정"></div>
+      <div class="form-group">
+        <label for="prodVatMode">부가세 입력 방식</label>
+        <select id="prodVatMode"><option value="included">VAT 포함</option><option value="excluded">VAT 별도</option></select>
+      </div>
+      <div class="form-group">
+        <label for="prodPrice" id="prodPriceLabel">VAT 포함 가격 (원, 선택)</label>
+        <input type="number" id="prodPrice" min="0" max="9999999999999" step="1" placeholder="미입력 또는 0원은 가격 미정" aria-describedby="prodVatPreview">
+        <p id="prodVatPreview" class="product-photo-status" role="status"></p>
+      </div>
       <div class="form-group"><label for="prodStock">판매 가능 재고</label><input type="number" id="prodStock" min="0" max="999999" step="1" placeholder="미설정 상품은 주문 대기"></div>
       <div class="form-group"><label class="stock-toggle"><input type="checkbox" id="prodSoldOut"> 품절</label></div>
       <div class="form-group"><label>상품 상세 설명</label><textarea id="prodDesc" placeholder="상품 상태, 구성품, 배송 안내 등 상세 내용을 적어주세요."></textarea></div>
@@ -1503,12 +1511,14 @@ window.hansolCatalogConfig = {
           ["pokemon", "onepiece", "supply"].includes(product.category) &&
           typeof product.name === "string" && typeof product.code === "string" &&
           Number.isSafeInteger(product.price) && product.price >= 0 &&
+          ((!Object.hasOwn(product, "vatMode") && !Object.hasOwn(product, "vatInput")) ||
+            productVatAmounts(product.vatInput, product.vatMode)?.total === product.price) &&
           Array.isArray(product.imgs) && product.imgs.every(image => typeof image === "string")
         ) || new Set(items.map(product => product.id)).size !== items.length) throw new Error();
         if (!confirm(`현재 공용 목록을 이 파일의 상품 ${items.length}개로 교체하시겠습니까?`)) return;
         const nextId = items.reduce((next, item) => Math.max(next, item.id + 1), previous.next_id);
-        await commitCatalog(previous, items.map(({id, category, categoryName, name, code, price, desc, imgs, soldOut, stock}) =>
-          ({id, category, categoryName: String(categoryName || ""), name, code, price, desc: String(desc || ""), imgs, soldOut: Boolean(soldOut), stock: Number.isSafeInteger(stock) && stock >= 0 ? stock : null})
+        await commitCatalog(previous, items.map(({id, category, categoryName, name, code, price, desc, imgs, soldOut, stock, vatMode, vatInput}) =>
+          ({id, category, categoryName: String(categoryName || ""), name, code, price, desc: String(desc || ""), imgs, soldOut: Boolean(soldOut), stock: Number.isSafeInteger(stock) && stock >= 0 ? stock : null, ...(vatMode === undefined ? {} : {vatMode, vatInput})})
         ), nextId);
         alert("공용 상품 목록을 저장했습니다.");
       } catch (error) {
@@ -4212,6 +4222,37 @@ window.hansolCatalogConfig = {
       });
     }
 
+    function productVatAmounts(input, mode) {
+      if (!Number.isSafeInteger(input) || input < 0 || input > 9999999999999) return null;
+      if (mode !== "included" && mode !== "excluded") return null;
+      const total = mode === "excluded" ? input + Math.floor((input + 5) / 10) : input;
+      if (total > 9999999999999) return null;
+      const supply = mode === "excluded" ? input : Math.floor((total * 10 + 5) / 11);
+      return { total, supply, vat: total - supply };
+    }
+
+    const productPriceInput = document.getElementById("prodPrice");
+    const productVatMode = document.getElementById("prodVatMode");
+
+    function readProductVatAmounts() {
+      if (productPriceInput.validity.badInput) return null;
+      const input = productPriceInput.value === "" ? 0 : productPriceInput.valueAsNumber;
+      return productVatAmounts(input, productVatMode.value);
+    }
+
+    function renderProductVatPreview() {
+      const amounts = readProductVatAmounts();
+      document.getElementById("prodPriceLabel").textContent = productVatMode.value === "excluded"
+        ? "공급가액 (원, 선택)" : "VAT 포함 가격 (원, 선택)";
+      document.getElementById("prodVatPreview").textContent = !amounts
+        ? "가격을 허용 범위 내의 0원 이상 정수로 입력해 주세요."
+        : amounts.total === 0 ? "가격 미정"
+        : `공급가액 ${won(amounts.supply)} · 부가세 ${won(amounts.vat)} · 상품 결제금액 ${won(amounts.total)} (배송비 제외)`;
+    }
+
+    productPriceInput.addEventListener("input", renderProductVatPreview);
+    productVatMode.addEventListener("change", renderProductVatPreview);
+
     function openProductModal(id = null, category = currentCategory) {
       if (currentUser?.id !== "flowerday1585" || productPhotoSaving) return;
       if (!catalogRow) { alert("공용 상품 목록을 먼저 불러와 주세요."); return; }
@@ -4235,16 +4276,19 @@ window.hansolCatalogConfig = {
         document.getElementById("prodName").value = p.name;
         document.getElementById("prodCategory").value = p.category;
         document.getElementById("prodCode").value = p.code;
-        document.getElementById("prodPrice").value = hasSalePrice(p) ? p.price : "";
         document.getElementById("prodDesc").value = p.desc || "";
       } else {
         document.getElementById("prodName").value = "";
         document.getElementById("prodCategory").value = categories.some(item => item.key === category) ? category : "pokemon";
         document.getElementById("prodCode").value = "";
-        document.getElementById("prodPrice").value = "";
         document.getElementById("prodDesc").value = "";
       }
       for (let slot = 1; slot <= 3; slot++) renderProductPhoto(slot);
+      const savedAmounts = productVatAmounts(product?.vatInput, product?.vatMode);
+      const useVatInput = savedAmounts !== null && savedAmounts.total === product.price;
+      productVatMode.value = useVatInput ? product.vatMode : "included";
+      productPriceInput.value = useVatInput ? product.vatInput || "" : hasSalePrice(product) ? product.price : "";
+      renderProductVatPreview();
       setProductPhotoControls();
       openModal('productModal');
     }
@@ -4283,8 +4327,9 @@ window.hansolCatalogConfig = {
       const name = document.getElementById("prodName").value.trim();
       const category = document.getElementById("prodCategory").value;
       const code = document.getElementById("prodCode").value.trim();
-      const priceField = document.getElementById("prodPrice");
-      const price = priceField.value === "" ? 0 : priceField.valueAsNumber;
+      const amounts = readProductVatAmounts();
+      const vatMode = productVatMode.value;
+      const vatInput = productPriceInput.value === "" ? 0 : productPriceInput.valueAsNumber;
       const desc = document.getElementById("prodDesc").value.trim();
       const soldOut = document.getElementById("prodSoldOut").checked;
       const catNames = { pokemon: "포켓몬 카드", onepiece: "원피스 카드", supply: "보관용품" };
@@ -4293,8 +4338,8 @@ window.hansolCatalogConfig = {
         alert("상품명을 입력해 주세요.");
         return;
       }
-      if (priceField.validity.badInput || !Number.isSafeInteger(price) || price < 0) {
-        alert("가격은 0원 이상의 정수로 입력하거나 비워 주세요.");
+      if (!amounts) {
+        alert("가격을 허용 범위 내의 0원 이상 정수로 입력하거나 비워 주세요.");
         return;
       }
 
@@ -4304,7 +4349,7 @@ window.hansolCatalogConfig = {
         alert("재고는 0부터 999999 사이의 정수로 입력해 주세요.");
         return;
       }
-      const details = { stock, category, categoryName: catNames[category], code, name, price, desc, soldOut };
+      const details = { stock, category, categoryName: catNames[category], code, name, price: amounts.total, vatMode, vatInput, desc, soldOut };
       if (catalogWriting || !catalogRow) return;
       const formStatus = document.getElementById("productSaveStatus");
       const submit = document.querySelector("#productModal .btn-submit");
