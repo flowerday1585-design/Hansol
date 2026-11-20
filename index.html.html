@@ -772,6 +772,7 @@
           <input type="email" id="signupId" autocomplete="email" maxlength="254" aria-describedby="signupEmailHint signupEmailStatus" required>
           <button type="button" class="auth-btn" id="signupEmailClear" data-click="clear-signup-email-field">이메일만 지우기</button>
           <button type="button" class="auth-btn primary" id="signupEmailSend" data-click="handle-signup">인증메일 보내기</button>
+          <button type="button" class="auth-btn" id="signupEmailResendDirect" data-click="resend-signup-email" style="border:1px solid #2563eb;color:#1d4ed8;background:#eff6ff;font-weight:700">인증메일 다시 보내기</button>
         </div>
         <small id="signupEmailHint">메일이 안 오면 60초 후 '인증메일 다시 보내기'를 눌러 새 인증 링크를 요청할 수 있습니다. 주소를 고쳐도 다른 가입 정보는 유지됩니다.</small>
         <p id="signupEmailStatus" role="status" aria-live="polite"></p>
@@ -2203,6 +2204,7 @@ window.hansolCatalogConfig = {
     const signupAge = document.getElementById("signupAgeConfirmed");
     const signupEmail = document.getElementById("signupId");
     const signupSend = document.getElementById("signupEmailSend");
+    const signupResendDirect = document.getElementById("signupEmailResendDirect");
     const signupEmailClear = document.getElementById("signupEmailClear");
     const signupSubmit = document.getElementById("signupSubmit");
     let signupPendingEmail = "";
@@ -2237,6 +2239,9 @@ window.hansolCatalogConfig = {
         ? (remaining ? `인증메일 다시 보내기 (${remaining}초 후)` : "인증메일 다시 보내기")
         : "인증메일 보내기";
       signupSend.disabled = signupRequestActive || remaining > 0;
+      signupResendDirect.disabled = signupRequestActive || Math.max(0, signupLastEmailRequest + signupResendCooldownMs - Date.now()) > 0;
+      const directSeconds = Math.max(0, Math.ceil((signupLastEmailRequest + signupResendCooldownMs - Date.now()) / 1000));
+      signupResendDirect.textContent = directSeconds ? `인증메일 다시 보내기 (${directSeconds}초 후)` : "인증메일 다시 보내기";
       signupAge.disabled = signupEmail.disabled = signupRequestActive;
       signupEmailClear.disabled = signupRequestActive || !signupEmail.value;
       signupSubmit.disabled = signupRequestActive || !signupAge.checked || !signupPendingEmail ||
@@ -2510,6 +2515,49 @@ window.hansolCatalogConfig = {
           signupRequestActive = false;
           updateSignupButtons();
         }
+      }
+    }
+
+    async function resendSignupEmailDirect() {
+      const email = signupEmail.value.trim();
+      const status = document.getElementById("signupEmailStatus");
+      const general = document.getElementById("signupStatus");
+      const notify = (message, success = false) => {
+        status.textContent = general.textContent = message;
+        status.style.color = general.style.color = success ? "#166534" : "#b91c1c";
+      };
+      if (signupRequestActive) return;
+      if (!email || !signupEmail.checkValidity()) {
+        notify("먼저 정확한 이메일 주소를 입력해 주세요.");
+        signupEmail.focus();
+        return;
+      }
+      if (Date.now() < signupLastEmailRequest + signupResendCooldownMs) {
+        notify("60초 후 새 인증메일을 다시 요청할 수 있습니다.");
+        return;
+      }
+      const attempt = ++signupAttempt;
+      signupRequestActive = true;
+      updateSignupButtons();
+      notify("새 인증메일을 발송 요청 중입니다…", true);
+      try {
+        // This calls Supabase Auth resend directly, not the unrelated profile readiness RPC.
+        await catalogApi.resendSignup(email);
+        if (attempt !== signupAttempt) return;
+        signupPendingEmail = signupEmailKey(email);
+        saveSignupDraft();
+        startSignupResendCooldown();
+        notify("새 인증메일을 요청했습니다. 방금 받은 이메일을 확인해 주세요. 메일이 없으면 60초 뒤 다시 누를 수 있습니다.", true);
+      } catch (error) {
+        if (attempt !== signupAttempt) return;
+        const detail = String(error?.message || "");
+        notify(error?.status === 429
+          ? "이메일 발송 횟수 제한에 걸렸습니다. 잠시 후 다시 요청해 주세요."
+          : error?.status === 400 || error?.status === 422
+            ? "이 주소의 인증메일을 재발송할 수 없습니다. 아직 가입을 신청하지 않았다면 먼저 '인증메일 보내기'로 가입 신청을 해주세요."
+            : `이메일 재발송 요청이 실패했습니다. ${detail.slice(0, 160) || "네트워크와 Supabase 설정을 확인해 주세요."}`);
+      } finally {
+        if (attempt === signupAttempt) { signupRequestActive = false; updateSignupButtons(); }
       }
     }
 
@@ -4290,6 +4338,7 @@ window.hansolCatalogConfig = {
       "close-signup-address-search-true": () => closeSignupAddressSearch(true),
       "confirm-signup-address": () => confirmSignupAddress(),
       "clear-signup-email-field": () => clearSignupEmailField(),
+      "resend-signup-email": () => resendSignupEmailDirect(),
       "handle-signup": () => handleSignup(),
       "handle-signup-true": () => handleSignup(true),
       "close-modal-signup-modal": cancelSignup,
