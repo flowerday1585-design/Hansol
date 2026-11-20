@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-EbCXWR/IqQu3di4f93ABrMKDPtUAsMsfzLW/LrW4pDg=' 'sha256-iKjQqGphKGaIgqe8ESM5IQcgJXLWlXKX7XEGeHdGbf4=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-EbCXWR/IqQu3di4f93ABrMKDPtUAsMsfzLW/LrW4pDg=' 'sha256-coljf1QJFbS+/VvlL0e5euZOsyEb16mMNUnv+6hZVLk=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -800,7 +800,7 @@
         </select>
       </div>
       <div class="form-group"><label>코드/시리즈</label><input type="text" id="prodCode" placeholder="예: M3 / MUNIKIS ZERO"></div>
-      <div class="form-group"><label>가격 (원)</label><input type="number" id="prodPrice" placeholder="예: 78000"></div>
+      <div class="form-group"><label for="prodPrice">가격 (원, 선택)</label><input type="number" id="prodPrice" min="0" step="1" placeholder="미입력 또는 0원은 가격 미정"></div>
       <div class="form-group"><label for="prodStock">판매 가능 재고</label><input type="number" id="prodStock" min="0" max="999999" step="1" placeholder="미설정 상품은 주문 대기"></div>
       <div class="form-group"><label class="stock-toggle"><input type="checkbox" id="prodSoldOut"> 품절</label></div>
       <div class="form-group"><label>상품 상세 설명</label><textarea id="prodDesc" placeholder="상품 상태, 구성품, 배송 안내 등 상세 내용을 적어주세요."></textarea></div>
@@ -1502,7 +1502,7 @@ window.hansolCatalogConfig = {
           product && Number.isSafeInteger(product.id) && product.id > 0 &&
           ["pokemon", "onepiece", "supply"].includes(product.category) &&
           typeof product.name === "string" && typeof product.code === "string" &&
-          Number.isSafeInteger(product.price) && product.price > 0 &&
+          Number.isSafeInteger(product.price) && product.price >= 0 &&
           Array.isArray(product.imgs) && product.imgs.every(image => typeof image === "string")
         ) || new Set(items.map(product => product.id)).size !== items.length) throw new Error();
         if (!confirm(`현재 공용 목록을 이 파일의 상품 ${items.length}개로 교체하시겠습니까?`)) return;
@@ -1762,7 +1762,7 @@ window.hansolCatalogConfig = {
       cart = cart.filter(line => {
         if (catalogPreview) return true;
         const product = products.find(item => item.id === line.id);
-        return product ? !product.soldOut : catalogRow === null;
+        return product ? hasSalePrice(product) && !product.soldOut : catalogRow === null;
       });
       const totalCnt = cart.reduce((sum, item) => sum + item.qty, 0);
       document.getElementById("cartBadgeCount").textContent = totalCnt;
@@ -2901,8 +2901,12 @@ window.hansolCatalogConfig = {
       });
     }
 
+    function hasSalePrice(product) {
+      return Number.isSafeInteger(product?.price) && product.price > 0;
+    }
+
     function stockAvailable(product) {
-      return product && !product.soldOut && Number.isSafeInteger(product.stock) && product.stock > 0;
+      return hasSalePrice(product) && !product.soldOut && Number.isSafeInteger(product.stock) && product.stock > 0;
     }
 
     function lowStock(product) {
@@ -4047,6 +4051,7 @@ window.hansolCatalogConfig = {
 
     function getProductCardHtml(item, isAdmin) {
       if (!Number.isSafeInteger(item.id) || item.id < 1 || !categories.some(category => category.key === item.category)) return "";
+      const priced = hasSalePrice(item);
       const soldOut = !catalogPreview && (Boolean(item.soldOut) || item.stock === 0);
       const available = availableStock(item);
       let imgs = item.imgs || ["", "", ""];
@@ -4088,11 +4093,11 @@ window.hansolCatalogConfig = {
             <h2 class="product-name"><button type="button" class="product-title-open" data-click="open-product-detail" data-product-id="${item.id}">${escapeCatalogHtml(item.name)}</button></h2>
             <p class="product-desc">${escapeCatalogHtml(item.desc || '')}</p>
             <div class="price-row">
-              <span class="price-krw">${Number(item.price).toLocaleString()}원</span>
-              ${soldOut || catalogPreview ? "" : `<span class="price-subtotal">소계 <strong id="card-total-${item.id}">${won(item.price * cardQuantities[item.id])}</strong></span>`}
+              <span class="price-krw">${priced ? won(item.price) : "가격 미정"}</span>
+              ${!priced || soldOut || catalogPreview ? "" : `<span class="price-subtotal">소계 <strong id="card-total-${item.id}">${won(item.price * cardQuantities[item.id])}</strong></span>`}
             </div>
             
-            ${catalogPreview ? '<p class="shop-stock">재고 확인 필요</p>' : soldOut ? '<p class="product-sold-out">품절</p>' : `
+            ${!priced ? "" : catalogPreview ? '<p class="shop-stock">재고 확인 필요</p>' : soldOut ? '<p class="product-sold-out">품절</p>' : `
               <p class="shop-stock${lowStock(item) ? " shop-stock-low" : ""}">
                 ${available ? `남은 수량 ${available}개` : stockAvailable(item) ? "다른 고객의 장바구니에 보관 중" : "재고 확인 중"}
                 ${available > 0 && available <= stockWarningThreshold() ? "<br>소진까지 얼마 남지 않았습니다." : ""}
@@ -4230,7 +4235,7 @@ window.hansolCatalogConfig = {
         document.getElementById("prodName").value = p.name;
         document.getElementById("prodCategory").value = p.category;
         document.getElementById("prodCode").value = p.code;
-        document.getElementById("prodPrice").value = p.price;
+        document.getElementById("prodPrice").value = hasSalePrice(p) ? p.price : "";
         document.getElementById("prodDesc").value = p.desc || "";
       } else {
         document.getElementById("prodName").value = "";
@@ -4278,13 +4283,18 @@ window.hansolCatalogConfig = {
       const name = document.getElementById("prodName").value.trim();
       const category = document.getElementById("prodCategory").value;
       const code = document.getElementById("prodCode").value.trim();
-      const price = Number(document.getElementById("prodPrice").value);
+      const priceField = document.getElementById("prodPrice");
+      const price = priceField.value === "" ? 0 : priceField.valueAsNumber;
       const desc = document.getElementById("prodDesc").value.trim();
       const soldOut = document.getElementById("prodSoldOut").checked;
       const catNames = { pokemon: "포켓몬 카드", onepiece: "원피스 카드", supply: "보관용품" };
 
-      if (!name || !Number.isSafeInteger(price) || price <= 0) {
-        alert("상품명과 가격을 정확히 입력해주세요.");
+      if (!name) {
+        alert("상품명을 입력해 주세요.");
+        return;
+      }
+      if (priceField.validity.badInput || !Number.isSafeInteger(price) || price < 0) {
+        alert("가격은 0원 이상의 정수로 입력하거나 비워 주세요.");
         return;
       }
 
