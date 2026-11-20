@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-wLmvOczG4EDBzcutGFBRugd4iQD4K0htEcCnfGoMLl8=' 'sha256-JSWYuPAHo325fx1F/t05rje1LJ8PGewP7Lhwyj2QaUE=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-wLmvOczG4EDBzcutGFBRugd4iQD4K0htEcCnfGoMLl8=' 'sha256-YfOXqFfkIgvPCyXawUTfoLGSNflSwHGO2xv7VT1Lz5k=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 (HANSOL ARCHIVE) - 일본판 포켓몬·원피스 TCG 전문 스토어</title>
@@ -2256,6 +2256,9 @@ window.hansolCatalogConfig = {
       signupSend.textContent = isResend
         ? (remaining ? `인증메일 다시 보내기 (${remaining}초 후)` : "인증메일 다시 보내기")
         : "인증메일 보내기";
+      // Once an address has a pending signup, show only the direct resend button.
+      // Keep the normal send button available for a brand-new signup.
+      signupSend.hidden = !!isResend;
       signupSend.disabled = signupRequestActive || remaining > 0;
       signupResendDirect.disabled = signupRequestActive || Math.max(0, signupLastEmailRequest + signupResendCooldownMs - Date.now()) > 0;
       const directSeconds = Math.max(0, Math.ceil((signupLastEmailRequest + signupResendCooldownMs - Date.now()) / 1000));
