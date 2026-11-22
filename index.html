@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-Dc3E7TH3Fq9vSugXfQPXnG2uIg06h4SPwSvFZHmlbGk=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-j3+loc6crDWikEyGlp1kD7xbBP4QcSl1+KkndUWfZFM=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -3523,7 +3523,7 @@ window.hansolCatalogConfig = {
         `총 결제금액: ${orderCost(orderTotal(row))}`,...delivery,"","한솔아카이브를 이용해 주셔서 감사합니다.","https://hansolarchive.com/"].join("\n");
     }
 
-    function orderControls(card, row, generation) {
+    function orderControls(card, row, generation, selectedOrder) {
       const actions = orderElement("div",undefined,"order-actions");
       const errorBox = orderElement("p","", "order-message");
       errorBox.setAttribute("role","status");
@@ -3536,7 +3536,7 @@ window.hansolCatalogConfig = {
           } else {
             await catalogApi.shopRpc("hansol_order_action",{p_id:row.id,p_expected:row.status,p_action:action,...fields});
           }
-          if (generation === managementGeneration) await showShopManagement("orders");
+          if (generation === managementGeneration) await showShopManagement("orders",0,action === "delete-unpaid" ? null : selectedOrder);
           if (action === "canceled" || action === "delete-unpaid") await refreshCatalog();
         } catch (error) {
           errorBox.textContent = ({STATUS_CHANGED:"다른 관리자가 상태를 변경했습니다. 목록을 새로고침해 주세요.",
@@ -3655,7 +3655,7 @@ window.hansolCatalogConfig = {
       panel.append(fields,notice,log); card.append(panel);
     }
 
-    function renderOrderCard(card, row, customer, generation) {
+    function renderOrderCard(card, row, customer, generation, selectedOrder) {
       card.className = "order-card";
       const date = shopDate.format(new Date(row.created_at));
       const heading = orderElement("header",undefined,"order-heading");
@@ -3698,16 +3698,18 @@ window.hansolCatalogConfig = {
         card.append(tracking);
       }
       if (customer) card.append(orderButton("문의하기",() => { closeShopManagement(); openInquiry(); }));
-      else { orderControls(card,row,generation); orderNotificationTools(card,row); }
+      else { orderControls(card,row,generation,selectedOrder); orderNotificationTools(card,row); }
     }
 
 
     function openOrderManagementFromLink() {
       const link = new URL(location.href);
-      if (!link.searchParams.has("manage-orders") || currentUser?.id !== "flowerday1585") return;
+      const target = link.searchParams.get("manage-orders");
+      if (target !== "1" && !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(target ?? "")) return;
+      if (!currentUser) { openModal("loginModal"); return; }
       link.searchParams.delete("manage-orders");
       history.replaceState(null,"",link);
-      void showShopManagement("orders");
+      if (currentUser.id === "flowerday1585") void showShopManagement("orders",0,target === "1" ? null : target);
     }
     let managementGeneration = 0;
     const orderLabels = {received:"입금 대기",paid:"입금 확인",preparing:"발송 준비",shipped:"발송 완료",delivered:"배송 완료",canceled:"주문 취소"};
@@ -3722,7 +3724,7 @@ window.hansolCatalogConfig = {
       myOrderPage = 0;
     }
 
-    async function showShopManagement(tab, direction = 0) {
+    async function showShopManagement(tab, direction = 0, selectedOrder = null) {
       const customer = tab === "mine";
       const owner = currentUser;
       if (!owner || (!customer && owner.id !== "flowerday1585")) return;
@@ -3743,12 +3745,14 @@ window.hansolCatalogConfig = {
       reset.hidden = true;
       document.getElementById("memberExportActions").hidden = !members;
       document.getElementById("testOrderTools").hidden = members || customer;
-      if (!members && !customer) renderTestOrders();
+      if (!members && !customer && !selectedOrder) renderTestOrders();
+      if (selectedOrder) document.getElementById("testOrderTools").hidden = true;
       document.getElementById("shopAdminTitle").textContent = members ? "가입 회원" : customer ? "내 주문·배송 조회" : "주문 관리";
       openModal("shopAdminModal");
       try {
         const [rows, canRemoveMember, overview] = await Promise.all([
-          catalogApi.shopRpc(members ? "hansol_verified_member_directory" : customer ? "hansol_my_orders_v2" : "hansol_shop_orders", {p_offset: page * size}),
+          selectedOrder ? catalogApi.shopRpc("hansol_shop_order_by_id",{p_id:selectedOrder})
+            : catalogApi.shopRpc(members ? "hansol_verified_member_directory" : customer ? "hansol_my_orders_v2" : "hansol_shop_orders", {p_offset: page * size}),
           members ? catalogApi.shopRpc("hansol_admin_removal_available", {}).catch(() => false) : false,
           !members && !customer ? catalogApi.shopRpc("hansol_order_dashboard",{}).catch(() => null) : null
         ]);
@@ -3772,7 +3776,8 @@ window.hansolCatalogConfig = {
             orderOverview.append(stat);
           }
         }
-        if (!members) orderOverview.append(orderButton("새로고침",() => showShopManagement(tab)));
+        if (!members) orderOverview.append(orderButton("새로고침",() => showShopManagement(tab,0,selectedOrder)));
+        if (selectedOrder) orderOverview.append(orderButton("전체 주문",() => showShopManagement("orders",-orderPage)));
         list.replaceChildren();
         if (!rows.length) list.textContent = members ? "이메일 인증을 완료한 가입 회원이 없습니다." : "표시할 주문이 없습니다.";
         let deadlines = new Map();
@@ -3819,12 +3824,12 @@ window.hansolCatalogConfig = {
               item.append(orderElement("p",reason,"order-message"));
             }
           } else {
-            renderOrderCard(item,{...row,...deadlines.get(row.id)},customer,generation);
+            renderOrderCard(item,{...row,...deadlines.get(row.id)},customer,generation,selectedOrder);
           }
           list.append(item);
         }
-        prev.hidden = page === 0;
-        next.hidden = rows.length < size;
+        prev.hidden = !!selectedOrder || page === 0;
+        next.hidden = !!selectedOrder || rows.length < size;
         prev.onclick = () => showShopManagement(tab, -1);
         next.onclick = () => showShopManagement(tab, 1);
       } catch {
@@ -5177,7 +5182,7 @@ window.hansolCatalogConfig = {
     renderPolicyLinks();
     setupCustomerFeedback();
     updateUI();
-    restoreSignedInUI();
+    void restoreSignedInUI().then(openOrderManagementFromLink);
     window.addEventListener("hansol-session-ended", clearSignedInUI);
     window.addEventListener("focus", restoreSignedInUI);
     window.addEventListener("online", restoreSignedInUI);
