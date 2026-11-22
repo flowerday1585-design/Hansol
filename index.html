@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-j3+loc6crDWikEyGlp1kD7xbBP4QcSl1+KkndUWfZFM=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-vWY1HvzrF1wU+d+1hdEV6y9D8FfhCm1PzeKbRf78RAM=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -3533,14 +3533,17 @@ window.hansolCatalogConfig = {
         try {
           if (action === "delete-unpaid") {
             await catalogApi.shopRpc("hansol_delete_unpaid_order",{p_id:row.id,p_confirmed:fields.p_confirmed});
+          } else if (action === "reopen") {
+            await catalogApi.shopRpc("hansol_reopen_order",{p_id:row.id,p_expected:row.status,p_confirmed:fields.p_confirmed});
           } else {
             await catalogApi.shopRpc("hansol_order_action",{p_id:row.id,p_expected:row.status,p_action:action,...fields});
           }
           if (generation === managementGeneration) await showShopManagement("orders",0,action === "delete-unpaid" ? null : selectedOrder);
-          if (action === "canceled" || action === "delete-unpaid") await refreshCatalog();
+          if (action === "canceled" || action === "delete-unpaid" || action === "reopen") await refreshCatalog();
         } catch (error) {
           errorBox.textContent = ({STATUS_CHANGED:"다른 관리자가 상태를 변경했습니다. 목록을 새로고침해 주세요.",
             PAYMENT_DEADLINE_PASSED:"입금 확인 기한이 지났습니다. 주문 목록을 새로고침해 주세요.",
+            OUT_OF_STOCK:"판매 가능한 재고가 부족해 접수 단계로 되돌릴 수 없습니다.",
             INVALID_TRACKING:"택배사, 송장번호 및 홈페이지 주소를 확인해 주세요.",INVALID_CHARGES:"배송비와 할인액을 확인해 주세요.",
             ORDER_REVIEW_REQUIRED:"주문 검토 후 배송비와 할인액을 먼저 저장해 주세요."})[error.code] || "저장에 실패했습니다. 입력값과 연결 상태를 확인해 주세요.";
         } finally { for (const control of actions.querySelectorAll("button")) control.disabled = false; }
@@ -3591,7 +3594,9 @@ window.hansolCatalogConfig = {
       }
       if (["received","paid","preparing"].includes(row.status)) actions.append(confirmed("주문 취소",
         row.status === "received" ? "주문을 취소하고 재고를 복구하시겠습니까?" : "환불을 직접 완료하셨습니까? 주문을 취소하고 재고를 복구합니다.","canceled"));
-      if (row.status === "received") actions.append(confirmed("미입금 주문 삭제",
+      if (["paid","preparing","canceled"].includes(row.status)) actions.append(confirmed("접수 단계로 되돌리기",
+        "주문을 접수·입금 대기로 되돌리고 입금 기한을 지금부터 12시간으로 설정할까요? 실제로 결제된 금액이 없는지 먼저 확인해 주세요. 이 버튼은 입금이나 환불을 처리하지 않습니다.","reopen"));
+      if (row.status === "received" && !row.reopened_at) actions.append(confirmed("미입금 주문 삭제",
         `주문 ${row.id}을 영구 삭제하고 예약 재고를 복구할까요? 실제 입금 내역을 먼저 확인해 주세요. 삭제한 주문은 관리자와 구매자 주문 내역에서 사라지며 복구할 수 없습니다.`,"delete-unpaid"));
       card.append(actions,errorBox);
     }
@@ -3663,6 +3668,7 @@ window.hansolCatalogConfig = {
       badge.dataset.state = row.status;
       heading.append(badge,orderElement("span",date),orderElement("small","주문번호 "+row.id));
       card.append(heading);
+      if (!customer && row.reopened_at) card.append(orderElement("p",`접수 상태로 되돌린 시각 ${shopDate.format(new Date(row.reopened_at))}`,"order-message"));
       if (row.status === "received" && row.payment_due_at) card.append(orderElement("p",
         `입금 마감 ${shopDate.format(new Date(row.payment_due_at))} (한국시간) · 마감까지 입금 확인이 없으면 자동 취소됩니다.`,"order-message"));
       if (row.payment_expired_at) card.append(orderElement("p","입금 확인 기한이 지나 자동 취소되었습니다. 구매를 원하시면 다시 주문해 주세요.","order-message"));
