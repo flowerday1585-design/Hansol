@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-XkJJQPBVRBjkBiLHSDl7H+JMw4yb2qagzLKGo9GpaKo=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-MaoMy0kOk+ueV32VBqW4el4Qj7plkKJze9GXVzRaUwE=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -186,6 +186,10 @@
     .price-krw { font-size: 18px; font-weight: 800; color: #1d4ed8; font-variant-numeric: tabular-nums; }
     .price-subtotal { color:#475569; font-variant-numeric:tabular-nums; }
     .price-subtotal strong { color:#1e293b; }
+    .vat-label, .vat-breakdown { color:var(--text-sub); font-size:12px; line-height:1.5; }
+    .vat-breakdown { margin:4px 0 0; }
+    .detail-price { margin:12px 0; }
+    .detail-price .price-krw { display:block; }
     
     /* 카드 내 수량 조절 및 장바구니 담기 컨트롤 영역 */
     .card-cart-control { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
@@ -553,6 +557,10 @@
       <button type="button" id="detailNext" class="thumb-arrow next" aria-label="다음 사진" data-click="next-detail-photo">›</button>
       <div id="detailCounter" class="detail-counter" aria-live="polite"></div>
     </div>
+    <div class="detail-price">
+      <strong id="detailPrice" class="price-krw"></strong>
+      <p id="detailVat" class="vat-breakdown"></p>
+    </div>
     <p id="detailDescription" class="detail-description"></p>
     <button class="auth-btn primary shop-buy" type="button" id="detailOrder">주문하기</button>
   </dialog>
@@ -564,11 +572,12 @@
         <!-- 장바구니 상품 목록 -->
       </div>
       <div style="display:grid; gap:4px; margin-top:12px;">
-        <span>상품 합계 <strong id="cartSubtotal">0원</strong></span>
+        <span>상품 합계 (VAT 포함) <strong id="cartSubtotal">0원</strong></span>
+        <span id="cartVat" class="vat-breakdown"></span>
         <span hidden=""><strong id="cartShipping">0원</strong><strong id="cartFee">0원</strong></span>
       </div>
       <div class="cart-total-box">
-        <span>예상 합계</span>
+        <span>예상 합계 (VAT 포함)</span>
         <span id="cartTotalPrice" style="color:var(--primary);">0원</span>
       </div>
       <div class="modal-btns">
@@ -1878,12 +1887,13 @@ window.hansolCatalogConfig = {
         ? "먼저 담은 재고는 10분간 보관됩니다. 시간이 지나거나 상품을 삭제하면 재고가 풀립니다."
         : "로그인 후에 재고가 보관됩니다. 방문객 장바구니는 닫거나 새로고침하면 비워집니다.";
       const listContainer = document.getElementById("cartItemsList");
-      const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+      const amounts = cartVatAmounts(cart);
       const {shipping, fee} = {shipping: 0, fee: 0};
-      document.getElementById("cartSubtotal").textContent = won(subtotal);
+      document.getElementById("cartSubtotal").textContent = won(amounts.total);
+      document.getElementById("cartVat").textContent = cart.length ? vatBreakdown(amounts) : "";
       document.getElementById("cartShipping").textContent = won(shipping);
       document.getElementById("cartFee").textContent = won(fee);
-      document.getElementById("cartTotalPrice").textContent = won(subtotal + shipping + fee);
+      document.getElementById("cartTotalPrice").textContent = won(amounts.total + shipping + fee);
 
       if(cart.length === 0) {
         listContainer.innerHTML = `<div style="text-align:center; padding:30px; color:#6b7280;">장바구니가 비어 있습니다.</div>`;
@@ -1895,7 +1905,7 @@ window.hansolCatalogConfig = {
             <div class="cart-item-row">
               <div>
                 <div style="font-weight:700; font-size:14px;">${escapeCatalogHtml(item.name)}</div>
-                <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">단가: ${Number(item.price).toLocaleString()}원${item.expiresAt ? ' · ' + new Date(item.expiresAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Asia/Seoul'}) + '까지 보관' : ''}</div>
+                <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">단가 (VAT 포함) ${won(item.price)}${item.expiresAt ? ' · ' + new Date(item.expiresAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Asia/Seoul'}) + '까지 보관' : ''}</div>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <button class="qty-btn" type="button" aria-label="수량 줄이기" data-click="cart-decrease" data-index="${idx}">−</button>
@@ -3185,6 +3195,7 @@ window.hansolCatalogConfig = {
         } : null;
       });
       if (lines.some(line => !line)) { alert("남은 재고를 확인하고 수량을 조정해 주세요."); return; }
+      const amounts = cartVatAmounts(lines);
       if (!currentUser) {
         pendingCheckout = productId || 0;
         closeModal("cartModal");
@@ -3216,7 +3227,7 @@ window.hansolCatalogConfig = {
       }
       document.getElementById("checkoutItems").textContent = [...lines.map(line =>
         line.name + " × " + line.qty + " · " + won(line.price * line.qty)),
-        "상품 합계 " + won(lines.reduce((sum,line) => sum + line.qty * line.price,0))].join("\n");
+        "상품 합계 (VAT 포함) " + won(amounts.total), vatBreakdown(amounts)].join("\n");
       document.getElementById("checkoutStatus").textContent = "";
       closeModal("cartModal");
       openModal("checkoutModal");
@@ -4624,10 +4635,11 @@ window.hansolCatalogConfig = {
             <h2 class="product-name"><button type="button" class="product-title-open" data-click="open-product-detail" data-product-id="${item.id}">${escapeCatalogHtml(item.name)}</button></h2>
             <p class="product-desc">${escapeCatalogHtml(item.desc || '')}</p>
             <div class="price-row">
-              <span class="price-krw">${priced ? won(item.price) : "가격 미정"}</span>
-              ${!priced || soldOut || catalogPreview ? "" : `<span class="price-subtotal">소계 <strong id="card-total-${item.id}">${won(item.price * cardQuantities[item.id])}</strong></span>`}
+              <span class="price-krw">${priced ? `${won(item.price)} <small class="vat-label">VAT 포함</small>` : "가격 미정"}</span>
+              ${!priced || soldOut || catalogPreview ? "" : `<span class="price-subtotal">소계 (VAT 포함) <strong id="card-total-${item.id}">${won(item.price * cardQuantities[item.id])}</strong></span>`}
             </div>
             
+            ${priced ? `<p class="vat-breakdown">${vatBreakdown(saleVatAmounts(item, item.price))}</p>` : ""}
             ${!priced ? "" : catalogPreview ? '<p class="shop-stock">재고 확인 필요</p>' : soldOut ? '<p class="product-sold-out">품절</p>' : `
               <p class="shop-stock${lowStock(item) ? " shop-stock-low" : ""}">
                 ${available ? `남은 수량 ${available}개` : stockAvailable(item) ? "다른 고객의 장바구니에 보관 중" : "재고 확인 중"}
@@ -4669,6 +4681,11 @@ window.hansolCatalogConfig = {
       detailTouchStart = null;
       detailLastSwipe = -Infinity;
       document.getElementById("detailTitle").textContent = item.name;
+      const priced = hasSalePrice(item);
+      document.getElementById("detailPrice").textContent = priced ? won(item.price) + " (VAT 포함)" : "가격 미정";
+      const vat = document.getElementById("detailVat");
+      vat.hidden = !priced;
+      vat.textContent = priced ? vatBreakdown(saleVatAmounts(item, item.price)) : "";
       document.getElementById("detailDescription").textContent = item.desc || "";
       document.getElementById("detailGallery").hidden = !detailPhotos.length;
       for (const id of ["detailPrev", "detailNext", "detailCounter"]) {
@@ -4750,6 +4767,26 @@ window.hansolCatalogConfig = {
       if (total > 9999999999999) return null;
       const supply = mode === "excluded" ? input : Math.floor((total * 10 + 5) / 11);
       return { total, supply, vat: total - supply };
+    }
+
+    function saleVatAmounts(product, price) {
+      const saved = productVatAmounts(product?.vatInput, product?.vatMode);
+      return saved?.total === price ? saved : productVatAmounts(price, "included");
+    }
+
+    function cartVatAmounts(lines) {
+      const productsById = new Map(products.map(product => [product.id, product]));
+      return lines.reduce((amounts, line) => {
+        const unit = saleVatAmounts(productsById.get(line.id), line.price);
+        amounts.total += line.price * line.qty;
+        amounts.supply += (unit?.supply ?? line.price) * line.qty;
+        amounts.vat += (unit?.vat ?? 0) * line.qty;
+        return amounts;
+      }, {total:0, supply:0, vat:0});
+    }
+
+    function vatBreakdown(amounts) {
+      return `VAT 별도 ${won(amounts.supply)} · 부가세 ${won(amounts.vat)}`;
     }
 
     const productPriceInput = document.getElementById("prodPrice");
