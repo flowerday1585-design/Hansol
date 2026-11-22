@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-7xRrwTzSpi/Ah/Q2ml/QyK7TDsdojFYJ4DD0LnSpebc=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-MPmUXl8zDnamakXgXShPE/PieeUAqRJ2k/bblj3QSVQ=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -581,6 +581,7 @@
   <div class="modal" id="checkoutModal" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle">
     <form id="checkoutForm" class="modal-content" data-submit="submit-order">
       <h3 id="checkoutTitle">계좌이체 주문</h3>
+      <p class="order-message">주문 접수 후 12시간 안에 입금 확인이 되지 않으면 주문이 자동 취소됩니다. 마감 직전에 송금하셨다면 재입금 전에 문의해 주세요.</p>
       <p id="checkoutItems" class="shop-admin-row"></p>
       <p id="checkoutBank" class="shop-admin-row"></p>
       <p>배송비가 필요한 경우 접수 후 안내드립니다. 최종 금액을 안내받은 뒤 입금해 주세요.</p>
@@ -3270,6 +3271,12 @@ window.hansolCatalogConfig = {
         button.hidden = true;
         document.getElementById("checkoutItems").textContent = "";
         status.textContent = "주문이 접수되었습니다. 주문번호 " + id;
+        try {
+          const [deadline] = await catalogApi.shopRpc("hansol_order_deadlines",{p_ids:[id]});
+          if (deadline?.payment_due_at && !deadline.payment_expired_at) {
+            status.textContent += " · 입금 마감 " + shopDate.format(new Date(deadline.payment_due_at)) + " (한국시간)";
+          }
+        } catch {}
         await refreshCatalog();
       } catch (error) {
         if (["OUT_OF_STOCK","PRICE_CHANGED","INVALID_ORDER","EMAIL_REQUIRED"].includes(error.code)) {
@@ -3508,11 +3515,11 @@ window.hansolCatalogConfig = {
         preparing:"주문하신 상품의 발송을 준비하고 있습니다. 발송 후 송장번호를 안내해 드리겠습니다.",
         shipped:"기다려 주셔서 감사합니다. 주문하신 상품이 발송되었습니다.",
         delivered:"주문하신 상품의 배송이 완료되었습니다. 상품을 안전하게 받으셨는지 확인 부탁드립니다.",
-        canceled:"요청하신 주문이 취소되었습니다. 문의 사항은 한솔아카이브 홈페이지를 이용해 주세요."};
+        canceled:row.payment_expired_at ? "12시간 이내 입금 확인이 되지 않아 주문이 자동 취소되었습니다. 구매를 원하시면 다시 주문해 주세요." : "주문이 취소되었습니다. 문의 사항은 한솔아카이브 홈페이지를 이용해 주세요."};
       const delivery = row.carrier && row.tracking ? ["", "■ 배송정보", `택배사: ${row.carrier}`, `송장번호: ${row.tracking}`,
         orderTracking(row) ? `배송 조회: ${orderTracking(row)}` : ""].filter(Boolean) : [];
       return ["[한솔아카이브]","",`${row.recipient} 고객님, 안녕하세요.`,intro[kind],"","■ 주문정보",`주문번호: ${row.id}`,
-        ...row.lines.map(line => `${orderLineName(line)} · ${orderLineQty(line)}`),`배송비: ${orderCost(row.shipping_fee)}`,
+        ...row.lines.map(line => `${orderLineName(line)} · ${orderLineQty(line)}`),...(kind === "order" && row.payment_due_at ? [`입금 마감: ${shopDate.format(new Date(row.payment_due_at))} (한국시간)`,"마감까지 입금 확인이 되지 않으면 주문이 자동 취소됩니다."] : []),`배송비: ${orderCost(row.shipping_fee)}`,
         `총 결제금액: ${orderCost(orderTotal(row))}`,...delivery,"","한솔아카이브를 이용해 주셔서 감사합니다.","https://hansolarchive.com/"].join("\n");
     }
 
@@ -3529,6 +3536,7 @@ window.hansolCatalogConfig = {
           if (action === "canceled") await refreshCatalog();
         } catch (error) {
           errorBox.textContent = ({STATUS_CHANGED:"다른 관리자가 상태를 변경했습니다. 목록을 새로고침해 주세요.",
+            PAYMENT_DEADLINE_PASSED:"입금 확인 기한이 지났습니다. 주문 목록을 새로고침해 주세요.",
             INVALID_TRACKING:"택배사, 송장번호 및 홈페이지 주소를 확인해 주세요.",INVALID_CHARGES:"배송비와 할인액을 확인해 주세요.",
             ORDER_REVIEW_REQUIRED:"주문 검토 후 배송비와 할인액을 먼저 저장해 주세요."})[error.code] || "저장에 실패했습니다. 입력값과 연결 상태를 확인해 주세요.";
         } finally { for (const control of actions.querySelectorAll("button")) control.disabled = false; }
@@ -3649,6 +3657,9 @@ window.hansolCatalogConfig = {
       badge.dataset.state = row.status;
       heading.append(badge,orderElement("span",date),orderElement("small","주문번호 "+row.id));
       card.append(heading);
+      if (row.status === "received" && row.payment_due_at) card.append(orderElement("p",
+        `입금 마감 ${shopDate.format(new Date(row.payment_due_at))} (한국시간) · 마감까지 입금 확인이 없으면 자동 취소됩니다.`,"order-message"));
+      if (row.payment_expired_at) card.append(orderElement("p","입금 확인 기한이 지나 자동 취소되었습니다. 구매를 원하시면 다시 주문해 주세요.","order-message"));
       if (customer && row.status !== "canceled") {
         const steps = orderElement("ol",undefined,"order-progress");
         const position = orderStages.findIndex(([key]) => key === row.status);
@@ -3758,6 +3769,14 @@ window.hansolCatalogConfig = {
         if (!members) orderOverview.append(orderButton("새로고침",() => showShopManagement(tab)));
         list.replaceChildren();
         if (!rows.length) list.textContent = members ? "이메일 인증을 완료한 가입 회원이 없습니다." : "표시할 주문이 없습니다.";
+        let deadlines = new Map();
+        if (!members && rows.length) {
+          try {
+            const records = await catalogApi.shopRpc("hansol_order_deadlines",{p_ids:rows.map(row => row.id)});
+            deadlines = new Map(records.map(record => [record.id,record]));
+          } catch {}
+          if (generation !== managementGeneration || currentUser !== owner) return;
+        }
         for (const [index, row] of rows.entries()) {
           const item = document.createElement("article");
           item.className = "shop-admin-row";
@@ -3794,7 +3813,7 @@ window.hansolCatalogConfig = {
               item.append(orderElement("p",reason,"order-message"));
             }
           } else {
-            renderOrderCard(item,row,customer,generation);
+            renderOrderCard(item,{...row,...deadlines.get(row.id)},customer,generation);
           }
           list.append(item);
         }
