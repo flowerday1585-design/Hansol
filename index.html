@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-Qsxb6dpWbCPAiXDsBx/OzYOnbjs8hOp58NlXF1oDG3M=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-vFKvCqy8Ft2myWpqIvr58d5FpKSdWo42kKxR661gSG0=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -3392,7 +3392,9 @@ window.hansolCatalogConfig = {
       } catch (error) {
         if (currentUser !== owner) return;
         alert(error.code === "ACTIVE_ORDER" ? "처리 중인 주문을 완료하거나 취소한 뒤 탈퇴를 진행해 주세요."
-          : "탈퇴를 처리하지 못했습니다. 회원 목록을 새로 불러와 주세요.");
+          : error.code === "MEMBER_NOT_FOUND" || error.status === 403
+            ? "보호된 계정이거나 회원 상태가 변경되었습니다. 회원 목록을 다시 열어 주세요."
+            : "탈퇴를 처리하지 못했습니다. 회원 목록을 새로 불러와 주세요.");
       } finally { button.disabled = false; }
     }
 
@@ -3697,6 +3699,14 @@ window.hansolCatalogConfig = {
         if (generation !== managementGeneration || currentUser !== owner) return;
         if (members && page > 0 && !rows.length) return showShopManagement(tab, -1);
         reset.hidden = !(members && canRemoveMember === true);
+        let removalStates = new Map();
+        if (members && canRemoveMember === true && rows.length) {
+          try {
+            const states = await catalogApi.shopRpc("hansol_member_removal_states",{p_member_ids:rows.map(row => row.member_id)});
+            removalStates = new Map(states.map(state => [state.member_id,state.reason]));
+          } catch {}
+          if (generation !== managementGeneration || currentUser !== owner) return;
+        }
         const orderOverview = document.getElementById("orderOverview");
         orderOverview.replaceChildren();
         if (overview) {
@@ -3729,13 +3739,20 @@ window.hansolCatalogConfig = {
               "이메일 인증 완료  " + shopDate.format(new Date(row.verified_at))
             ].join("\n");
             item.append(heading, details);
-            if (canRemoveMember === true && row.member_id && row.member_id !== currentUser?.accountId) {
+            const removalState = removalStates.get(row.member_id);
+            if (canRemoveMember === true && removalState === "READY" && row.member_id !== currentUser?.accountId) {
               const remove = document.createElement("button");
               remove.type = "button";
               remove.className = "auth-btn";
               remove.textContent = "강제 탈퇴";
               remove.addEventListener("click", () => removeShopMember(row, remove));
               item.append(remove);
+            } else if (canRemoveMember === true) {
+              const reason = row.member_id === owner.accountId ? "현재 로그인한 계정은 강제 탈퇴할 수 없습니다."
+                : ({PROTECTED_ADMIN:"보호된 관리자 계정입니다. 강제 탈퇴할 수 없습니다.",
+                    ACTIVE_ORDER:"처리 중인 주문이 있어 강제 탈퇴할 수 없습니다."})[removalState]
+                  || "탈퇴 가능 여부를 확인하지 못했습니다. 회원 목록을 다시 열어 주세요.";
+              item.append(orderElement("p",reason,"order-message"));
             }
           } else {
             renderOrderCard(item,row,customer,generation);
