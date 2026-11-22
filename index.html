@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-vWY1HvzrF1wU+d+1hdEV6y9D8FfhCm1PzeKbRf78RAM=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-XkJJQPBVRBjkBiLHSDl7H+JMw4yb2qagzLKGo9GpaKo=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -3346,7 +3346,9 @@ window.hansolCatalogConfig = {
     }
 
     function openInquiryInboxFromLink() {
-      if (inquiryOpenedFromLink || currentUser?.id !== "flowerday1585" || new URL(location.href).searchParams.get("inquiries") !== "1") return;
+      if (inquiryOpenedFromLink || new URL(location.href).searchParams.get("inquiries") !== "1") return;
+      if (!currentUser) { openModal("loginModal"); return; }
+      if (currentUser.id !== "flowerday1585") return;
       inquiryOpenedFromLink = true;
       openInquiryInbox();
     }
@@ -3355,12 +3357,12 @@ window.hansolCatalogConfig = {
       const button = document.getElementById("inquiryInboxButton");
       if (!button || currentUser?.id !== "flowerday1585") return;
       try {
-        const count = await catalogApi.shopRpc("hansol_inquiry_pending_count");
-        if (button.isConnected) button.textContent = count ? `고객 문의함 · 미답변 ${count}건` : "고객 문의함";
+        const counts = await catalogApi.shopRpc("hansol_inquiry_counts");
+        if (button.isConnected) button.textContent = `고객 문의함 · 미확인 ${counts.unread} · 미답변 ${counts.pending}`;
       } catch {}
     }
 
-    async function openInquiryInbox(direction = 0, customer = false, keepPage = false) {
+    async function openInquiryInbox(direction = 0, customer = false, keepPage = false, quiet = false) {
       const owner = currentUser;
       if (customer ? !canSendInquiry(owner) : owner?.id !== "flowerday1585") return;
       const generation = ++inquiryLoad;
@@ -3371,33 +3373,99 @@ window.hansolCatalogConfig = {
       const next = document.getElementById("inquiryNext");
       document.getElementById("inquiryInboxTitle").textContent = customer ? "내 문의 내역" : "고객 문의함";
       inquiryCustomerView = customer;
-      openModal("inquiryInbox");
-      prev.hidden = next.hidden = true;
-      list.replaceChildren();
-      status.textContent = "문의를 불러오는 중입니다…";
-      if (!customer) void refreshInquiryBadge();
+      if (!quiet) {
+        openModal("inquiryInbox");
+        status.textContent = "문의를 불러오는 중입니다…";
+      }
+      list.setAttribute("aria-busy","true");
       try {
-        const rows = await catalogApi.shopRpc(customer ? "hansol_my_inquiries" : "hansol_inquiry_inbox", {p_offset:page * 25});
+        const rows = await catalogApi.shopRpc(customer ? "hansol_my_inquiries" : "hansol_inquiry_inbox_v2", {p_offset:page * 25});
         if (generation !== inquiryLoad || currentUser !== owner) return;
+        const samePage = page === inquiryPage && list.dataset.customer === String(customer);
+        const signature = JSON.stringify(rows.map(row => [row.id,row.replied_at,row.reviewed_at,row.workflow_version]));
+        if (!customer) void refreshInquiryBadge();
+        if (quiet && samePage && signature === list.dataset.signature) return;
+        const openCards = new Set();
+        const drafts = new Map();
+        const focused = samePage && document.activeElement?.matches("#inquiryInboxList textarea") ? document.activeElement : null;
+        const selection = focused && [focused.selectionStart,focused.selectionEnd];
+        if (samePage) for (const card of list.querySelectorAll("details[data-inquiry]")) {
+          if (card.open) openCards.add(card.dataset.inquiry + ':' + card.dataset.version);
+          const field = card.querySelector("textarea");
+          if (field?.value) drafts.set(card.dataset.inquiry,field.value);
+        }
+        list.replaceChildren();
+        list.dataset.signature = signature;
+        list.dataset.customer = String(customer);
         inquiryPage = page;
         status.textContent = rows.length ? "" : "표시할 문의가 없습니다.";
         for (const row of rows.slice(0,25)) {
-          const card = orderElement("article",undefined,"shop-admin-row");
+          const card = orderElement(customer ? "article" : "details",undefined,"shop-admin-row");
+          if (!customer) {
+            card.dataset.inquiry = row.id;
+            card.dataset.version = row.workflow_version;
+          }
           const date = shopDate.format(new Date(row.created_at));
-          card.append(orderElement("span",row.replied_at ? "답변 완료" : "미답변","order-badge"),
-            orderElement("h4",row.subject),
-            orderElement("p",[date,row.sender_name,row.sender_email].filter(Boolean).join(" · ")),
+          const pending = !row.replied_at || (!customer && row.answer_reopened);
+          const heading = orderElement(customer ? "header" : "summary",undefined,"order-heading");
+          const answerBadge = orderElement("span",pending ? "미답변" : "답변 완료","order-badge");
+          if (!pending) answerBadge.dataset.state = "delivered";
+          if (!customer) {
+            const reviewed = orderElement("span",row.reviewed_at ? "확인" : "미확인","order-badge");
+            reviewed.dataset.state = row.reviewed_at ? "paid" : "canceled";
+            heading.append(reviewed);
+            card.open = openCards.has(row.id + ':' + row.workflow_version);
+            card.ontoggle = async () => {
+              if (!card.open || row.reviewed_at || card.hasAttribute("aria-busy") || currentUser !== owner) return;
+              card.setAttribute("aria-busy","true");
+              try {
+                const at = await catalogApi.shopRpc("hansol_inquiry_mark_reviewed",{p_id:row.id,p_version:row.workflow_version});
+                if (at) {
+                  row.reviewed_at = at;
+                  reviewed.textContent = "확인";
+                  reviewed.dataset.state = "paid";
+                  void refreshInquiryBadge();
+                }
+              } catch { status.textContent = "확인 상태를 저장하지 못했습니다. 문의를 다시 펼쳐 주세요."; }
+              finally { card.removeAttribute("aria-busy"); }
+            };
+          }
+          heading.append(answerBadge,orderElement("strong",row.subject),orderElement("small",customer ? date : date + " · 눌러서 내용 보기"));
+          card.append(heading,orderElement("p",[row.sender_name,row.sender_email].filter(Boolean).join(" · ")),
             orderElement("p",row.message,"inquiry-text"));
           if (row.replied_at) {
-            card.append(orderElement("strong","관리자 답변 · " + shopDate.format(new Date(row.replied_at))),
+            card.append(orderElement("strong",(pending ? "이전 답변 · " : "관리자 답변 · ") + shopDate.format(new Date(row.replied_at))),
               orderElement("p",row.reply,"inquiry-text"));
-          } else if (!customer) {
+          }
+          if (!customer && row.reply_history?.length) {
+            const history = orderElement("details");
+            history.append(orderElement("summary","이전 답변 기록"));
+            for (const entry of row.reply_history) history.append(orderElement("strong",shopDate.format(new Date(entry.replied_at))),
+              orderElement("p",entry.reply,"inquiry-text"));
+            card.append(history);
+          }
+          if (!customer && !pending) {
+            const reset = orderButton("미확인·미답변으로 되돌리기",async () => {
+              if (currentUser !== owner || !confirm("이 문의를 다시 처리할 수 있도록 상태를 초기화할까요? 기존 답변은 보관됩니다.")) return;
+              reset.disabled = true;
+              card.setAttribute("aria-busy","true");
+              try {
+                await catalogApi.shopRpc("hansol_inquiry_reopen",{p_id:row.id,p_version:row.workflow_version});
+                card.open = false;
+                if (currentUser === owner && card.isConnected && document.getElementById("inquiryInbox").getClientRects().length) await openInquiryInbox(0,false,true);
+              } catch { status.textContent = "문의 상태가 바뀌었거나 저장하지 못했습니다. 문의함을 다시 열어 주세요."; }
+              finally { reset.disabled = false; card.removeAttribute("aria-busy"); }
+            });
+            card.append(reset);
+          }
+          if (!customer && pending) {
             const field = document.createElement("textarea");
             field.rows = 3;
             field.maxLength = 2000;
             field.style.width = "100%";
             field.setAttribute("aria-label", "문의 답변");
             field.placeholder = "고객에게 남길 답변을 입력해 주세요.";
+            field.value = drafts.get(row.id) ?? "";
             const feedback = orderElement("p",undefined,"order-message");
             feedback.setAttribute("role","status");
             const button = orderButton("답변 등록",async () => {
@@ -3405,25 +3473,40 @@ window.hansolCatalogConfig = {
               if (!reply || button.disabled || currentUser !== owner) return;
               button.disabled = true;
               field.readOnly = true;
+              card.setAttribute("aria-busy","true");
               feedback.textContent = "답변을 등록하는 중입니다…";
               try {
-                await catalogApi.shopRpc("hansol_inquiry_reply",{p_id:row.id,p_reply:reply});
-                if (generation === inquiryLoad && currentUser === owner) await openInquiryInbox(0,false,true);
+                await catalogApi.shopRpc("hansol_inquiry_reply_v2",{p_id:row.id,p_reply:reply,p_version:row.workflow_version});
+                field.value = "";
+                if (currentUser === owner && card.isConnected && document.getElementById("inquiryInbox").getClientRects().length) await openInquiryInbox(0,false,true);
               } catch (error) {
                 feedback.textContent = error.code === "INQUIRY_NOT_OPEN" ? "이미 답변이 등록됐습니다. 문의함을 다시 열어 확인해 주세요."
                   : "답변을 저장하지 못했습니다. 입력 내용을 확인하고 다시 시도해 주세요.";
-              } finally { button.disabled = false; field.readOnly = false; }
+              } finally { button.disabled = false; field.readOnly = false; card.removeAttribute("aria-busy"); }
             });
             card.append(field,button,feedback);
           }
           list.append(card);
+          if (focused?.closest("[data-inquiry]")?.dataset.inquiry === row.id) {
+            const field = card.querySelector("textarea");
+            field?.focus({preventScroll:true});
+            field?.setSelectionRange(...selection);
+          }
         }
         prev.hidden = page === 0;
         next.hidden = rows.length <= 25;
       } catch {
-        if (generation === inquiryLoad && currentUser === owner) status.textContent = "문의함을 불러오지 못했습니다. 잠시 후 다시 열어 주세요.";
-      }
+        if (!quiet && generation === inquiryLoad && currentUser === owner) status.textContent = "문의함을 불러오지 못했습니다. 잠시 후 다시 열어 주세요.";
+      } finally { if (generation === inquiryLoad) list.removeAttribute("aria-busy"); }
     }
+
+    setInterval(() => {
+      const inbox = document.getElementById("inquiryInbox");
+      const list = document.getElementById("inquiryInboxList");
+      if (!document.hidden && inbox.getClientRects().length && !list.closest('[aria-busy="true"]') && !list.querySelector('[aria-busy="true"]')) {
+        void openInquiryInbox(0,inquiryCustomerView,true,true);
+      }
+    },7000);
 
     async function removeShopMember(row, button) {
       const owner = currentUser;
@@ -5188,7 +5271,7 @@ window.hansolCatalogConfig = {
     renderPolicyLinks();
     setupCustomerFeedback();
     updateUI();
-    void restoreSignedInUI().then(openOrderManagementFromLink);
+    void restoreSignedInUI().then(() => { openOrderManagementFromLink(); openInquiryInboxFromLink(); });
     window.addEventListener("hansol-session-ended", clearSignedInUI);
     window.addEventListener("focus", restoreSignedInUI);
     window.addEventListener("online", restoreSignedInUI);
