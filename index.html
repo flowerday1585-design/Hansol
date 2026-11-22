@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-MaoMy0kOk+ueV32VBqW4el4Qj7plkKJze9GXVzRaUwE=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-gRFH+2OoqieSAZTZsaA/w9oeMEYIfYHInFL35QfaLF8=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -851,11 +851,10 @@
       </div>
       <div class="form-group"><label>코드/시리즈</label><input type="text" id="prodCode" placeholder="예: M3 / MUNIKIS ZERO"></div>
       <div class="form-group">
-        <label for="prodVatMode">부가세 입력 방식</label>
-        <select id="prodVatMode"><option value="included">VAT 포함</option><option value="excluded">VAT 별도</option></select>
+        <label class="stock-toggle"><input type="checkbox" id="prodVatIncluded" checked> 부가세 포함</label>
       </div>
       <div class="form-group">
-        <label for="prodPrice" id="prodPriceLabel">VAT 포함 가격 (원, 선택)</label>
+        <label for="prodPrice" id="prodPriceLabel">부가세 포함 가격 (원, 선택)</label>
         <input type="number" id="prodPrice" min="0" max="9999999999999" step="1" placeholder="미입력 또는 0원은 가격 미정" aria-describedby="prodVatPreview">
         <p id="prodVatPreview" class="product-photo-status" role="status"></p>
       </div>
@@ -4790,18 +4789,19 @@ window.hansolCatalogConfig = {
     }
 
     const productPriceInput = document.getElementById("prodPrice");
-    const productVatMode = document.getElementById("prodVatMode");
+    const productVatIncluded = document.getElementById("prodVatIncluded");
+    const readProductVatMode = () => productVatIncluded.checked ? "included" : "excluded";
 
     function readProductVatAmounts() {
       if (productPriceInput.validity.badInput) return null;
       const input = productPriceInput.value === "" ? 0 : productPriceInput.valueAsNumber;
-      return productVatAmounts(input, productVatMode.value);
+      return productVatAmounts(input, readProductVatMode());
     }
 
     function renderProductVatPreview() {
       const amounts = readProductVatAmounts();
-      document.getElementById("prodPriceLabel").textContent = productVatMode.value === "excluded"
-        ? "공급가액 (원, 선택)" : "VAT 포함 가격 (원, 선택)";
+      document.getElementById("prodPriceLabel").textContent = productVatIncluded.checked
+        ? "부가세 포함 가격 (원, 선택)" : "부가세 미포함 가격 (원, 선택)";
       document.getElementById("prodVatPreview").textContent = !amounts
         ? "가격을 허용 범위 내의 0원 이상 정수로 입력해 주세요."
         : amounts.total === 0 ? "가격 미정"
@@ -4809,7 +4809,7 @@ window.hansolCatalogConfig = {
     }
 
     productPriceInput.addEventListener("input", renderProductVatPreview);
-    productVatMode.addEventListener("change", renderProductVatPreview);
+    productVatIncluded.addEventListener("change", renderProductVatPreview);
 
     function openProductModal(id = null, category = currentCategory) {
       if (currentUser?.id !== "flowerday1585" || productPhotoSaving) return;
@@ -4844,7 +4844,7 @@ window.hansolCatalogConfig = {
       for (let slot = 1; slot <= 3; slot++) renderProductPhoto(slot);
       const savedAmounts = productVatAmounts(product?.vatInput, product?.vatMode);
       const useVatInput = savedAmounts !== null && savedAmounts.total === product.price;
-      productVatMode.value = useVatInput ? product.vatMode : "included";
+      productVatIncluded.checked = !useVatInput || product.vatMode === "included";
       productPriceInput.value = useVatInput ? product.vatInput || "" : hasSalePrice(product) ? product.price : "";
       renderProductVatPreview();
       setProductPhotoControls();
@@ -4886,7 +4886,7 @@ window.hansolCatalogConfig = {
       const category = document.getElementById("prodCategory").value;
       const code = document.getElementById("prodCode").value.trim();
       const amounts = readProductVatAmounts();
-      const vatMode = productVatMode.value;
+      const vatMode = readProductVatMode();
       const vatInput = productPriceInput.value === "" ? 0 : productPriceInput.valueAsNumber;
       const desc = document.getElementById("prodDesc").value.trim();
       const soldOut = document.getElementById("prodSoldOut").checked;
