@@ -329,6 +329,34 @@
     @media(max-width:420px) {.stock-entry > div {grid-column:1 / -1;} .stock-entry {grid-template-columns:auto 1fr;}}
     .shop-admin-row {white-space:pre-wrap; overflow-wrap:anywhere; padding:9px 0; border-bottom:1px solid #e5e7eb; margin-bottom:6px;}
     .shop-admin-row button {margin:6px 4px 0 0;}
+    #shopAdminModal .modal-content {width:min(94vw,760px);max-width:760px;}
+    .order-overview {display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0;}
+    .order-stat {display:grid;padding:5px 9px;color:#f8edda;background:#211b15;border-radius:8px;font-size:12px;}
+    .order-stat strong {font-size:16px;color:#f4cf94;}
+    .order-card {padding:14px;margin:12px 0;border:1px solid #dcd4c6;border-radius:12px;background:#fff;color:#231d16;overflow-wrap:anywhere;font-size:15px;}
+    .order-heading,.order-actions,.order-product {display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:7px 0;}
+    .order-heading small {width:100%;color:#534c43;}
+    .order-badge {padding:4px 9px;border-radius:6px;background:#f2e1bf;color:#543706;}
+    .order-badge[data-state="paid"] {background:#e6eefc;color:#233b79;}
+    .order-badge[data-state="preparing"] {background:#ede7fa;color:#4a306b;}
+    .order-badge[data-state="shipped"] {background:#dff1f0;color:#204c4a;}
+    .order-badge[data-state="delivered"] {background:#e4f3e0;color:#2b5425;}
+    .order-badge[data-state="canceled"] {background:#fae3e2;color:#822a29;}
+    .order-product {padding:6px 0;border-bottom:1px solid #eee8dc;}
+    .order-product img {width:55px;height:55px;object-fit:contain;}
+    .order-product span {margin-left:auto;font-weight:700;}
+    .order-total {display:block;font-size:19px;color:#5e3d05;}
+    .order-private {white-space:pre-line;}
+    .order-actions label {display:grid;font-size:13px;gap:3px;}
+    .order-actions input,.order-actions select {max-width:100%;padding:5px 6px;font:inherit;}
+    .order-actions input[type="number"] {width:110px;}
+    .order-message:not(:empty) {color:#673c15;margin:7px 0;font-size:14px;}
+    .order-notifications {border-top:1px solid #e8ddc8;margin-top:10px;padding-top:9px;}
+    .order-notifications summary {cursor:pointer;font-weight:700;}
+    .order-progress {display:grid;grid-template-columns:repeat(5,1fr);padding:0;gap:4px;list-style:none;font-size:12px;}
+    .order-progress li {border-top:3px solid #e6e1d8;padding:4px 1px;text-align:center;}
+    .order-progress li.order-complete {border-color:#b38745;color:#583a09;font-weight:700;}
+    .order-progress li[aria-current] {background:#fbf0dc;}
     @media (max-width:480px) {
       .header-inner {grid-template-columns:minmax(0,1fr) auto;}
       .logo-title {white-space:normal; font-size:15px;}
@@ -618,6 +646,7 @@
         <p id="testOrderStatus" role="status"></p>
         <div id="testOrderList"></div>
       </section>
+      <div id="orderOverview" class="order-overview"></div>
       <div id="shopAdminList" role="status"></div>
       <button type="button" class="auth-btn" id="shopAdminPrev">이전</button>
       <button type="button" class="auth-btn" id="shopAdminNext">다음</button>
@@ -2233,6 +2262,7 @@ window.hansolCatalogConfig = {
           }
         }
         openInquiryInboxFromLink();
+        openOrderManagementFromLink();
         if (pendingCheckout !== null) {
           const requested = pendingCheckout;
           pendingCheckout = null;
@@ -2261,6 +2291,7 @@ window.hansolCatalogConfig = {
         updateUI();
         void refreshCartState();
         openInquiryInboxFromLink();
+        openOrderManagementFromLink();
       }
     }
 
@@ -3382,14 +3413,253 @@ window.hansolCatalogConfig = {
       }
     }
 
+    const orderStages = [["received","주문 접수"],["paid","입금 확인"],["preparing","발송 준비"],["shipped","발송 완료"],["delivered","배송 완료"]];
+    const carriers = {
+      "CJ대한통운": ["https://www.cjlogistics.com/ko/tool/parcel/tracking"],
+      "우체국택배": ["https://trace.epost.go.kr/xtts/tt/epost/mobile/Trace.jsp"],
+      "한진택배": ["https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillSch.do?mCode=MN038"],
+      "롯데택배": ["https://www.lotteglogis.com/home/reservation/tracking/index"],
+      "로젠택배": ["https://www.ilogen.co.kr/web/personal/tkSearch"],
+      "경동택배": ["https://kdexp.com/"],
+      "EMS": ["https://trace.epost.go.kr/xtts/tt/epost/ems/ems_kor.jsp"],
+      "DHL": ["https://www.dhl.com/kr-ko/home/tracking.html","tracking-id"],
+      "FedEx": ["https://www.fedex.com/fedextrack/","trknbr"],
+      "UPS": ["https://www.ups.com/track?loc=ko_KR","tracknum"]
+    };
+    const orderElement = (tag, text, css) => {
+      const element = document.createElement(tag);
+      if (text !== undefined) element.textContent = text;
+      if (css) element.className = css;
+      return element;
+    };
+    const orderButton = (label, action) => {
+      const button = orderElement("button",label,"auth-btn");
+      button.type = "button";
+      button.onclick = action;
+      return button;
+    };
+    const orderCost = amount => amount == null ? "확정 전" : won(Number(amount));
+    const orderTotal = row => row.shipping_fee == null || row.discount_amount == null ? null :
+      Number(row.subtotal) + Number(row.shipping_fee) - Number(row.discount_amount);
+    const orderLineName = line => [line.name,line.option].filter(Boolean).join(" · ");
+    const orderLineQty = line => line.qty + (line.unit || "개");
+    const orderStatusLabel = row => row.status === "received" && row.reviewed_at === null ? "신규 주문" : orderLabels[row.status];
+
+    function orderTracking(row) {
+      const known = Object.hasOwn(carriers,row.carrier) ? carriers[row.carrier] : null;
+      if (known) {
+        const [address, parameter] = known;
+        const url = new URL(address);
+        if (parameter && row.tracking) url.searchParams.set(parameter,row.tracking);
+        return url.href;
+      }
+      if (/^https:\/\/[A-Za-z0-9.-]+(?:\/[^\s]*)?$/.test(row.carrier_website || "")) return row.carrier_website;
+      return "";
+    }
+
+    async function orderCopy(value) {
+      try { await navigator.clipboard.writeText(value); }
+      catch { prompt("복사해 주세요.",value); }
+    }
+
+    function orderTextMessage(row, kind) {
+      const intro = {order:"주문하신 상품이 정상적으로 접수되었습니다.",paid:"결제가 정상적으로 확인되었습니다. 소중한 상품을 꼼꼼하게 준비하겠습니다.",
+        preparing:"주문하신 상품의 발송을 준비하고 있습니다. 발송 후 송장번호를 안내해 드리겠습니다.",
+        shipped:"기다려 주셔서 감사합니다. 주문하신 상품이 발송되었습니다.",
+        delivered:"주문하신 상품의 배송이 완료되었습니다. 상품을 안전하게 받으셨는지 확인 부탁드립니다.",
+        canceled:"요청하신 주문이 취소되었습니다. 문의 사항은 한솔아카이브 홈페이지를 이용해 주세요."};
+      const delivery = row.carrier && row.tracking ? ["", "■ 배송정보", `택배사: ${row.carrier}`, `송장번호: ${row.tracking}`,
+        orderTracking(row) ? `배송 조회: ${orderTracking(row)}` : ""].filter(Boolean) : [];
+      return ["[한솔아카이브]","",`${row.recipient} 고객님, 안녕하세요.`,intro[kind],"","■ 주문정보",`주문번호: ${row.id}`,
+        ...row.lines.map(line => `${orderLineName(line)} · ${orderLineQty(line)}`),`배송비: ${orderCost(row.shipping_fee)}`,
+        `총 결제금액: ${orderCost(orderTotal(row))}`,...delivery,"","한솔아카이브를 이용해 주셔서 감사합니다.","https://hansolarchive.com/"].join("\n");
+    }
+
+    function orderControls(card, row, generation) {
+      const actions = orderElement("div",undefined,"order-actions");
+      const errorBox = orderElement("p","", "order-message");
+      errorBox.setAttribute("role","status");
+      const execute = async (action, fields = {}) => {
+        for (const control of actions.querySelectorAll("button")) control.disabled = true;
+        errorBox.textContent = "저장 중…";
+        try {
+          await catalogApi.shopRpc("hansol_order_action",{p_id:row.id,p_expected:row.status,p_action:action,...fields});
+          if (generation === managementGeneration) await showShopManagement("orders");
+          if (action === "canceled") await refreshCatalog();
+        } catch (error) {
+          errorBox.textContent = ({STATUS_CHANGED:"다른 관리자가 상태를 변경했습니다. 목록을 새로고침해 주세요.",
+            INVALID_TRACKING:"택배사, 송장번호 및 홈페이지 주소를 확인해 주세요.",INVALID_CHARGES:"배송비와 할인액을 확인해 주세요.",
+            ORDER_REVIEW_REQUIRED:"주문 검토 후 배송비와 할인액을 먼저 저장해 주세요."})[error.code] || "저장에 실패했습니다. 입력값과 연결 상태를 확인해 주세요.";
+        } finally { for (const control of actions.querySelectorAll("button")) control.disabled = false; }
+      };
+      const confirmed = (label, message, action, fields = {}) => orderButton(label, () => { if (confirm(message)) void execute(action,{...fields,p_confirmed:true}); });
+      const input = (label, type, value) => {
+        const wrap = orderElement("label",label);
+        const field = orderElement("input");
+        field.type = type;
+        field.value = value ?? "";
+        wrap.append(field); actions.append(wrap);
+        return field;
+      };
+      if (row.status === "received") {
+        if (!row.reviewed_at) actions.append(orderButton("신규 주문 확인",() => execute("review")));
+        const shipping = input("배송비 (원)","number",row.shipping_fee);
+        const discount = input("할인액 (원)","number",row.discount_amount);
+        for (const field of [shipping,discount]) { field.min = "0"; field.step = "1"; field.required = true; }
+        actions.append(orderButton("배송비·할인 저장",() => {
+          if (shipping.reportValidity() && discount.reportValidity()) {
+            void execute("charges",{p_shipping:Number(shipping.value),p_discount:Number(discount.value)});
+          }
+        }),confirmed("입금 확인","표시된 총 결제금액의 입금을 확인하셨습니까?","paid",{p_shipping:row.shipping_fee,p_discount:row.discount_amount}));
+      }
+      if (row.status === "paid") actions.append(orderButton("발송 준비",() => execute("preparing")));
+      if (["preparing","shipped","delivered"].includes(row.status)) {
+        const carrierLabel = orderElement("label","택배사");
+        const carrier = orderElement("select");
+        for (const option of ["선택",...Object.keys(carriers),"기타"]) carrier.add(new Option(option,option === "선택" ? "" : option));
+        carrier.value = Object.hasOwn(carriers,row.carrier) ? row.carrier : row.carrier ? "기타" : "";
+        carrierLabel.append(carrier); actions.append(carrierLabel);
+        const other = input("택배사 직접 입력","text",carrier.value === "기타" ? row.carrier : "");
+        const website = input("택배사 홈페이지 (선택)","url",row.carrier_website);
+        const tracking = input("송장번호","text",row.tracking);
+        tracking.maxLength = 50;
+        function toggleCarrier() { other.parentElement.hidden = website.parentElement.hidden = carrier.value !== "기타"; }
+        carrier.onchange = toggleCarrier; toggleCarrier();
+        const save = action => {
+          const chosen = carrier.value === "기타" ? other.value.trim() : carrier.value;
+          const code = tracking.value.trim();
+          if (!chosen || !/^[A-Za-z0-9-]{4,50}$/.test(code)) { errorBox.textContent = "택배사와 송장번호를 입력해 주세요."; return; }
+          if (action === "shipped" && !confirm("실제로 상품을 택배사에 인계하셨습니까?")) return;
+          void execute(action,{p_carrier:chosen,p_tracking:code,p_website:carrier.value === "기타" ? website.value.trim() || null : null,p_confirmed:action === "shipped"});
+        };
+        actions.append(orderButton("송장 저장",() => save("tracking")));
+        if (row.status === "preparing") actions.append(orderButton("발송 완료",() => save("shipped")));
+        if (row.status === "shipped") actions.append(confirmed("배송 완료 확인","실제로 배송이 완료된 것을 확인하셨습니까?","delivered"));
+      }
+      if (["received","paid","preparing"].includes(row.status)) actions.append(confirmed("주문 취소",
+        row.status === "received" ? "주문을 취소하고 재고를 복구하시겠습니까?" : "환불을 직접 완료하셨습니까? 주문을 취소하고 재고를 복구합니다.","canceled"));
+      card.append(actions,errorBox);
+    }
+
+    function orderNotificationTools(card, row) {
+      const panel = orderElement("details",undefined,"order-notifications");
+      panel.append(orderElement("summary","구매자 문자 · 알림 기록"));
+      const fields = orderElement("div",undefined,"order-actions");
+      const stage = orderElement("select");
+      stage.setAttribute("aria-label","구매자 문자 종류");
+      const allowed = row.status === "canceled" ? ["order","canceled"] :
+        ["order",...orderStages.slice(1,1+orderStages.findIndex(([key]) => key === row.status)).map(([key]) => key)];
+      const labels = {order:"주문 접수",paid:"입금 확인",preparing:"발송 준비",shipped:"발송 완료",delivered:"배송 완료",canceled:"주문 취소"};
+      for (const kind of allowed) stage.add(new Option(labels[kind]+" 문자",kind));
+      stage.value = allowed.at(-1);
+      const notice = orderElement("p","", "order-message");
+      notice.setAttribute("role","status");
+      const log = orderElement("div");
+      const date = value => value ? shopDate.format(new Date(value)) : "";
+      async function loadLog() {
+        try {
+          const results = await catalogApi.shopRpc("hansol_order_alert_log",{p_id:row.id});
+          log.replaceChildren();
+          for (const alertRow of results.automatic) {
+            const channel = alertRow.channel === "buyer" ? alertRow.created_at ? "구매자 이메일" : "기존 구매자 알림" : `관리자 ${alertRow.slot} ${alertRow.channel === "kakao" ? "카카오톡" : "이메일"}`;
+            const line = orderElement("p",`${labels[alertRow.kind] || alertRow.kind} · ${channel} · ${alertRow.sent_at ? `발송 접수 ${date(alertRow.sent_at)}` : alertRow.error || "대기 중"} ${date(alertRow.created_at)}`);
+            if (alertRow.error && !alertRow.sent_at) line.append(orderButton("다시 보내기",async () => {
+              if (alertRow.error === "카카오톡 전송 여부 확인 필요" && !confirm("카카오톡에서 해당 메시지 편이 도착하지 않은 것을 확인하셨습니까?")) return;
+              try { await catalogApi.shopRpc("hansol_order_alert_retry",{p_id:alertRow.id}); await loadLog(); }
+              catch { notice.textContent = "재전송 요청에 실패했습니다."; }
+            }));
+            log.append(line);
+          }
+          for (const sms of results.sms) log.append(orderElement("p",`${labels[sms.kind]} 문자 · ${sms.confirmed_at ? `관리자 발송 확인 ${date(sms.confirmed_at)}` : `준비 ${date(sms.prepared_at)}`}`));
+        } catch { notice.textContent = "알림 기록을 불러오지 못했습니다."; }
+      }
+      async function record(confirmed, kind) {
+        try { await catalogApi.shopRpc("hansol_order_sms",{p_id:row.id,p_kind:kind,p_confirmed:confirmed}); await loadLog(); }
+        catch { notice.textContent = "문자 기록을 저장하지 못했습니다."; }
+      }
+      const phone = (row.phone || "").replace(/[^0-9+]/g,"");
+      const apple = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      const send = orderButton("",() => {
+        const kind = stage.value;
+        const message = orderTextMessage(row,kind);
+        if (!phone || !(apple || /Android/.test(navigator.userAgent))) {
+          notice.textContent = "휴대전화 문자 앱에서 사용할 번호와 내용을 복사해 주세요.";
+          return;
+        }
+        void record(false,kind);
+        location.href = `sms:${phone}${apple ? "&" : "?"}body=${encodeURIComponent(message)}`;
+        notice.textContent = "문자 앱에서 전송하신 후 여기에서 발송을 확인해 주세요.";
+      });
+      const setLabel = () => { send.textContent = labels[stage.value]+" 문자 보내기"; };
+      stage.onchange = setLabel; setLabel();
+      fields.append(stage,send,orderButton("문자 내용 복사",() => { const kind = stage.value; void orderCopy(orderTextMessage(row,kind)); void record(false,kind); }),
+        orderButton("구매자 전화번호 복사",() => orderCopy(phone)),orderButton("실제 발송 확인",() => {
+          if (confirm("기본 문자 앱에서 실제로 전송하셨습니까?")) void record(true,stage.value);
+        }));
+      panel.ontoggle = () => { if (panel.open) void loadLog(); };
+      panel.append(fields,notice,log); card.append(panel);
+    }
+
+    function renderOrderCard(card, row, customer, generation) {
+      card.className = "order-card";
+      const date = shopDate.format(new Date(row.created_at));
+      const heading = orderElement("header",undefined,"order-heading");
+      const badge = orderElement("strong",orderStatusLabel(row),"order-badge");
+      badge.dataset.state = row.status;
+      heading.append(badge,orderElement("span",date),orderElement("small","주문번호 "+row.id));
+      card.append(heading);
+      if (customer && row.status !== "canceled") {
+        const steps = orderElement("ol",undefined,"order-progress");
+        const position = orderStages.findIndex(([key]) => key === row.status);
+        orderStages.forEach(([,label],index) => {
+          const step = orderElement("li",label);
+          if (index <= position) step.classList.add("order-complete");
+          if (index === position) step.setAttribute("aria-current","step");
+          steps.append(step);
+        });
+        card.append(steps);
+      }
+      for (const line of row.lines) {
+        const item = orderElement("div",undefined,"order-product");
+        const photo = products.find(product => String(product.id) === String(line.id))?.imgs?.find(Boolean);
+        if (photo) {
+          const img = orderElement("img"); img.src = photo; img.alt = line.name; img.loading = "lazy";
+          item.append(img);
+        }
+        item.append(orderElement("strong",orderLineName(line)),orderElement("span",`${orderLineQty(line)} · ${won(Number(line.price)*Number(line.qty))}`));
+        card.append(item);
+      }
+      card.append(orderElement("p",`상품 ${orderCost(row.subtotal)} · 배송비 ${orderCost(row.shipping_fee)} · 할인 ${orderCost(row.discount_amount)}`),
+        orderElement("strong","총 결제금액 "+orderCost(orderTotal(row)),"order-total"));
+      if (!customer) card.append(orderElement("p",[row.recipient,row.phone,row.address,row.customs ? "개인통관고유부호 "+row.customs : ""].filter(Boolean).join("\n"),"order-private"));
+      if (row.tracking) {
+        const tracking = orderElement("div",undefined,"order-actions");
+        tracking.append(orderElement("strong",`${row.carrier} · ${row.tracking}`),orderButton("송장번호 복사",() => orderCopy(row.tracking)));
+        const url = orderTracking(row);
+        if (url) { const link = orderElement("a","배송조회","auth-btn"); link.href=url; link.target="_blank"; link.rel="noopener noreferrer"; tracking.append(link); }
+        card.append(tracking);
+      }
+      if (customer) card.append(orderButton("문의하기",() => { closeShopManagement(); openInquiry(); }));
+      else { orderControls(card,row,generation); orderNotificationTools(card,row); }
+    }
+
+
+    function openOrderManagementFromLink() {
+      const link = new URL(location.href);
+      if (!link.searchParams.has("manage-orders") || currentUser?.id !== "flowerday1585") return;
+      link.searchParams.delete("manage-orders");
+      history.replaceState(null,"",link);
+      void showShopManagement("orders");
+    }
     let managementGeneration = 0;
-    const orderLabels = {received:"입금 대기",paid:"입금 확인",preparing:"상품 준비 중",shipped:"배송 중",delivered:"배송 완료",canceled:"취소"};
+    const orderLabels = {received:"입금 대기",paid:"입금 확인",preparing:"발송 준비",shipped:"발송 완료",delivered:"배송 완료",canceled:"주문 취소"};
     let myOrderPage = 0;
     let memberPage = 0;
     let orderPage = 0;
     function closeShopManagement() {
       managementGeneration++;
       document.getElementById("shopAdminList").replaceChildren();
+      document.getElementById("orderOverview").replaceChildren();
       closeModal("shopAdminModal");
       myOrderPage = 0;
     }
@@ -3410,6 +3680,7 @@ window.hansolCatalogConfig = {
       const next = document.getElementById("shopAdminNext");
       prev.hidden = next.hidden = true;
       list.textContent = "불러오는 중…";
+      document.getElementById("orderOverview").replaceChildren();
       const reset = document.getElementById("resetPendingMembers");
       reset.hidden = true;
       document.getElementById("memberExportActions").hidden = !members;
@@ -3418,13 +3689,24 @@ window.hansolCatalogConfig = {
       document.getElementById("shopAdminTitle").textContent = members ? "가입 회원" : customer ? "내 주문·배송 조회" : "주문 관리";
       openModal("shopAdminModal");
       try {
-        const [rows, canRemoveMember] = await Promise.all([
-          catalogApi.shopRpc(members ? "hansol_verified_member_directory" : customer ? "hansol_my_orders" : "hansol_shop_orders", {p_offset: page * size}),
-          members ? catalogApi.shopRpc("hansol_admin_removal_available", {}).catch(() => false) : false
+        const [rows, canRemoveMember, overview] = await Promise.all([
+          catalogApi.shopRpc(members ? "hansol_verified_member_directory" : customer ? "hansol_my_orders_v2" : "hansol_shop_orders", {p_offset: page * size}),
+          members ? catalogApi.shopRpc("hansol_admin_removal_available", {}).catch(() => false) : false,
+          !members && !customer ? catalogApi.shopRpc("hansol_order_dashboard",{}).catch(() => null) : null
         ]);
         if (generation !== managementGeneration || currentUser !== owner) return;
         if (members && page > 0 && !rows.length) return showShopManagement(tab, -1);
         reset.hidden = !(members && canRemoveMember === true);
+        const orderOverview = document.getElementById("orderOverview");
+        orderOverview.replaceChildren();
+        if (overview) {
+          for (const [key,count] of Object.entries(overview)) {
+            const stat = orderElement("div",undefined,"order-stat");
+            stat.append(orderElement("span",key === "new" ? "신규 주문" : orderLabels[key]),orderElement("strong",count+"건"));
+            orderOverview.append(stat);
+          }
+        }
+        if (!members) orderOverview.append(orderButton("새로고침",() => showShopManagement(tab)));
         list.replaceChildren();
         if (!rows.length) list.textContent = members ? "이메일 인증을 완료한 가입 회원이 없습니다." : "표시할 주문이 없습니다.";
         for (const [index, row] of rows.entries()) {
@@ -3456,65 +3738,7 @@ window.hansolCatalogConfig = {
               item.append(remove);
             }
           } else {
-            item.textContent = [
-              shopDate.format(new Date(row.created_at)) + " · " + orderLabels[row.status],
-              "주문번호 " + row.id, ...row.lines.map(line => line.name + " × " + line.qty + " · " + won(line.price * line.qty)),
-              "상품 합계 " + won(row.subtotal),
-              row.tracking ? row.carrier + " · 운송장번호 " + row.tracking : "",
-              customer ? "" : [row.recipient, row.email, row.phone].filter(Boolean).join(" · "), row.address,
-              row.customs ? "개인통관고유부호 " + row.customs : ""
-            ].filter(Boolean).join("\n");
-            if (customer && row.tracking) {
-              const copy = document.createElement("button");
-              copy.className = "auth-btn";
-              copy.textContent = "운송장번호 복사";
-              copy.onclick = async () => {
-                try { await navigator.clipboard.writeText(row.tracking); copy.textContent = "복사 완료"; }
-                catch { alert("운송장번호: " + row.tracking); }
-              };
-              const track = document.createElement("a");
-              track.className = "auth-btn";
-              track.href = "https://tracker.delivery/tracking";
-              track.target = "_blank";
-              track.rel = "noopener noreferrer";
-              track.textContent = "택배 위치 조회";
-              item.append(copy,track);
-            }
-            if (!customer && ["received","paid","preparing","shipped"].includes(row.status)) {
-              const actions = document.createElement("div");
-              const forward = {received:["입금 확인","paid"],paid:["상품 준비","preparing"],preparing:["운송장 등록 및 발송","shipped"],shipped:["배송 완료","delivered"]}[row.status];
-              const controls = [forward];
-              if (row.status !== "shipped") controls.push(["취소 및 재고 복구", "canceled"]);
-              for (const [label, state] of controls) {
-                const button = document.createElement("button");
-                button.className = "auth-btn";
-                button.textContent = label;
-                button.onclick = async () => {
-                  const question = row.status !== "received" && state === "canceled"
-                    ? "입금 건의 환불을 직접 완료하셨습니까? 취소하면 재고가 복구됩니다."
-                    : label + " 처리하시겠습니까?";
-                  let carrier = null;
-                  let tracking = null;
-                  if (state === "shipped") {
-                    carrier = prompt("택배사를 입력해 주세요.")?.trim();
-                    if (!carrier) return;
-                    tracking = prompt("운송장번호를 입력해 주세요.")?.trim();
-                    if (!tracking) return;
-                  } else if (!confirm(question)) return;
-                  for (const control of actions.children) control.disabled = true;
-                  try {
-                    await catalogApi.shopRpc("hansol_shop_order_status", {p_id:row.id, p_status:state, p_carrier:carrier, p_tracking:tracking});
-                    if (generation === managementGeneration) await showShopManagement(tab);
-                    await refreshCatalog();
-                  } catch {
-                    alert("상태를 저장하지 못했습니다. 목록을 새로 열어 확인해 주세요.");
-                    for (const control of actions.children) control.disabled = false;
-                  }
-                };
-                actions.append(button);
-              }
-              item.append(actions);
-            }
+            renderOrderCard(item,row,customer,generation);
           }
           list.append(item);
         }
