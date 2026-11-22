@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-vFKvCqy8Ft2myWpqIvr58d5FpKSdWo42kKxR661gSG0=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-7xRrwTzSpi/Ah/Q2ml/QyK7TDsdojFYJ4DD0LnSpebc=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -613,6 +613,7 @@
       <div class="form-group"><label for="inquiryBody">문의 내용</label><textarea id="inquiryBody" name="message" maxlength="2000" required=""></textarea></div>
       <div class="modal-btns">
         <button class="btn-submit" type="submit">문의 보내기</button>
+        <button class="auth-btn" type="button" data-click="open-my-inquiries">내 문의 내역</button>
         <button class="btn-cancel" type="button" data-click="close-inquiry">닫기</button>
       </div>
     </form>
@@ -2064,11 +2065,12 @@ window.hansolCatalogConfig = {
              <button type="button" class="auth-btn" data-click="open-bank-settings">입금 계좌</button>
              <button type="button" class="auth-btn" data-click="show-shop-management-orders">주문 관리</button>
              <button type="button" class="auth-btn" data-click="show-shop-management-members">가입 회원</button>
-             <button type="button" class="auth-btn" data-click="open-inquiry-inbox">고객 문의함</button>
+             <button type="button" class="auth-btn" id="inquiryInboxButton" data-click="open-inquiry-inbox">고객 문의함</button>
           <button type="button" class="auth-btn" data-click="show-withdraw-stats">탈퇴 사유</button>
              <button type="button" class="auth-btn" data-click="download-members">회원 엑셀 받기</button>
              <button type="button" class="auth-btn" data-click="update-members-file">엑셀 파일 갱신</button>
           `;
+          void refreshInquiryBadge();
         } else {
           headerActions.innerHTML = `<button class="auth-btn" data-click="handle-logout">로그아웃</button><button class="auth-btn primary" data-click="show-shop-management-mine">내 주문·배송</button><button class="auth-btn" data-click="open-withdrawal">회원 탈퇴</button>`;
           adminContainer.innerHTML = "";
@@ -3288,6 +3290,7 @@ window.hansolCatalogConfig = {
     const shopDate = new Intl.DateTimeFormat("ko-KR", {dateStyle:"medium", timeStyle:"short", timeZone:"Asia/Seoul"});
     let inquiryRequest = null;
     let inquiryPage = 0;
+    let inquiryCustomerView = false;
     let inquiryLoad = 0;
     let inquiryOpenedFromLink = false;
 
@@ -3341,35 +3344,71 @@ window.hansolCatalogConfig = {
       openInquiryInbox();
     }
 
-    async function openInquiryInbox(direction = 0) {
+    async function refreshInquiryBadge() {
+      const button = document.getElementById("inquiryInboxButton");
+      if (!button || currentUser?.id !== "flowerday1585") return;
+      try {
+        const count = await catalogApi.shopRpc("hansol_inquiry_pending_count");
+        if (button.isConnected) button.textContent = count ? `고객 문의함 · 미답변 ${count}건` : "고객 문의함";
+      } catch {}
+    }
+
+    async function openInquiryInbox(direction = 0, customer = false, keepPage = false) {
       const owner = currentUser;
-      if (owner?.id !== "flowerday1585") return;
+      if (customer ? !canSendInquiry(owner) : owner?.id !== "flowerday1585") return;
       const generation = ++inquiryLoad;
-      const page = direction ? Math.max(inquiryPage + direction, 0) : 0;
+      const page = keepPage || direction ? Math.max(inquiryPage + direction, 0) : 0;
       const list = document.getElementById("inquiryInboxList");
       const status = document.getElementById("inquiryInboxStatus");
       const prev = document.getElementById("inquiryPrev");
       const next = document.getElementById("inquiryNext");
+      document.getElementById("inquiryInboxTitle").textContent = customer ? "내 문의 내역" : "고객 문의함";
+      inquiryCustomerView = customer;
       openModal("inquiryInbox");
       prev.hidden = next.hidden = true;
       list.replaceChildren();
       status.textContent = "문의를 불러오는 중입니다…";
+      if (!customer) void refreshInquiryBadge();
       try {
-        const rows = await catalogApi.shopRpc("hansol_list_inquiries", {p_offset:page * 25});
+        const rows = await catalogApi.shopRpc(customer ? "hansol_my_inquiries" : "hansol_inquiry_inbox", {p_offset:page * 25});
         if (generation !== inquiryLoad || currentUser !== owner) return;
         inquiryPage = page;
         status.textContent = rows.length ? "" : "표시할 문의가 없습니다.";
-        for (const row of rows.slice(0, 25)) {
-          const card = document.createElement("article");
-          card.className = "shop-admin-row";
-          const title = document.createElement("strong");
-          title.textContent = row.subject;
-          const info = document.createElement("p");
-          info.textContent = [shopDate.format(new Date(row.created_at)), row.sender_name, row.sender_email].filter(Boolean).join(" · ");
-          const message = document.createElement("p");
-          message.className = "inquiry-text";
-          message.textContent = row.message;
-          card.append(title, info, message);
+        for (const row of rows.slice(0,25)) {
+          const card = orderElement("article",undefined,"shop-admin-row");
+          const date = shopDate.format(new Date(row.created_at));
+          card.append(orderElement("span",row.replied_at ? "답변 완료" : "미답변","order-badge"),
+            orderElement("h4",row.subject),
+            orderElement("p",[date,row.sender_name,row.sender_email].filter(Boolean).join(" · ")),
+            orderElement("p",row.message,"inquiry-text"));
+          if (row.replied_at) {
+            card.append(orderElement("strong","관리자 답변 · " + shopDate.format(new Date(row.replied_at))),
+              orderElement("p",row.reply,"inquiry-text"));
+          } else if (!customer) {
+            const field = document.createElement("textarea");
+            field.rows = 3;
+            field.maxLength = 2000;
+            field.style.width = "100%";
+            field.setAttribute("aria-label", "문의 답변");
+            field.placeholder = "고객에게 남길 답변을 입력해 주세요.";
+            const feedback = orderElement("p",undefined,"order-message");
+            feedback.setAttribute("role","status");
+            const button = orderButton("답변 등록",async () => {
+              const reply = field.value.trim();
+              if (!reply || button.disabled || currentUser !== owner) return;
+              button.disabled = true;
+              field.readOnly = true;
+              feedback.textContent = "답변을 등록하는 중입니다…";
+              try {
+                await catalogApi.shopRpc("hansol_inquiry_reply",{p_id:row.id,p_reply:reply});
+                if (generation === inquiryLoad && currentUser === owner) await openInquiryInbox(0,false,true);
+              } catch (error) {
+                feedback.textContent = error.code === "INQUIRY_NOT_OPEN" ? "이미 답변이 등록됐습니다. 문의함을 다시 열어 확인해 주세요."
+                  : "답변을 저장하지 못했습니다. 입력 내용을 확인하고 다시 시도해 주세요.";
+              } finally { button.disabled = false; field.readOnly = false; }
+            });
+            card.append(field,button,feedback);
+          }
           list.append(card);
         }
         prev.hidden = page === 0;
@@ -4958,9 +4997,10 @@ window.hansolCatalogConfig = {
       "open-inquiry": openInquiry,
       "close-inquiry": () => closeModal("inquiryModal"),
       "open-inquiry-inbox": () => openInquiryInbox(),
+    "open-my-inquiries": () => { closeModal("inquiryModal"); return openInquiryInbox(0,true); },
       "close-inquiry-inbox": () => { inquiryLoad++; closeModal("inquiryInbox"); },
-      "previous-inquiries": () => openInquiryInbox(-1),
-      "next-inquiries": () => openInquiryInbox(1),
+      "previous-inquiries": () => openInquiryInbox(-1,inquiryCustomerView),
+      "next-inquiries": () => openInquiryInbox(1,inquiryCustomerView),
       "open-cart-modal": () => openCartModal(),
       "filter-products": () => filterProducts(),
       "open-modal-login-modal": () => openModal('loginModal'),
