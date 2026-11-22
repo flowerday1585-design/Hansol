@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-MPmUXl8zDnamakXgXShPE/PieeUAqRJ2k/bblj3QSVQ=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-Dc3E7TH3Fq9vSugXfQPXnG2uIg06h4SPwSvFZHmlbGk=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -3531,9 +3531,13 @@ window.hansolCatalogConfig = {
         for (const control of actions.querySelectorAll("button")) control.disabled = true;
         errorBox.textContent = "저장 중…";
         try {
-          await catalogApi.shopRpc("hansol_order_action",{p_id:row.id,p_expected:row.status,p_action:action,...fields});
+          if (action === "delete-unpaid") {
+            await catalogApi.shopRpc("hansol_delete_unpaid_order",{p_id:row.id,p_confirmed:fields.p_confirmed});
+          } else {
+            await catalogApi.shopRpc("hansol_order_action",{p_id:row.id,p_expected:row.status,p_action:action,...fields});
+          }
           if (generation === managementGeneration) await showShopManagement("orders");
-          if (action === "canceled") await refreshCatalog();
+          if (action === "canceled" || action === "delete-unpaid") await refreshCatalog();
         } catch (error) {
           errorBox.textContent = ({STATUS_CHANGED:"다른 관리자가 상태를 변경했습니다. 목록을 새로고침해 주세요.",
             PAYMENT_DEADLINE_PASSED:"입금 확인 기한이 지났습니다. 주문 목록을 새로고침해 주세요.",
@@ -3587,6 +3591,8 @@ window.hansolCatalogConfig = {
       }
       if (["received","paid","preparing"].includes(row.status)) actions.append(confirmed("주문 취소",
         row.status === "received" ? "주문을 취소하고 재고를 복구하시겠습니까?" : "환불을 직접 완료하셨습니까? 주문을 취소하고 재고를 복구합니다.","canceled"));
+      if (row.status === "received") actions.append(confirmed("미입금 주문 삭제",
+        `주문 ${row.id}을 영구 삭제하고 예약 재고를 복구할까요? 실제 입금 내역을 먼저 확인해 주세요. 삭제한 주문은 관리자와 구매자 주문 내역에서 사라지며 복구할 수 없습니다.`,"delete-unpaid"));
       card.append(actions,errorBox);
     }
 
