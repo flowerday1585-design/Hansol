@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-cVLAkND6olaKPxwZL4O6qxEYJ9PCDoTGFHRra8pdGW0=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-84Fdf95rA6Z5ba5SJH7SGKMs99bqM7tWqyVC8uQgj54=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -190,6 +190,12 @@
     .vat-breakdown { margin:4px 0 0; }
     .buyer-vat-toggle { display:inline-flex; align-items:center; gap:7px; margin:0 0 12px; color:var(--text-main); font-size:14px; font-weight:700; cursor:pointer; }
     .buyer-vat-toggle input { width:16px; height:16px; accent-color:var(--primary); }
+    .vat-banner { margin-bottom:14px; padding:15px 18px; }
+    .vat-banner .hero-tag { margin-bottom:6px; }
+    .vat-banner h2 { font-size:var(--banner-title-size, 18px); margin-bottom:4px; }
+    .vat-banner p { margin-bottom:0; max-width:none; }
+    .vat-banner .hero-photo { max-height:100px; }
+    .vat-banner .hero-edit { margin-bottom:8px; }
     .detail-price { margin:12px 0; }
     .detail-price .price-krw { display:block; }
     
@@ -506,6 +512,17 @@
       </div>
       
       <label class="buyer-vat-toggle"><input type="checkbox" id="buyerVatIncluded" checked> 표시 가격에 부가세 포함</label>
+      <section class="hero-main vat-banner" id="vatBanner" aria-label="부가세 안내">
+        <button type="button" class="auth-btn hero-edit" id="vatBannerEditButton" data-click="open-banner-editor-vat" hidden>부가세 배너 편집</button>
+        <div class="hero-content">
+          <div class="hero-copy">
+            <span class="hero-tag" id="vatTag" style="display:none"></span>
+            <h2 id="vatTitle">부가세 표시 안내</h2>
+            <p id="vatDescription">체크하면 부가세 포함가, 해제하면 별도가를 볼 수 있습니다. 결제금액은 부가세 포함가를 기준으로 합니다.</p>
+          </div>
+          <img class="hero-photo" id="vatPhoto" alt="부가세 안내 배너 이미지" hidden>
+        </div>
+      </section>
       <input id="catalogImport" type="file" accept=".html,.htm" hidden="" data-change="import-catalog"><p id="catalogSyncStatus" role="status" hidden=""></p><p class="product-save-notice" id="productSavedNotice" role="status" hidden=""></p><div id="productSectionsContainer"></div>
       <section id="customerFeedback" class="customer-feedback" aria-label="고객 리뷰">
         <div class="feedback-card">
@@ -1405,6 +1422,11 @@ window.hansolCatalogConfig = {
       return { publishedId, storageKey, settings };
     }
 
+    const vatBannerDefaults = {
+      tag: "",
+      title: "부가세 표시 안내",
+      description: "체크하면 부가세 포함가, 해제하면 별도가를 볼 수 있습니다. 결제금액은 부가세 포함가를 기준으로 합니다."
+    };
     const banners = {
       home: {
         ...loadBanner("publishedBanner", "hansol_banner:", bannerDefaults),
@@ -1417,8 +1439,13 @@ window.hansolCatalogConfig = {
           description: "상품 입고와 재입고 소식을 이곳에서 확인하실 수 있습니다."
         }),
         containerId: "noticeBanner", elementPrefix: "notice", editorTitle: "공지 배너 편집"
-      }
+      },
+      vat: {containerId: "vatBanner", elementPrefix: "vat", editorTitle: "부가세 배너 편집"}
     };
+    function syncVatBanner() {
+      banners.vat.settings = {...vatBannerDefaults, ...banners.home.settings.vatBanner};
+    }
+    syncVatBanner();
     let editingBanner = banners.home;
     let editingBannerRevision = null;
     let bannerRefresh = null;
@@ -1436,6 +1463,8 @@ window.hansolCatalogConfig = {
           entry.revision = row.revision;
           renderBanner(entry);
         }
+        syncVatBanner();
+        renderBanner(banners.vat);
         bannerServerReady = true;
         if (stockWarningThreshold() !== previousThreshold) refreshStockWarnings();
       }).catch(() => {
@@ -2063,6 +2092,7 @@ window.hansolCatalogConfig = {
       if (!inquiryAllowed) closeModal("inquiryModal");
       document.getElementById("bannerEditButton").hidden = currentUser?.id !== "flowerday1585";
       document.getElementById("noticeBannerEditButton").hidden = document.getElementById("bannerEditButton").hidden;
+      document.getElementById("vatBannerEditButton").hidden = document.getElementById("bannerEditButton").hidden;
       const reviewForm = document.getElementById("reviewForm");
       reviewForm.hidden = !currentUser;
       document.getElementById("reviewLogin").hidden = Boolean(currentUser);
@@ -2159,7 +2189,7 @@ window.hansolCatalogConfig = {
       if (currentUser?.id !== "flowerday1585" || form.querySelector('[type="submit"]').disabled) return;
       await refreshBanners();
       editingBanner = banners[key];
-      editingBannerRevision = editingBanner.revision;
+      editingBannerRevision = (key === "vat" ? banners.home : editingBanner).revision;
       form.reset();
       document.getElementById("bannerEditorTitle").textContent = editingBanner.editorTitle;
       const values = { color: "#ffffff", background: "#1e3a8a", ...editingBanner.settings };
@@ -2207,12 +2237,16 @@ window.hansolCatalogConfig = {
           await image.decode();
         }
         if (currentUser?.id !== "flowerday1585") return;
-        const id = Object.keys(banners).find(key => banners[key] === entry);
-        const row = await window.hansolCatalog.writeBanner(id, editingBannerRevision, settings);
-        entry.settings = row.settings;
-        entry.revision = row.revision;
+        const isVatBanner = entry === banners.vat;
+        const savedEntry = isVatBanner ? banners.home : entry;
+        const id = Object.keys(banners).find(key => banners[key] === savedEntry);
+        const savedSettings = isVatBanner ? {...savedEntry.settings, vatBanner: settings} : settings;
+        const row = await window.hansolCatalog.writeBanner(id, editingBannerRevision, savedSettings);
+        savedEntry.settings = row.settings;
+        savedEntry.revision = row.revision;
         editingBannerRevision = row.revision;
-        try { localStorage.setItem(entry.storageKey, JSON.stringify(row.settings)); } catch {}
+        if (isVatBanner) syncVatBanner();
+        try { localStorage.setItem(savedEntry.storageKey, JSON.stringify(row.settings)); } catch {}
 
         renderBanner(entry);
         document.getElementById("editBannerPhoto").value = "";
@@ -2233,7 +2267,7 @@ window.hansolCatalogConfig = {
         return;
       }
       const entries = [
-        ...Object.values(banners),
+        ...Object.values(banners).filter(entry => entry.publishedId),
         { publishedId: "publishedCatalog", settings: { revision: new Date().toISOString(), items: products } }
       ];
       const output = entries.reduce((source, entry) => {
@@ -5157,6 +5191,7 @@ window.hansolCatalogConfig = {
       "set-category-supply": () => setCategory('supply'),
       "open-banner-editor": () => openBannerEditor(),
       "open-banner-editor-notice": () => openBannerEditor('notice'),
+      "open-banner-editor-vat": () => openBannerEditor("vat"),
       "save-policy": () => savePolicy(),
       "close-modal-policy-modal": () => closeModal('policyModal'),
       "close-dialog": (event, element) => element.closest('dialog').close(),
