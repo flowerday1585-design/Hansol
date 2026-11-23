@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'self' 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-aibD7MSx7EIs8/wmKXy38AjPLhyKRZAqEYamWCdL5lw=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; connect-src https://ep-still-bar-bic6rvg9.neonauth.c-5.ap-southeast-1.aws.neon.tech https://ep-still-bar-bic6rvg9.apirest.c-5.ap-southeast-1.aws.neon.tech https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'self' 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-742s7ZvsHXjdTYbWqyftp5rLswujRDzX5hfh0lJHvos=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src https://ep-still-bar-bic6rvg9.neonauth.c-5.ap-southeast-1.aws.neon.tech https://ep-still-bar-bic6rvg9.apirest.c-5.ap-southeast-1.aws.neon.tech https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -511,8 +511,8 @@
         <div id="adminActionContainer"></div>
       </div>
       
-      <label class="buyer-vat-toggle"><input type="checkbox" id="buyerVatIncluded" checked> 표시 가격에 부가세 포함</label>
-      <section class="hero-main vat-banner" id="vatBanner" aria-label="부가세 안내">
+      
+      <section class="hero-main vat-banner" id="vatBanner" aria-label="부가세 안내" hidden>
         <button type="button" class="auth-btn hero-edit" id="vatBannerEditButton" data-click="open-banner-editor-vat" hidden>부가세 배너 편집</button>
         <div class="hero-content">
           <div class="hero-copy">
@@ -586,22 +586,21 @@
   <div class="modal" id="cartModal">
     <div class="modal-content" style="max-width:540px;">
       <h3>장바구니</h3>
-      <label class="buyer-vat-toggle"><input type="checkbox" id="cartVatIncluded" checked> 표시 가격에 부가세 포함</label>
+      
       <p id="cartReservationNotice" role="status"></p>
       <div id="cartItemsList" style="max-height:300px; overflow-y:auto;">
         <!-- 장바구니 상품 목록 -->
       </div>
       <div style="display:grid; gap:4px; margin-top:12px;">
-        <span>상품 합계 <span id="cartVatMode">(VAT 포함)</span> <strong id="cartSubtotal">0원</strong></span>
-        <span id="cartVat" class="vat-breakdown"></span>
+        <span>상품 합계 <strong id="cartSubtotal">0원</strong></span>
         <span hidden=""><strong id="cartShipping">0원</strong><strong id="cartFee">0원</strong></span>
       </div>
       <div class="cart-total-box">
-        <span>예상 결제금액 (VAT 포함)</span>
+        <span>장바구니 합계</span>
         <span id="cartTotalPrice" style="color:var(--primary);">0원</span>
       </div>
       <div class="modal-btns">
-        <button class="btn-submit" data-click="start-checkout">주문하기</button>
+        <button class="btn-submit" data-click="start-checkout" hidden disabled>주문하기</button>
         <button class="btn-cancel" data-click="close-modal-cart-modal">닫기</button>
       </div>
     </div>
@@ -885,7 +884,7 @@
           <img id="prodPreview1" alt="상품 사진 1 미리보기" hidden="">
           <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 1 삭제" data-click="remove-product-photo-1" disabled="">사진 삭제</button>
         </div>
-        <input type="file" id="prodFile1" hidden disabled><input type="url" id="prodPhotoUrl1" maxlength="2048" aria-label="상품 사진 1 주소" placeholder="https://로 시작하는 사진 주소">
+        <input type="file" id="prodFile1" accept="image/jpeg,image/png,image/webp,image/gif" data-change="preview-file-1">
         <p id="preview1Name" class="product-photo-status" role="status"></p>
       </div>
       <div class="form-group product-photo-slot">
@@ -894,7 +893,7 @@
           <img id="prodPreview2" alt="상품 사진 2 미리보기" hidden="">
           <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 2 삭제" data-click="remove-product-photo-2" disabled="">사진 삭제</button>
         </div>
-        <input type="file" id="prodFile2" hidden disabled><input type="url" id="prodPhotoUrl2" maxlength="2048" aria-label="상품 사진 2 주소" placeholder="https://로 시작하는 사진 주소">
+        <input type="file" id="prodFile2" accept="image/jpeg,image/png,image/webp,image/gif" data-change="preview-file-2">
         <p id="preview2Name" class="product-photo-status" role="status"></p>
       </div>
       <div class="form-group product-photo-slot">
@@ -903,7 +902,7 @@
           <img id="prodPreview3" alt="상품 사진 3 미리보기" hidden="">
           <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 3 삭제" data-click="remove-product-photo-3" disabled="">사진 삭제</button>
         </div>
-        <input type="file" id="prodFile3" hidden disabled><input type="url" id="prodPhotoUrl3" maxlength="2048" aria-label="상품 사진 3 주소" placeholder="https://로 시작하는 사진 주소">
+        <input type="file" id="prodFile3" accept="image/jpeg,image/png,image/webp,image/gif" data-change="preview-file-3">
         <p id="preview3Name" class="product-photo-status" role="status"></p>
       </div>
 
@@ -1408,7 +1407,7 @@ window.hansolCatalogConfig = {
 })();
 
   </script>
-  <script src="/neon-catalog.js"></script>
+  <script src="/neon-catalog.js?v=2"></script>
   <script>
     const bannerSource = document.documentElement.outerHTML;
     const bannerDefaults = {
@@ -1671,28 +1670,23 @@ window.hansolCatalogConfig = {
     const productPhotoReaders = new Map();
     let productPhotoSaving = false;
     let productSavedTimer;
+    const cartKey = "hansol_neon_cart_v1";
     let cart = [];
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(cartKey) || "[]");
+      if (Array.isArray(saved)) cart = saved.filter(line => Number.isSafeInteger(line?.id) && Number.isSafeInteger(line.qty) && line.qty > 0 && Number.isSafeInteger(line.price));
+    } catch {}
     let cartStock = new Map();
     let cartReading = false;
     let cartReadOwner;
     let cartReadSequence = 0;
     let cartWriting = false;
-    const memberHasHolds = () => currentUser?.emailConfirmed === true;
+    const memberHasHolds = () => !window.hansolNeonManager && currentUser?.emailConfirmed === true;
     let cardQuantities = {};
     let cartCharges = JSON.parse(localStorage.getItem("hansol_cart_charges")) || {shipping: 0, fee: 0};
     const won = amount => amount.toLocaleString("ko-KR") + "원";
 
-    const buyerVatIncluded = document.getElementById("buyerVatIncluded");
-    const cartVatIncluded = document.getElementById("cartVatIncluded");
-    const buyerVatLabel = () => buyerVatIncluded.checked ? "VAT 포함" : "VAT 별도";
-    const buyerVatPrice = amounts => buyerVatIncluded.checked ? amounts.total : amounts.supply;
-    for (const checkbox of [buyerVatIncluded, cartVatIncluded]) {
-      checkbox.addEventListener("change", () => {
-        buyerVatIncluded.checked = cartVatIncluded.checked = checkbox.checked;
-        filterProducts();
-        if (document.getElementById("cartModal").style.display === "flex") openCartModal();
-      });
-    }
+    const buyerVatPrice = amounts => amounts.total;
 
     const koreaOffsetMs = 9 * 60 * 60 * 1000;
     const dayMs = 24 * 60 * 60 * 1000;
@@ -1815,7 +1809,7 @@ window.hansolCatalogConfig = {
     }
 
     function availableStock(product) {
-      if (catalogPreview || window.hansolNeonManager) return 0;
+      if (catalogPreview) return 0;
       if (!stockAvailable(product)) return 0;
       const state = cartStock.get(product.id);
       return Math.max(0, Math.min(product.stock, state ? state.free + state.held : product.stock));
@@ -1916,23 +1910,26 @@ window.hansolCatalogConfig = {
       cart = cart.filter(line => {
         if (catalogPreview) return true;
         const product = products.find(item => item.id === line.id);
-        return product ? hasSalePrice(product) && !product.soldOut : catalogRow === null;
+        if (!product) return catalogRow === null;
+        const stock = availableStock(product);
+        if (!stock) return false;
+        line.name = product.name;
+        line.price = product.price;
+        line.qty = Math.min(line.qty, stock);
+        return true;
       });
+      try { sessionStorage.setItem(cartKey, JSON.stringify(cart)); } catch {}
       const totalCnt = cart.reduce((sum, item) => sum + item.qty, 0);
       document.getElementById("cartBadgeCount").textContent = totalCnt;
     }
 
     function openCartModal() {
       updateCartBadge();
-      document.getElementById("cartReservationNotice").textContent = memberHasHolds()
-        ? "먼저 담은 재고는 10분간 보관됩니다. 시간이 지나거나 상품을 삭제하면 재고가 풀립니다."
-        : "로그인 후에 재고가 보관됩니다. 방문객 장바구니는 닫거나 새로고침하면 비워집니다.";
+      document.getElementById("cartReservationNotice").textContent = "담은 상품은 현재 브라우저 탭에 보관됩니다. 온라인 주문 접수는 준비 중입니다.";
       const listContainer = document.getElementById("cartItemsList");
       const amounts = cartVatAmounts(cart);
       const {shipping, fee} = {shipping: 0, fee: 0};
       document.getElementById("cartSubtotal").textContent = won(buyerVatPrice(amounts));
-      document.getElementById("cartVatMode").textContent = `(${buyerVatLabel()})`;
-      document.getElementById("cartVat").textContent = cart.length && !buyerVatIncluded.checked ? `부가세 ${won(amounts.vat)}` : "";
       document.getElementById("cartShipping").textContent = won(shipping);
       document.getElementById("cartFee").textContent = won(fee);
       document.getElementById("cartTotalPrice").textContent = won(amounts.total + shipping + fee);
@@ -1949,7 +1946,7 @@ window.hansolCatalogConfig = {
             <div class="cart-item-row">
               <div>
                 <div style="font-weight:700; font-size:14px;">${escapeCatalogHtml(item.name)}</div>
-                <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">단가 (${buyerVatLabel()}) ${won(unit)}${item.expiresAt ? ' · ' + new Date(item.expiresAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Asia/Seoul'}) + '까지 보관' : ''}</div>
+                <div style="font-size:12px; color:var(--text-sub); margin-top:2px;">단가 ${won(unit)}${item.expiresAt ? ' · ' + new Date(item.expiresAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit',timeZone:'Asia/Seoul'}) + '까지 보관' : ''}</div>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <button class="qty-btn" type="button" aria-label="수량 줄이기" data-click="cart-decrease" data-index="${idx}">−</button>
@@ -1967,10 +1964,6 @@ window.hansolCatalogConfig = {
     }
 
     function closeCart() {
-      if (!memberHasHolds() && !restoringLogin) {
-        cart = [];
-        updateCartBadge();
-      }
       closeModal("cartModal");
     }
 
@@ -2006,8 +1999,7 @@ window.hansolCatalogConfig = {
       const image = document.getElementById(`prodPreview${slot}`);
       const source = tempImages[slot - 1];
       const displayable = typeof source === "string" && /^(https:\/\/|data:image\/(jpeg|png|webp|gif);base64,)/i.test(source);
-      if (displayable) image.src = source;
-      else image.removeAttribute("src");
+      void window.hansolNeonManager.showPhoto(image, displayable ? source : "");
       image.hidden = !displayable;
       const remove = image.nextElementSibling;
       remove.disabled = productPhotoSaving || (!source && !productPhotoReaders.has(slot));
@@ -2034,7 +2026,6 @@ window.hansolCatalogConfig = {
     }
 
     function removeProductPhoto(slot) {
-      document.getElementById("prodPhotoUrl" + slot).value = "";
       if (productPhotoSaving) return;
       cancelProductPhotoRead(slot);
       tempImages[slot - 1] = "";
@@ -4667,7 +4658,7 @@ window.hansolCatalogConfig = {
       let arrowsHtml = "";
 
       if (validImgs.length > 0) {
-        imgHtml = validImgs.map((url, idx) => `<img src="${escapeCatalogHtml(url)}" class="${idx === 0 ? 'active' : ''}" alt="상품이미지" />`).join("");
+        imgHtml = validImgs.map((url, idx) => `<img ${window.hansolNeonManager.isStoredPhoto(url) ? "data-neon-photo" : "src"}="${escapeCatalogHtml(url)}" class="${idx === 0 ? 'active' : ''}" loading="lazy" alt="상품이미지" />`).join("");
         if (validImgs.length > 1) {
           arrowsHtml = `
             <button class="thumb-arrow prev" type="button" aria-label="이전 상품 사진" data-click="previous-thumb" data-product-id="${item.id}">‹</button>
@@ -4698,7 +4689,7 @@ window.hansolCatalogConfig = {
             <h2 class="product-name"><button type="button" class="product-title-open" data-click="open-product-detail" data-product-id="${item.id}">${escapeCatalogHtml(item.name)}</button></h2>
             <p class="product-desc">${escapeCatalogHtml(item.desc || '')}</p>
             <div class="price-row">
-              <span class="price-krw">${priced ? `${won(unit)} <small class="vat-label">${buyerVatLabel()}</small>` : "가격 미정"}</span>
+              <span class="price-krw">${priced ? `${won(unit)}` : "가격 미정"}</span>
               ${!priced || soldOut || catalogPreview ? "" : `<span class="price-subtotal">소계 <strong id="card-total-${item.id}">${won(unit * cardQuantities[item.id])}</strong></span>`}
             </div>
             
@@ -4708,7 +4699,6 @@ window.hansolCatalogConfig = {
                 ${available > 0 && available <= stockWarningThreshold() ? "<br>소진까지 얼마 남지 않았습니다." : ""}
               </p>`}
             ${!available ? "" : `
-            <button type="button" class="auth-btn primary shop-buy" data-click="checkout-product" data-product-id="${item.id}">주문하기</button>
             <div class="card-cart-control">
               <div class="qty-btn-group">
                 <button class="qty-btn" data-click="decrease-product-quantity" data-product-id="${item.id}">-</button>
@@ -4738,14 +4728,14 @@ window.hansolCatalogConfig = {
       const item = products.find(product => product.id === itemId);
       if (!item) return;
       const thumbnails = [...document.querySelectorAll(`#card-${itemId} .product-thumb img`)];
-      detailPhotos = thumbnails.map(image => image.src);
+      detailPhotos = thumbnails.map(image => image.dataset.neonPhoto || image.src);
       detailIndex = Math.max(0, thumbnails.findIndex(image => image.classList.contains("active")));
       detailTouchStart = null;
       detailLastSwipe = -Infinity;
       document.getElementById("detailTitle").textContent = item.name;
       const priced = hasSalePrice(item);
       document.getElementById("detailPrice").textContent = priced
-        ? `${won(buyerVatPrice(saleVatAmounts(item, item.price)))} (${buyerVatLabel()})` : "가격 미정";
+        ? `${won(buyerVatPrice(saleVatAmounts(item, item.price)))}` : "가격 미정";
       document.getElementById("detailDescription").textContent = item.desc || "";
       document.getElementById("detailGallery").hidden = !detailPhotos.length;
       for (const id of ["detailPrev", "detailNext", "detailCounter"]) {
@@ -4753,14 +4743,14 @@ window.hansolCatalogConfig = {
       }
       if (detailPhotos.length) renderProductDetailPhoto();
       const orderButton = document.getElementById("detailOrder");
-      orderButton.hidden = !availableStock(item);
+      orderButton.hidden = true;
       orderButton.onclick = () => { document.getElementById("productDetail").close(); startCheckout(item.id); };
       document.getElementById("productDetail").showModal();
     }
 
     function renderProductDetailPhoto() {
       const image = document.getElementById("detailImage");
-      image.src = detailPhotos[detailIndex];
+      void window.hansolNeonManager.showPhoto(image, detailPhotos[detailIndex]);
       image.alt = `${document.getElementById("detailTitle").textContent} 사진 ${detailIndex + 1}`;
       document.getElementById("detailCounter").textContent = `${detailIndex + 1} / ${detailPhotos.length}`;
     }
@@ -4882,10 +4872,7 @@ window.hansolCatalogConfig = {
         document.getElementById("prodCode").value = "";
         document.getElementById("prodDesc").value = "";
       }
-      for (let slot = 1; slot <= 3; slot++) {
-        document.getElementById("prodPhotoUrl" + slot).value = tempImages[slot - 1] || "";
-        renderProductPhoto(slot);
-      }
+      for (let slot = 1; slot <= 3; slot++) renderProductPhoto(slot);
       productPriceInput.value = hasSalePrice(product) ? product.price : "";
       setProductPhotoControls();
       openModal('productModal');
@@ -4906,7 +4893,7 @@ window.hansolCatalogConfig = {
       } catch {
         throw new Error("선택한 사진을 읽지 못했습니다. 사진을 다시 선택해 주세요.");
       }
-      const maxDimension = 1400;
+      const maxDimension = 1200;
       const ratio = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
@@ -4914,9 +4901,11 @@ window.hansolCatalogConfig = {
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("사진을 처리할 수 없습니다.");
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      return await new Promise((resolve, reject) => {
-        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("사진을 변환할 수 없습니다.")), "image/webp", 0.8);
-      });
+      for (const quality of [0.8, 0.65, 0.5]) {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/webp", quality));
+        if (blob?.type === "image/webp" && blob.size <= 400 * 1024) return blob;
+      }
+      throw new Error("사진을 400KB 이하로 줄일 수 없습니다. 더 작은 사진을 선택해 주세요.");
     }
 
     async function saveProduct() {
@@ -4962,11 +4951,7 @@ window.hansolCatalogConfig = {
       const vatInput = preserveVat ? existing.vatInput : price;
       const details = { stock, category, categoryName: catNames[category], code, name, price, vatMode, vatInput, desc, soldOut };
       const originalPhotos = existing?.imgs ?? [];
-      const savedPhotos = Array.from({length:3}, (_, index) => document.getElementById("prodPhotoUrl" + (index + 1)).value.trim());
-      if (savedPhotos.some(photo => photo && !/^https:\/\/[^\s]+$/i.test(photo))) {
-        formStatus.textContent = "사진 주소는 https://로 시작해야 합니다.";
-        return;
-      }
+      const savedPhotos = [...tempImages];
       const photoChanges = Object.fromEntries(
         savedPhotos.slice(0, 3).map((photo, slot) => [slot, photo])
           .filter(([slot, photo]) => photo !== (originalPhotos[slot] || ""))

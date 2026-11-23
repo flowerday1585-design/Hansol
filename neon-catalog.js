@@ -7,6 +7,9 @@
   let guest;
   let guestRequest;
 
+  const photos = new WeakMap();
+  const photoPrefix = location.origin + '/#product-photo-';
+
   function request(url, options = {}) {
     return fetch(url, {cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(15000), ...options});
   }
@@ -30,6 +33,59 @@
     if (!response.ok) throw Object.assign(new Error('상품 서버 요청 실패 (HTTP ' + response.status + ').'), {status: response.status});
     return response.status === 204 ? null : response.json();
   }
+
+  async function showPhoto(image, reference) {
+    const previous = photos.get(image);
+    if (previous?.reference === reference) return;
+    if (previous?.objectUrl) URL.revokeObjectURL(previous.objectUrl);
+    const current = {reference};
+    photos.set(image, current);
+    image.removeAttribute('src');
+    if (!reference) return;
+    if (!reference.startsWith(photoPrefix)) {
+      image.src = reference;
+      return;
+    }
+    const id = reference.slice(photoPrefix.length);
+    if (!/^[0-9a-f-]{36}$/.test(id)) return;
+    try {
+      const [photo] = await data('/hansol_product_photos?id=eq.' + id + '&select=mime,content');
+      if (!image.isConnected || photos.get(image) !== current || !photo
+        || !/^image\/(webp|gif)$/.test(photo.mime) || !/^\\x[0-9a-f]+$/i.test(photo.content)) return;
+      const bytes = Uint8Array.fromHex(photo.content.slice(2));
+      current.objectUrl = URL.createObjectURL(new Blob([bytes], {type: photo.mime}));
+      image.src = current.objectUrl;
+    } catch {
+      if (photos.get(image) === current) photos.delete(image);
+    }
+  }
+
+  const photoObserver = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      photoObserver.unobserve(entry.target);
+      void showPhoto(entry.target, entry.target.dataset.neonPhoto);
+    }
+  }, {rootMargin: '180px'});
+
+  function visitPhotos(node, action) {
+    if (!(node instanceof Element)) return;
+    if (node.matches('img[data-neon-photo]')) action(node);
+    node.querySelectorAll('img[data-neon-photo]').forEach(action);
+  }
+
+  new MutationObserver(records => {
+    for (const record of records) {
+      record.addedNodes.forEach(node => visitPhotos(node, image => photoObserver.observe(image)));
+      record.removedNodes.forEach(node => visitPhotos(node, image => {
+        if (image.isConnected) return;
+        photoObserver.unobserve(image);
+        const previous = photos.get(image);
+        if (previous?.objectUrl) URL.revokeObjectURL(previous.objectUrl);
+        photos.delete(image);
+      }));
+    }
+  }).observe(document.body, {childList: true, subtree: true});
 
   function rpcValue(result, name) {
     const row = Array.isArray(result) && result.length === 1 ? result[0] : result;
@@ -64,6 +120,19 @@
     async read() { return readCatalog('revision,next_id,items'); },
     async shopReady() { return false; },
     async cartSnapshot() { return []; },
+    async uploadProductPhoto(blob) {
+      if (!(blob instanceof Blob) || !/^image\/(webp|gif)$/.test(blob.type) || blob.size > 400 * 1024) {
+        throw new Error('사진을 400KB 이하로 줄일 수 없습니다. 더 작은 사진을 선택해 주세요.');
+      }
+      const id = crypto.randomUUID();
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+      await data('/hansol_product_photos', {
+        token: await managerToken(), method: 'POST', prefer: 'return=minimal',
+        body: {id, mime: blob.type, content: '\\x' + hex},
+      });
+      return photoPrefix + id;
+    },
     async saveOneProduct(revision, id, product, changes) {
       const current = await readCatalog('revision,next_id,items');
       if (current.revision !== revision) return null;
@@ -88,6 +157,8 @@
   });
 
   window.hansolNeonManager = {
+    isStoredPhoto(reference) { return reference.startsWith(photoPrefix); },
+    showPhoto,
     async restore() {
       const session = await getManager();
       if (!session) return null;
