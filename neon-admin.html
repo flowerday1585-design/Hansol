@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://esm.sh; style-src 'unsafe-inline'; connect-src https://ep-still-bar-bic6rvg9.neonauth.c-5.ap-southeast-1.aws.neon.tech https://ep-still-bar-bic6rvg9.apirest.c-5.ap-southeast-1.aws.neon.tech; base-uri 'none'; form-action 'none'">
+  <title>관리자 로그인 | 한솔아카이브</title>
+  <style>
+    :root{font-family:system-ui,sans-serif;color:#17253e;background:#f2f5fa}
+    body{margin:0;padding:28px 18px}
+    main{max-width:36rem;margin:5vh auto;padding:clamp(20px,5vw,38px);background:white;border-radius:18px;box-shadow:0 12px 45px #14284b12}
+    h1{margin:18px 0 12px;font-size:1.75rem}
+    form{display:grid;gap:14px}
+    label{display:grid;gap:6px;font-weight:650}
+    input,button{box-sizing:border-box;width:100%;padding:12px;border:1px solid #a8b5c8;border-radius:8px;font:inherit}
+    button{background:#163563;color:white;font-weight:700;cursor:pointer}
+    button:disabled{opacity:.58;cursor:wait}
+    a{color:#174580}
+    li{margin-block:6px}
+    [role=status]{line-height:1.55;min-height:1.5em}
+    [hidden]{display:none!important}
+  </style>
+  <script type="module" src="/neon-admin.mjs"></script>
+</head>
+<body>
+  <main>
+    <a href="/">한솔아카이브 홈페이지</a>
+    <h1 id="heading">관리자 로그인</h1>
+    <form id="login" method="post">
+      <label>이메일<input id="email" type="email" autocomplete="username" required></label>
+      <label>비밀번호<input id="password" type="password" autocomplete="current-password" required></label>
+      <button id="submit" disabled>로그인</button>
+    </form>
+    <p id="status" role="status">로그인 연결을 준비하고 있습니다.</p>
+    <section id="manager" hidden aria-labelledby="heading">
+      <p id="account"></p>
+      <h2>상품</h2>
+      <ul id="products"></ul>
+      <h2>배너</h2>
+      <ul id="banners"></ul>
+      <button type="button" id="logout">로그아웃</button>
+    </section>
+  </main>
+</body>
+</html>
