@@ -1,0 +1,70 @@
+name: Neon customer test database
+
+on:
+  push:
+    branches: [migration/neon-customer-foundation]
+    paths:
+      - '.github/workflows/neon-customer-test.yml'
+      - 'sql/neon-customer-migration.sql'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  inspect:
+    if: github.repository == 'flowerday1585-design/Hansol' && github.ref == 'refs/heads/migration/neon-customer-foundation'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Inspect only the dedicated test database
+        env:
+          NEON_TEST_DATABASE_URL: ${{ secrets.NEON_TEST_DATABASE_URL }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import subprocess
+          from urllib.parse import unquote, urlsplit
+
+          try:
+              url = urlsplit(os.environ.pop('NEON_TEST_DATABASE_URL', ''))
+              if (
+                  url.scheme not in ('postgres', 'postgresql')
+                  or not re.fullmatch(r'ep-young-boat-biikrznl(?:-pooler)?\.[a-z0-9.-]+\.neon\.tech', url.hostname or '')
+                  or url.path != '/hansol_preview'
+                  or url.port not in (None, 5432)
+                  or not url.username or not url.password
+              ):
+                  raise ValueError
+          except ValueError:
+              raise SystemExit('The secret does not identify the approved Neon test database.')
+
+          env = dict(os.environ, PGHOST=url.hostname, PGPORT='5432',
+                     PGUSER=unquote(url.username), PGPASSWORD=unquote(url.password),
+                     PGDATABASE='hansol_preview', PGSSLMODE='verify-full',
+                     PGCHANNELBINDING='require', PGCONNECT_TIMEOUT='15',
+                     PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=15000')
+          query = """
+          SELECT CASE WHEN current_database() = 'hansol_preview'
+                       AND current_setting('transaction_read_only') = 'on'
+                      THEN 'ok' ELSE 'wrong database or transaction mode' END;
+          SELECT 'table: ' || table_name FROM information_schema.tables
+           WHERE table_schema = 'public' AND left(table_name, 7) = 'hansol_' ORDER BY table_name;
+          SELECT 'RPC: ' || p.proname || '(' || oidvectortypes(p.proargtypes) || ')'
+            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+           WHERE n.nspname = 'public' AND p.proname IN ('hansol_complete_signup', 'hansol_my_profile',
+                 'hansol_submit_order', 'hansol_submit_inquiry') ORDER BY p.proname;
+          """
+          try:
+              result = subprocess.run(['psql', '-XAtq', '-w', '-v', 'ON_ERROR_STOP=1', '-c', query],
+                                      env=env, capture_output=True, text=True, timeout=45)
+          except (OSError, subprocess.TimeoutExpired):
+              raise SystemExit('The test database probe could not complete.')
+          lines = result.stdout.splitlines()
+          if result.returncode or not lines or lines[0] != 'ok':
+              raise SystemExit('The read-only test database probe failed.')
+          print('Connected to the approved test database in read-only mode.')
+          for line in lines[1:]:
+              if re.fullmatch(r'(?:table|RPC): [a-z0-9_, ()]+', line):
+                  print(line)
+          PY
