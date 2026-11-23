@@ -173,7 +173,10 @@ function showList(selector, labels, emptyMessage) {
 async function showManager(auth, user) {
   if (!user?.emailVerified) throw new Error('이 계정은 이메일 인증이 필요합니다.');
   const token = await readSessionJwt(auth, user.id);
-  if (await readData('/rpc/hansol_is_catalog_admin', token, 'POST') !== true) {
+  const result = await readData('/rpc/hansol_is_catalog_admin', token, 'POST');
+  const row = Array.isArray(result) && result.length === 1 ? result[0] : result;
+  const admin = row && typeof row === 'object' ? row.hansol_is_catalog_admin : row;
+  if (admin !== true) {
     throw new Error('이 계정에 상품·배너 관리자 권한이 없습니다.');
   }
   document.querySelector('#account').textContent = user.email;
