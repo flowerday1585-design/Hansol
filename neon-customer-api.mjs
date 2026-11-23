@@ -4,6 +4,7 @@
 
 export async function createNeonCustomerApi({authUrl, dataUrl}) {
   if (!authUrl || !dataUrl) throw new Error('Neon Auth/Data API URL 설정이 필요합니다.');
+  const dataApiBase = dataUrl.replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
   const {createAuthClient} = await import('https://esm.sh/@neondatabase/auth@0.4.0-beta');
   const auth = createAuthClient(authUrl, {allowAnonymous: false});
 
@@ -24,7 +25,7 @@ export async function createNeonCustomerApi({authUrl, dataUrl}) {
 
   async function rpc(name, body = {}) {
     const current = await token();
-    const response = await fetch(`${dataUrl.replace(/\/$/, '')}/rest/v1/rpc/${name}`, {
+    const response = await fetch(`${dataApiBase}/rest/v1/rpc/${name}`, {
       method: 'POST',
       headers: {'Authorization': `Bearer ${current.jwt}`, 'Content-Type': 'application/json'},
       body: JSON.stringify(body),
