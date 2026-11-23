@@ -133,13 +133,12 @@
       });
       return photoPrefix + id;
     },
-    async saveOneProduct(revision, id, product, changes) {
+    async saveOneProduct(revision, id, product, imgs) {
       const current = await readCatalog('revision,next_id,items');
       if (current.revision !== revision) return null;
       const itemId = id ?? current.next_id;
       const existing = current.items.find(item => item.id === itemId);
       if (id !== null && !existing) return null;
-      const imgs = [0, 1, 2].map(slot => changes[slot] ?? existing?.imgs?.[slot] ?? '');
       const item = {...existing, ...product, id: itemId, imgs};
       const items = id === null ? [...current.items, item]
         : current.items.map(entry => entry.id === id ? item : entry);

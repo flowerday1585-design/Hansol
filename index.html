@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'self' 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-742s7ZvsHXjdTYbWqyftp5rLswujRDzX5hfh0lJHvos=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src https://ep-still-bar-bic6rvg9.neonauth.c-5.ap-southeast-1.aws.neon.tech https://ep-still-bar-bic6rvg9.apirest.c-5.ap-southeast-1.aws.neon.tech https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'self' 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-Juo3oPRTJ39uQrvfRygvFoeMffPkagoVvkyUuI6Nh+U=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src https://ep-still-bar-bic6rvg9.neonauth.c-5.ap-southeast-1.aws.neon.tech https://ep-still-bar-bic6rvg9.apirest.c-5.ap-southeast-1.aws.neon.tech https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -208,6 +208,10 @@
     .cart-button-icon { display: none; }
     .btn-card-add { flex: 1; padding: 8px; background: var(--bg-dark); color: #fff; border: none; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; }
     
+    .product-drag-handle {cursor:grab; touch-action:none;}
+    .product-drag-handle:active {cursor:grabbing;}
+    .product-card[data-drop="before"] {box-shadow:-4px 0 #2563eb;}
+    .product-card[data-drop="after"] {box-shadow:4px 0 #2563eb;}
     .admin-controls { display: flex; gap: 6px; margin-top: 6px; }
     .admin-btn { flex: 1; padding: 6px; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; background: #f3f4f6; }
     .admin-btn.delete { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
@@ -878,32 +882,11 @@
       <div class="form-group"><label class="stock-toggle"><input type="checkbox" id="prodSoldOut"> 품절</label></div>
       <div class="form-group"><label>상품 상세 설명</label><textarea id="prodDesc" placeholder="상품 상태, 구성품, 배송 안내 등 상세 내용을 적어주세요."></textarea></div>
       
-      <div class="form-group product-photo-slot">
-        <label for="prodFile1">상품 사진 1</label>
-        <div class="product-photo-tools">
-          <img id="prodPreview1" alt="상품 사진 1 미리보기" hidden="">
-          <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 1 삭제" data-click="remove-product-photo-1" disabled="">사진 삭제</button>
-        </div>
-        <input type="file" id="prodFile1" accept="image/jpeg,image/png,image/webp,image/gif" data-change="preview-file-1">
-        <p id="preview1Name" class="product-photo-status" role="status"></p>
-      </div>
-      <div class="form-group product-photo-slot">
-        <label for="prodFile2">상품 사진 2</label>
-        <div class="product-photo-tools">
-          <img id="prodPreview2" alt="상품 사진 2 미리보기" hidden="">
-          <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 2 삭제" data-click="remove-product-photo-2" disabled="">사진 삭제</button>
-        </div>
-        <input type="file" id="prodFile2" accept="image/jpeg,image/png,image/webp,image/gif" data-change="preview-file-2">
-        <p id="preview2Name" class="product-photo-status" role="status"></p>
-      </div>
-      <div class="form-group product-photo-slot">
-        <label for="prodFile3">상품 사진 3</label>
-        <div class="product-photo-tools">
-          <img id="prodPreview3" alt="상품 사진 3 미리보기" hidden="">
-          <button type="button" class="auth-btn product-photo-remove" aria-label="상품 사진 3 삭제" data-click="remove-product-photo-3" disabled="">사진 삭제</button>
-        </div>
-        <input type="file" id="prodFile3" accept="image/jpeg,image/png,image/webp,image/gif" data-change="preview-file-3">
-        <p id="preview3Name" class="product-photo-status" role="status"></p>
+      <div class="form-group">
+        <label for="productPhotoFiles">상품 사진 추가</label>
+        <input type="file" id="productPhotoFiles" accept="image/jpeg,image/png,image/webp,image/gif" multiple data-change="add-product-photos">
+        <p id="productPhotoStatus" class="product-photo-status" role="status"></p>
+        <div id="productPhotoList"></div>
       </div>
 
       <div class="modal-btns">
@@ -1407,7 +1390,7 @@ window.hansolCatalogConfig = {
 })();
 
   </script>
-  <script src="/neon-catalog.js?v=2"></script>
+  <script src="/neon-catalog.js?v=3"></script>
   <script>
     const bannerSource = document.documentElement.outerHTML;
     const bannerDefaults = {
@@ -1666,8 +1649,10 @@ window.hansolCatalogConfig = {
     }
 
     let currentCategory = "all";
-    let tempImages = ["", "", ""];
-    const productPhotoReaders = new Map();
+    let productPhotos = [];
+    const productPhotoFiles = document.getElementById("productPhotoFiles");
+    const productPhotoList = document.getElementById("productPhotoList");
+    const productPhotoStatus = document.getElementById("productPhotoStatus");
     let productPhotoSaving = false;
     let productSavedTimer;
     const cartKey = "hansol_neon_cart_v1";
@@ -1995,89 +1980,66 @@ window.hansolCatalogConfig = {
       openCartModal();
     }
 
-    function renderProductPhoto(slot, message) {
-      const image = document.getElementById(`prodPreview${slot}`);
-      const source = tempImages[slot - 1];
-      const displayable = typeof source === "string" && /^(https:\/\/|data:image\/(jpeg|png|webp|gif);base64,)/i.test(source);
-      void window.hansolNeonManager.showPhoto(image, displayable ? source : "");
-      image.hidden = !displayable;
-      const remove = image.nextElementSibling;
-      remove.disabled = productPhotoSaving || (!source && !productPhotoReaders.has(slot));
-      document.getElementById(`preview${slot}Name`).textContent =
-        message ?? (source ? "등록된 사진" : "사진 없음");
+    function resetProductPhotos(references = []) {
+      for (const photo of productPhotos) {
+        if (photo.preview) URL.revokeObjectURL(photo.preview);
+      }
+      productPhotos = references.filter(Boolean).map(reference => ({reference}));
+      productPhotoFiles.value = "";
+      productPhotoStatus.textContent = "";
+      renderProductPhotos();
     }
 
-    function cancelProductPhotoRead(slot) {
-      const reader = productPhotoReaders.get(slot);
-      productPhotoReaders.delete(slot);
-      if (reader?.readyState === FileReader.LOADING) reader.abort();
+    function renderProductPhotos() {
+      const fragment = document.createDocumentFragment();
+      productPhotos.forEach((photo, index) => {
+        const row = document.createElement("div");
+        row.className = "product-photo-tools";
+        const image = document.createElement("img");
+        image.alt = "상품 사진 " + (index + 1);
+        image.loading = "lazy";
+        const source = photo.preview || photo.reference;
+        if (window.hansolNeonManager.isStoredPhoto(source)) image.dataset.neonPhoto = source;
+        else image.src = source;
+        const label = document.createElement("span");
+        label.className = "product-photo-status";
+        label.textContent = (index + 1) + ". " + (photo.file?.name || "등록된 사진");
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "auth-btn product-photo-remove";
+        remove.textContent = "사진 빼기";
+        remove.setAttribute("aria-label", "상품 사진 " + (index + 1) + " 빼기");
+        remove.addEventListener("click", () => {
+          if (productPhotoSaving) return;
+          if (photo.preview) URL.revokeObjectURL(photo.preview);
+          productPhotos.splice(index, 1);
+          renderProductPhotos();
+          productPhotoStatus.textContent = productPhotos.length + "장";
+        });
+        row.append(image, label, remove);
+        fragment.append(row);
+      });
+      productPhotoList.replaceChildren(fragment);
+      setProductPhotoControls();
     }
 
     function setProductPhotoControls() {
       const modal = document.getElementById("productModal");
-      modal.querySelector(".btn-submit").disabled = productPhotoSaving || productPhotoReaders.size > 0;
+      modal.querySelector(".btn-submit").disabled = productPhotoSaving;
       modal.querySelector(".btn-cancel").disabled = productPhotoSaving;
-      for (let slot = 1; slot <= 3; slot++) {
-        const image = document.getElementById(`prodPreview${slot}`);
-        document.getElementById(`prodFile${slot}`).disabled = productPhotoSaving;
-        image.nextElementSibling.disabled =
-          productPhotoSaving || (!tempImages[slot - 1] && !productPhotoReaders.has(slot));
-      }
+      productPhotoFiles.disabled = productPhotoSaving;
+      for (const button of productPhotoList.querySelectorAll("button")) button.disabled = productPhotoSaving;
     }
 
-    function removeProductPhoto(slot) {
+    function addProductPhotos() {
       if (productPhotoSaving) return;
-      cancelProductPhotoRead(slot);
-      tempImages[slot - 1] = "";
-      document.getElementById(`prodFile${slot}`).value = "";
-      renderProductPhoto(slot, "비워 두고 저장하거나 이 자리에 새 사진을 선택하세요.");
-      setProductPhotoControls();
-    }
-
-    function previewFile(slot) {
-      const input = document.getElementById(`prodFile${slot}`);
-      const file = input.files[0];
-      if (!file || productPhotoSaving) return;
-      cancelProductPhotoRead(slot);
-      if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.type)) {
-        input.value = "";
-        renderProductPhoto(slot, "JPG, PNG, WebP 또는 GIF 사진을 선택해 주세요.");
-        setProductPhotoControls();
-        return;
-      }
-
-      const reader = new FileReader();
-      productPhotoReaders.set(slot, reader);
-      renderProductPhoto(slot, "사진을 불러오는 중입니다.");
-      setProductPhotoControls();
-      reader.onload = async () => {
-        if (productPhotoReaders.get(slot) !== reader) return;
-        try {
-          const image = new Image();
-          image.src = reader.result;
-          await image.decode();
-          if (productPhotoReaders.get(slot) !== reader) return;
-          tempImages[slot - 1] = reader.result;
-          renderProductPhoto(slot, `선택한 사진: ${file.name}`);
-        } catch {
-          if (productPhotoReaders.get(slot) !== reader) return;
-          input.value = "";
-          renderProductPhoto(slot, "열 수 있는 JPG, PNG, WebP 또는 GIF 사진을 선택해 주세요.");
-        } finally {
-          if (productPhotoReaders.get(slot) === reader) {
-            productPhotoReaders.delete(slot);
-            setProductPhotoControls();
-          }
-        }
-      };
-      reader.onerror = () => {
-        if (productPhotoReaders.get(slot) !== reader) return;
-        productPhotoReaders.delete(slot);
-        input.value = "";
-        renderProductPhoto(slot, "사진을 읽지 못했습니다. 다시 선택해 주세요.");
-        setProductPhotoControls();
-      };
-      reader.readAsDataURL(file);
+      const selected = Array.from(productPhotoFiles.files);
+      const images = selected.filter(file => /^image\/(jpeg|png|webp|gif)$/i.test(file.type));
+      for (const file of images) productPhotos.push({file, preview: URL.createObjectURL(file)});
+      productPhotoFiles.value = "";
+      renderProductPhotos();
+      productPhotoStatus.textContent = productPhotos.length + "장"
+        + (images.length !== selected.length ? " · JPG, PNG, WebP, GIF만 추가했습니다." : "");
     }
 
     function updateUI() {
@@ -2149,8 +2111,7 @@ window.hansolCatalogConfig = {
       if (id === "loginModal") document.getElementById("signupLoginNotice").hidden = true;
       if (id === "signupModal") closeSignupAddressSearch();
       if (id === "productModal") {
-        for (const slot of productPhotoReaders.keys()) cancelProductPhotoRead(slot);
-        setProductPhotoControls();
+        resetProductPhotos();
       }
     }
 
@@ -4644,6 +4605,86 @@ window.hansolCatalogConfig = {
       }).join("") || "<p>등록된 상품이 없습니다.</p>";
     }
 
+    function setupCatalogSorting() {
+      const container = document.getElementById("productSectionsContainer");
+      let moving;
+      let indicated;
+
+      function clearIndicator() {
+        indicated?.removeAttribute("data-drop");
+        indicated = null;
+      }
+
+      async function moveProduct(from, to, after) {
+        if (!currentUser?.neonCatalogManager || !catalogRow || catalogWriting || from === to) return;
+        const source = products.find(product => product.id === from);
+        const target = products.find(product => product.id === to);
+        if (!source || !target || source.category !== target.category) return;
+        const categoryItems = products.filter(product => product.category === source.category);
+        const reordered = categoryItems.filter(product => product.id !== from);
+        reordered.splice(reordered.indexOf(target) + (after ? 1 : 0), 0, source);
+        if (reordered.every((product, index) => product === categoryItems[index])) return;
+        let offset = 0;
+        const items = products.map(product => product.category === source.category ? reordered[offset++] : product);
+        try {
+          await commitCatalog(catalogRow, items, nextCatalogId());
+          showCatalogStatus("상품 순서를 저장했습니다.");
+        } catch (error) {
+          showCatalogStatus(catalogWriteError(error));
+        }
+        container.querySelector('[data-sort-product="' + from + '"]')?.focus({preventScroll:true});
+      }
+
+      function dropTarget(event) {
+        const card = event.target.closest(".product-card");
+        if (!moving || !card || card.dataset.category !== moving.category) return null;
+        const id = Number(card.id.slice(5));
+        if (id === moving.id) return null;
+        const bounds = card.getBoundingClientRect();
+        return {card, id, after: event.clientX >= bounds.left + bounds.width / 2};
+      }
+
+      container.addEventListener("dragstart", event => {
+        const handle = event.target.closest("[data-sort-product]");
+        if (!handle || !currentUser?.neonCatalogManager || catalogWriting) return;
+        moving = {id: Number(handle.dataset.sortProduct), category: handle.closest(".product-card").dataset.category};
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", String(moving.id));
+      });
+      container.addEventListener("dragover", event => {
+        clearIndicator();
+        const target = dropTarget(event);
+        if (!target) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        indicated = target.card;
+        indicated.dataset.drop = target.after ? "after" : "before";
+      });
+      container.addEventListener("drop", event => {
+        const target = dropTarget(event);
+        clearIndicator();
+        if (!target) return;
+        event.preventDefault();
+        const from = moving.id;
+        moving = null;
+        void moveProduct(from, target.id, target.after);
+      });
+      container.addEventListener("dragend", () => {
+        moving = null;
+        clearIndicator();
+      });
+      container.addEventListener("keydown", event => {
+        const handle = event.target.closest("[data-sort-product]");
+        const direction = {ArrowLeft:-1, ArrowUp:-1, ArrowRight:1, ArrowDown:1}[event.key];
+        if (!handle || !direction) return;
+        const card = handle.closest(".product-card");
+        const target = direction < 0 ? card.previousElementSibling : card.nextElementSibling;
+        if (!target) return;
+        event.preventDefault();
+        void moveProduct(Number(handle.dataset.sortProduct), Number(target.id.slice(5)), direction > 0);
+      });
+    }
+
     function getProductCardHtml(item, isAdmin) {
       if (!Number.isSafeInteger(item.id) || item.id < 1 || !categories.some(category => category.key === item.category)) return "";
       const priced = hasSalePrice(item);
@@ -4664,7 +4705,7 @@ window.hansolCatalogConfig = {
             <button class="thumb-arrow prev" type="button" aria-label="이전 상품 사진" data-click="previous-thumb" data-product-id="${item.id}">‹</button>
             <button class="thumb-arrow next" type="button" aria-label="다음 상품 사진" data-click="next-thumb" data-product-id="${item.id}">›</button>`;
 
-          dotsHtml = `<div class="thumb-dots">` + validImgs.map((_, idx) => `<span class="thumb-dot ${idx === 0 ? 'active' : ''}" data-click="switch-thumb" data-product-id="${item.id}" data-index="${idx}"></span>`).join("") + `</div>`;
+          dotsHtml = validImgs.length > 12 ? "" : `<div class="thumb-dots">` + validImgs.map((_, idx) => `<span class="thumb-dot ${idx === 0 ? 'active' : ''}" data-click="switch-thumb" data-product-id="${item.id}" data-index="${idx}"></span>`).join("") + `</div>`;
         }
       } else {
         imgHtml = `
@@ -4710,6 +4751,7 @@ window.hansolCatalogConfig = {
 
             ${isAdmin ? `
               <div class="admin-controls">
+                <button class="admin-btn product-drag-handle" type="button" draggable="true" data-sort-product="${item.id}" aria-label="상품 순서 이동. 방향키로도 이동할 수 있습니다.">↔ 순서 이동</button>
                 <button class="admin-btn" data-click="edit-product" data-product-id="${item.id}">수정</button>
                 <button class="admin-btn delete" data-click="delete-product" data-product-id="${item.id}">삭제</button>
               </div>
@@ -4854,11 +4896,7 @@ window.hansolCatalogConfig = {
       document.getElementById("editProductIdx").value = id ? id : "";
       document.getElementById("productModalTitle").textContent = id ? "상품 수정" : "새 상품 등록";
       
-      for (let slot = 1; slot <= 3; slot++) {
-        cancelProductPhotoRead(slot);
-        document.getElementById("prodFile" + slot).value = "";
-      }
-      tempImages = Array.from({length:Math.max(3, product?.imgs?.length ?? 0)}, (_, index) => product?.imgs?.[index] || "");
+      resetProductPhotos(product?.imgs ?? []);
 
       if (product) {
         const p = product;
@@ -4872,7 +4910,6 @@ window.hansolCatalogConfig = {
         document.getElementById("prodCode").value = "";
         document.getElementById("prodDesc").value = "";
       }
-      for (let slot = 1; slot <= 3; slot++) renderProductPhoto(slot);
       productPriceInput.value = hasSalePrice(product) ? product.price : "";
       setProductPhotoControls();
       openModal('productModal');
@@ -4886,7 +4923,6 @@ window.hansolCatalogConfig = {
       // Keep animated GIFs intact rather than converting them to a static frame.
       if (file.type === "image/gif") return file;
       const image = new Image();
-      // The selected file is already available as the preview data URL.
       image.src = previewSource;
       try {
         await image.decode();
@@ -4909,7 +4945,7 @@ window.hansolCatalogConfig = {
     }
 
     async function saveProduct() {
-      if (!currentUser?.neonCatalogManager || productPhotoSaving || productPhotoReaders.size) return;
+      if (!currentUser?.neonCatalogManager || productPhotoSaving) return;
       const editId = document.getElementById("editProductIdx").value;
       const name = document.getElementById("prodName").value.trim();
       const category = document.getElementById("prodCategory").value;
@@ -4950,12 +4986,8 @@ window.hansolCatalogConfig = {
       const vatMode = preserveVat ? existing.vatMode : "included";
       const vatInput = preserveVat ? existing.vatInput : price;
       const details = { stock, category, categoryName: catNames[category], code, name, price, vatMode, vatInput, desc, soldOut };
-      const originalPhotos = existing?.imgs ?? [];
-      const savedPhotos = [...tempImages];
-      const photoChanges = Object.fromEntries(
-        savedPhotos.slice(0, 3).map((photo, slot) => [slot, photo])
-          .filter(([slot, photo]) => photo !== (originalPhotos[slot] || ""))
-      );
+      const originalPhotos = (existing?.imgs ?? []).filter(Boolean);
+      const photosChanged = productPhotos.length !== originalPhotos.length || productPhotos.some((photo, index) => photo.reference !== originalPhotos[index]);
       productPhotoSaving = true;
       catalogWriting = true;
       document.getElementById("productSavedNotice").hidden = true;
@@ -4964,22 +4996,15 @@ window.hansolCatalogConfig = {
       submit.setAttribute("aria-busy", "true");
       formStatus.textContent = "저장하고 있습니다.";
       try {
-        for (const [slotText, source] of Object.entries(photoChanges)) {
-          if (!/^data:image\/(jpeg|png|webp|gif);base64,/i.test(source)) continue;
-          const slot = Number(slotText);
-          const file = document.getElementById(`prodFile${slot + 1}`).files[0];
-          if (!file) throw new Error("새 사진을 다시 선택해 주세요.");
-          formStatus.textContent = `사진 ${slot + 1} 업로드 중…`;
-          const blob = await prepareProductPhoto(file, source);
-          const imageUrl = await catalogApi.uploadProductPhoto(blob);
-          // Keep the uploaded URL in the editor for safe retry if DB saving fails.
-          tempImages[slot] = imageUrl;
-          savedPhotos[slot] = imageUrl;
-          photoChanges[slotText] = imageUrl;
-          renderProductPhoto(slot + 1, "서버에 사진 업로드 완료");
+        for (const [index, photo] of productPhotos.entries()) {
+          if (photo.reference) continue;
+          formStatus.textContent = "사진 " + (index + 1) + "/" + productPhotos.length + " 업로드 중…";
+          const blob = await prepareProductPhoto(photo.file, photo.preview);
+          photo.reference = await catalogApi.uploadProductPhoto(blob);
         }
+        const savedPhotos = productPhotos.map(photo => photo.reference);
         formStatus.textContent = "상품 정보를 저장하고 있습니다.";
-        const saved = await catalogApi.saveOneProduct(previous.revision, itemId, details, photoChanges);
+        const saved = await catalogApi.saveOneProduct(previous.revision, itemId, details, savedPhotos);
         if (!saved) {
           const error = new Error("다른 기기에서 상품이 변경되었습니다. 최신 목록에서 다시 열어 주세요.");
           error.conflict = true;
@@ -4995,7 +5020,7 @@ window.hansolCatalogConfig = {
         setCategory(currentCategory === "all" ? "all" : category);
         const notice = document.getElementById("productSavedNotice");
         notice.hidden = false;
-        notice.textContent = Object.keys(photoChanges).length ? "상품 사진이 저장되었습니다." : "상품이 저장되었습니다.";
+        notice.textContent = photosChanged ? "상품 사진이 저장되었습니다." : "상품이 저장되었습니다.";
         clearTimeout(productSavedTimer);
         productSavedTimer = setTimeout(() => { notice.hidden = true; }, 7000);
       } catch (error) {
@@ -5235,9 +5260,6 @@ window.hansolCatalogConfig = {
       "handle-signup": () => handleSignup(),
       "handle-signup-true": () => handleSignup(true),
       "close-modal-signup-modal": cancelSignup,
-      "remove-product-photo-1": () => removeProductPhoto(1),
-      "remove-product-photo-2": () => removeProductPhoto(2),
-      "remove-product-photo-3": () => removeProductPhoto(3),
       "save-product": () => saveProduct(),
       "close-modal-product-modal": () => closeModal('productModal'),
       "open-alert-preferences": () => openAlertPreferences(),
@@ -5292,9 +5314,7 @@ window.hansolCatalogConfig = {
     {
       const actions = {
         "import-catalog": (event, element) => importCatalog(element),
-        "preview-file-1": () => previewFile(1),
-        "preview-file-2": () => previewFile(2),
-        "preview-file-3": () => previewFile(3)
+        "add-product-photos": addProductPhotos
       };
       for (const element of document.querySelectorAll("[data-change]")) {
         element.addEventListener("change", event => actions[element.dataset.change](event, element));
@@ -5334,6 +5354,7 @@ window.hansolCatalogConfig = {
 
 
     setupProductDetail();
+    setupCatalogSorting();
 
     // 실행 시작
     document.getElementById("searchInput").addEventListener("input", filterProducts);
