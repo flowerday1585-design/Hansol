@@ -9,6 +9,14 @@ const status = document.querySelector('#status');
 const manager = document.querySelector('#manager');
 const logout = document.querySelector('#logout');
 const heading = document.querySelector('#heading');
+const openReset = document.querySelector('#open-reset');
+const recovery = document.querySelector('#recovery');
+const recoveryEmail = document.querySelector('#recovery-email');
+const reset = document.querySelector('#reset');
+const resetCode = document.querySelector('#reset-code');
+const newPassword = document.querySelector('#new-password');
+const confirmPassword = document.querySelector('#confirm-password');
+const backToLogin = document.querySelector('#back-to-login');
 
 function unwrap(result) {
   if (result?.error) {
@@ -24,6 +32,100 @@ function unwrap(result) {
       : 'Neon 로그인 요청이 실패했습니다' + (httpStatus ? ' (HTTP ' + httpStatus + ')' : '') + '.'));
   }
   return result?.data;
+}
+
+function authenticationMessage(error) {
+  return /invalid email or password/i.test(error?.message || '')
+    ? '이메일 또는 비밀번호가 일치하지 않습니다. 필요하면 아래에서 비밀번호를 재설정해 주세요.'
+    : error?.message || 'Neon 인증 요청을 처리하지 못했습니다.';
+}
+
+async function sendAuth(path, body) {
+  return fetch(authUrl + path, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    redirect: 'error',
+    signal: AbortSignal.timeout(15000),
+  });
+}
+
+function initializeRecovery() {
+  let resetEmail;
+  let busy = false;
+
+  function returnToLogin(message) {
+    if (resetEmail) email.value = resetEmail;
+    recovery.reset();
+    reset.reset();
+    resetEmail = undefined;
+    recovery.hidden = reset.hidden = backToLogin.hidden = true;
+    login.hidden = false;
+    heading.textContent = '관리자 로그인';
+    status.textContent = message;
+    password.focus();
+  }
+
+  openReset.addEventListener('click', () => {
+    recoveryEmail.value = email.value;
+    password.value = '';
+    login.hidden = true;
+    recovery.hidden = backToLogin.hidden = false;
+    heading.textContent = '비밀번호 재설정';
+    status.textContent = 'Neon 계정의 가입 이메일로 재설정 코드를 받으세요.';
+    recoveryEmail.focus();
+  });
+  backToLogin.addEventListener('click', () => { if (!busy) returnToLogin(''); });
+
+  recovery.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy) return;
+    const button = document.querySelector('#send-code');
+    busy = button.disabled = true;
+    status.textContent = '재설정 코드를 요청하고 있습니다.';
+    const address = recoveryEmail.value.trim();
+    try {
+      let response = await sendAuth('/email-otp/request-password-reset', { email: address });
+      if (response.status === 404) response = await sendAuth('/forget-password/email-otp', { email: address });
+      if (!response.ok) throw new Error('재설정 코드를 요청하지 못했습니다 (HTTP ' + response.status + ').');
+      resetEmail = address;
+      recovery.hidden = true;
+      reset.hidden = false;
+      status.textContent = '등록된 이메일이면 코드가 발송됩니다. 받은편지함과 스팸함을 확인해 주세요.';
+      resetCode.focus();
+    } catch (error) {
+      status.textContent = authenticationMessage(error);
+    } finally {
+      busy = button.disabled = false;
+    }
+  });
+
+  reset.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy || !resetEmail) return;
+    if (newPassword.value !== confirmPassword.value) {
+      status.textContent = '새 비밀번호와 확인 입력이 일치하지 않습니다.';
+      confirmPassword.focus();
+      return;
+    }
+    const button = document.querySelector('#save-password');
+    busy = button.disabled = true;
+    status.textContent = '새 비밀번호를 저장하고 있습니다.';
+    try {
+      const response = await sendAuth('/email-otp/reset-password', {
+        email: resetEmail, otp: resetCode.value, password: newPassword.value,
+      });
+      if (!response.ok) throw new Error(response.status === 400 || response.status === 401
+        ? '코드가 만료되었거나 일치하지 않습니다. 받은 코드를 확인해 주세요.'
+        : '비밀번호를 재설정하지 못했습니다 (HTTP ' + response.status + ').');
+      returnToLogin('비밀번호를 변경했습니다. 새 비밀번호로 로그인해 주세요.');
+    } catch (error) {
+      status.textContent = authenticationMessage(error);
+    } finally {
+      busy = button.disabled = false;
+    }
+  });
 }
 
 async function readData(path, token, method = 'GET') {
@@ -82,7 +184,7 @@ async function initialize() {
   const auth = createAuthClient(authUrl, { allowAnonymous: false });
   login.addEventListener('submit', async event => {
     event.preventDefault();
-    submit.disabled = true;
+    submit.disabled = openReset.disabled = true;
     status.textContent = 'Neon에 로그인하고 있습니다.';
     const credentials = { email: email.value.trim(), password: password.value };
     password.value = '';
@@ -93,9 +195,9 @@ async function initialize() {
       await showManager(auth, data?.user);
     } catch (error) {
       if (authenticated) await auth.signOut().catch(() => {});
-      status.textContent = error.message;
+      status.textContent = authenticationMessage(error);
     } finally {
-      submit.disabled = false;
+      submit.disabled = openReset.disabled = false;
     }
   });
   logout.addEventListener('click', async () => {
@@ -126,10 +228,12 @@ async function initialize() {
   } catch (error) {
     status.textContent = error.message;
   } finally {
-    submit.disabled = false;
+    submit.disabled = openReset.disabled = false;
   }
 }
 
+initializeRecovery();
 initialize().catch(() => {
+  openReset.disabled = false;
   status.textContent = 'Neon 로그인 모듈을 불러오지 못했습니다. 새로고침해 주세요.';
 });

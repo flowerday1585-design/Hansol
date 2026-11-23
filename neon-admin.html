@@ -21,7 +21,7 @@
     [role=status]{line-height:1.55;min-height:1.5em}
     [hidden]{display:none!important}
   </style>
-  <script type="module" src="/neon-admin.mjs"></script>
+  <script type="module" src="/neon-admin.mjs?v=2"></script>
 </head>
 <body>
   <main>
@@ -31,7 +31,19 @@
       <label>이메일<input id="email" type="email" autocomplete="username" required></label>
       <label>비밀번호<input id="password" type="password" autocomplete="current-password" required></label>
       <button id="submit" disabled>로그인</button>
+      <button type="button" id="open-reset" disabled>비밀번호 재설정</button>
     </form>
+    <form id="recovery" method="post" hidden>
+      <label>이메일<input id="recovery-email" type="email" autocomplete="username" required></label>
+      <button id="send-code">재설정 코드 받기</button>
+    </form>
+    <form id="reset" method="post" hidden>
+      <label>이메일의 6자리 코드<input id="reset-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
+      <label>새 비밀번호<input id="new-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+      <label>새 비밀번호 확인<input id="confirm-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label>
+      <button id="save-password">새 비밀번호 저장</button>
+    </form>
+    <button type="button" id="back-to-login" hidden>로그인으로 돌아가기</button>
     <p id="status" role="status">로그인 연결을 준비하고 있습니다.</p>
     <section id="manager" hidden aria-labelledby="heading">
       <p id="account"></p>
