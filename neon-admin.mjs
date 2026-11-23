@@ -139,6 +139,27 @@ async function readData(path, token, method = 'GET') {
   return response.json();
 }
 
+async function readSessionJwt(auth, userId) {
+  const response = await fetch(authUrl + '/get-session', {
+    credentials: 'include', cache: 'no-store', redirect: 'error',
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) {
+    throw new Error('Neon 로그인 세션 조회가 실패했습니다 (HTTP ' + response.status + ').');
+  }
+  const data = await response.json();
+  const jwt = response.headers.get('Set-Auth-Jwt');
+  if (data?.user?.id === userId && jwt) return jwt;
+
+  try {
+    const fallback = await auth.getJWTToken();
+    if (fallback) return fallback;
+  } catch (error) {
+    throw new Error('Neon 인증은 완료됐지만 관리자용 토큰을 가져오지 못했습니다 (' + error.message + ').');
+  }
+  throw new Error('Neon 인증은 완료됐지만 브라우저에서 로그인 세션을 확인할 수 없습니다.');
+}
+
 function showList(selector, labels, emptyMessage) {
   const list = document.querySelector(selector);
   const rows = labels.length ? labels : [emptyMessage];
@@ -151,8 +172,7 @@ function showList(selector, labels, emptyMessage) {
 
 async function showManager(auth, user) {
   if (!user?.emailVerified) throw new Error('이 계정은 이메일 인증이 필요합니다.');
-  const token = await auth.getJWTToken();
-  if (!token) throw new Error('Neon 로그인 토큰을 받지 못했습니다.');
+  const token = await readSessionJwt(auth, user.id);
   if (await readData('/rpc/hansol_is_catalog_admin', token, 'POST') !== true) {
     throw new Error('이 계정에 상품·배너 관리자 권한이 없습니다.');
   }
@@ -188,13 +208,11 @@ async function initialize() {
     status.textContent = 'Neon에 로그인하고 있습니다.';
     const credentials = { email: email.value.trim(), password: password.value };
     password.value = '';
-    let authenticated = false;
     try {
       const data = unwrap(await auth.signIn.email(credentials));
-      authenticated = true;
+      status.textContent = 'Neon 인증 완료. 관리자 권한을 확인하고 있습니다.';
       await showManager(auth, data?.user);
     } catch (error) {
-      if (authenticated) await auth.signOut().catch(() => {});
       status.textContent = authenticationMessage(error);
     } finally {
       submit.disabled = openReset.disabled = false;
