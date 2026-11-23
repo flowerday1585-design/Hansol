@@ -5,6 +5,9 @@
 
 begin;
 
+set local lock_timeout = '5s';
+set local statement_timeout = '30s';
+
 create table if not exists public.hansol_member_profiles (
   user_id text primary key,
   profile jsonb not null default '{}'::jsonb,
@@ -158,9 +161,12 @@ declare
 begin
   if p_id is null then raise exception using message = 'INVALID_ORDER', errcode = '22023'; end if;
   perform pg_advisory_xact_lock(hashtextextended(p_id::text, 0));
-  select id into order_id from public.hansol_shop_orders where request_id = p_id;
+  select id into order_id from public.hansol_shop_orders where request_id = p_id and customer_id = member_id;
   if order_id is not null then return order_id; end if;
-  if jsonb_typeof(p_lines) <> 'array' or jsonb_array_length(p_lines) < 1
+  if jsonb_typeof(p_lines) is distinct from 'array' then
+    raise exception using message = 'INVALID_ORDER', errcode = '22023';
+  end if;
+  if jsonb_array_length(p_lines) < 1
      or jsonb_array_length(p_lines) > 50
      or coalesce(trim(p_recipient), '') = ''
      or coalesce(trim(p_phone), '') = ''
@@ -182,7 +188,7 @@ begin
     exception when others then
       raise exception using message = 'INVALID_ORDER', errcode = '22023';
     end;
-    if qty < 1 or qty > 999 then raise exception using message = 'INVALID_ORDER', errcode = '22023'; end if;
+    if qty is null or qty < 1 or qty > 999 then raise exception using message = 'INVALID_ORDER', errcode = '22023'; end if;
 
     select value into item from jsonb_array_elements(updated_items) where (value ->> 'id')::bigint = item_id;
     if item is null then raise exception using message = 'INVALID_ORDER', errcode = '22023'; end if;
@@ -236,7 +242,7 @@ declare
 begin
   if p_id is null then raise exception using message = 'INVALID_INQUIRY', errcode = '22023'; end if;
   perform pg_advisory_xact_lock(hashtextextended(p_id::text, 0));
-  select id into inquiry_id from public.hansol_shop_inquiries where request_id = p_id;
+  select id into inquiry_id from public.hansol_shop_inquiries where request_id = p_id and customer_id = member_id;
   if inquiry_id is not null then return inquiry_id; end if;
   if length(trim(coalesce(p_subject, ''))) not between 1 and 100
      or length(trim(coalesce(p_message, ''))) not between 1 and 2000 then
@@ -253,6 +259,11 @@ end;
 $$;
 
 -- Keep direct table access closed. The UI calls the narrowly scoped RPCs only.
+alter table public.hansol_member_profiles enable row level security;
+alter table public.hansol_shop_orders enable row level security;
+alter table public.hansol_shop_inquiries enable row level security;
+revoke all on function public.hansol_signup_ready() from public;
+revoke all on function public.hansol_shop_ready() from public;
 revoke all on public.hansol_member_profiles, public.hansol_shop_orders,
   public.hansol_shop_inquiries from public;
 revoke all on function public.hansol_current_user_id() from public;
@@ -264,6 +275,8 @@ revoke all on function public.hansol_submit_inquiry(uuid, text, text) from publi
 do $$
 begin
   if exists (select 1 from pg_roles where rolname = 'authenticated') then
+    revoke all on public.hansol_member_profiles, public.hansol_shop_orders,
+      public.hansol_shop_inquiries from authenticated;
     grant execute on function public.hansol_signup_ready() to authenticated;
     grant execute on function public.hansol_shop_ready() to authenticated;
     grant execute on function public.hansol_complete_signup(jsonb) to authenticated;
