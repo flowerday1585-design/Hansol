@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-+rghXIS9P6CJ0Y3KoAUid3gdfC9tPvjoU4zczAZYV3k=' 'sha256-ufHDNzNXrTQneDvrE8bDznpBFCYu5AITtGDP8UT4F6k=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-+rghXIS9P6CJ0Y3KoAUid3gdfC9tPvjoU4zczAZYV3k=' 'sha256-thKODfFahZNW5FBDK3iOxDq5q2Dr7YD8fZi1sngMzyE=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -635,7 +635,7 @@
       <p class="order-message">주문 접수 후 12시간 안에 입금 확인이 되지 않으면 주문이 자동 취소됩니다. 마감 직전에 송금하셨다면 재입금 전에 문의해 주세요.</p>
       <p id="checkoutItems" class="shop-admin-row"></p>
       <p id="checkoutBank" class="shop-admin-row"></p>
-      <p>배송비가 필요한 경우 접수 후 안내드립니다. 최종 금액을 안내받은 뒤 입금해 주세요.</p>
+      <p>기본 배송은 CU 일반 국내택배입니다. 배송비와 최종 금액은 접수 후 안내드립니다.</p>
       <div class="form-group"><label for="orderRecipient">받는 분</label><input id="orderRecipient" name="recipient" autocomplete="name" maxlength="80" required=""></div>
       <div class="form-group"><label for="orderPhone">휴대전화번호 (배송 알림톡 수신)</label><input id="orderPhone" name="phone" type="tel" autocomplete="tel" maxlength="25" required=""></div>
       <fieldset class="form-group" aria-describedby="orderAddressHelp" style="border:0; min-width:0;">
@@ -3646,7 +3646,9 @@ window.hansolCatalogConfig = {
     }
 
     const orderStages = [["received","주문 접수"],["received","입금 대기"],["paid","입금 확인"],["preparing","배송 준비"],["shipped","배송 중"],["delivered","배송 완료"],["refund_requested","환불 요청"],["refund_processing","환불 처리중"],["refunded","환불 완료"]];
+    const defaultCarrier = "CU 일반 국내택배";
     const carriers = {
+      [defaultCarrier]: ["https://www.cupost.co.kr/postbox/delivery/all.cupost"],
       "CJ대한통운": ["https://www.cjlogistics.com/ko/tool/parcel/tracking"],
       "우체국택배": ["https://trace.epost.go.kr/xtts/tt/epost/mobile/Trace.jsp"],
       "한진택배": ["https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillSch.do?mCode=MN038"],
@@ -3763,14 +3765,19 @@ window.hansolCatalogConfig = {
       if (["preparing","shipped","delivered"].includes(row.status)) {
         const carrierLabel = orderElement("label","택배사");
         const carrier = orderElement("select");
-        for (const option of ["선택",...Object.keys(carriers),"기타"]) carrier.add(new Option(option,option === "선택" ? "" : option));
-        carrier.value = Object.hasOwn(carriers,row.carrier) ? row.carrier : row.carrier ? "기타" : "";
+        for (const option of [...Object.keys(carriers),"기타"]) carrier.add(new Option(option,option));
+        carrier.value = Object.hasOwn(carriers,row.carrier) ? row.carrier : row.carrier ? "기타" : row.tracking ? "기타" : defaultCarrier;
         carrierLabel.append(carrier); actions.append(carrierLabel);
         const other = input("택배사 직접 입력","text",carrier.value === "기타" ? row.carrier : "");
         const website = input("택배사 홈페이지 (선택)","url",row.carrier_website);
         const tracking = input("송장번호","text",row.tracking);
         tracking.maxLength = 50;
-        function toggleCarrier() { other.parentElement.hidden = website.parentElement.hidden = carrier.value !== "기타"; }
+        const senderNote = orderElement("small","CU 예약 시 보내는 분 이름에 한솔아카이브를 입력할 수 있는지 확인해 주세요.");
+        actions.append(senderNote);
+        function toggleCarrier() {
+          other.parentElement.hidden = website.parentElement.hidden = carrier.value !== "기타";
+          senderNote.hidden = carrier.value !== defaultCarrier;
+        }
         carrier.onchange = toggleCarrier; toggleCarrier();
         const save = action => {
           const chosen = carrier.value === "기타" ? other.value.trim() : carrier.value;
@@ -3929,7 +3936,14 @@ window.hansolCatalogConfig = {
         const tracking = orderElement("div",undefined,"order-actions");
         tracking.append(orderElement("strong",`${row.carrier} · ${row.tracking}`),orderButton("송장번호 복사",() => orderCopy(row.tracking)));
         const url = orderTracking(row);
-        if (url) { const link = orderElement("a","배송조회","auth-btn"); link.href=url; link.target="_blank"; link.rel="noopener noreferrer"; tracking.append(link); }
+        if (url) {
+          const link = orderElement("a",row.carrier === defaultCarrier ? "CU 공식 배송조회" : "배송조회","auth-btn");
+          link.href = url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          tracking.append(link);
+          if (row.carrier === defaultCarrier) tracking.append(orderElement("small","송장번호를 복사해 CU 배송조회 화면에 입력하세요."));
+        }
         card.append(tracking);
       }
       if (customer) card.append(orderButton("문의하기",() => { closeShopManagement(); openInquiry(); }));
