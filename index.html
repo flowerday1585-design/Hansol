@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'self' 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-Juo3oPRTJ39uQrvfRygvFoeMffPkagoVvkyUuI6Nh+U=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src https://ep-still-bar-bic6rvg9.neonauth.c-5.ap-southeast-1.aws.neon.tech https://ep-still-bar-bic6rvg9.apirest.c-5.ap-southeast-1.aws.neon.tech https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-4aTO8yqWR1Qh4WvOYqDp/x2YCURtNd9Q1edpKde0fCA=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -734,7 +734,7 @@
       </div>
       <div style="margin-top:12px">
         <button type="button" class="auth-btn" data-click="open-email-recovery">비밀번호 찾기</button>
-        <a class="auth-btn" href="/neon-admin.html">관리자 로그인</a>
+        <span class="auth-btn" aria-label="관리자는 Supabase 계정으로 로그인해 주세요">관리자 로그인은 이 화면에서 진행</span>
       </div>
     </div>
   </div>
@@ -1390,7 +1390,6 @@ window.hansolCatalogConfig = {
 })();
 
   </script>
-  <script src="/neon-catalog.js?v=3"></script>
   <script>
     const bannerSource = document.documentElement.outerHTML;
     const bannerDefaults = {
@@ -1666,7 +1665,7 @@ window.hansolCatalogConfig = {
     let cartReadOwner;
     let cartReadSequence = 0;
     let cartWriting = false;
-    const memberHasHolds = () => !window.hansolNeonManager && currentUser?.emailConfirmed === true;
+    const memberHasHolds = () => currentUser?.emailConfirmed === true;
     let cardQuantities = {};
     let cartCharges = JSON.parse(localStorage.getItem("hansol_cart_charges")) || {shipping: 0, fee: 0};
     const won = amount => amount.toLocaleString("ko-KR") + "원";
@@ -1999,8 +1998,7 @@ window.hansolCatalogConfig = {
         image.alt = "상품 사진 " + (index + 1);
         image.loading = "lazy";
         const source = photo.preview || photo.reference;
-        if (window.hansolNeonManager.isStoredPhoto(source)) image.dataset.neonPhoto = source;
-        else image.src = source;
+        image.src = source;
         const label = document.createElement("span");
         label.className = "product-photo-status";
         label.textContent = (index + 1) + ". " + (photo.file?.name || "등록된 사진");
@@ -2061,11 +2059,11 @@ window.hansolCatalogConfig = {
 
       if (currentUser) {
         userInfoDisplay.textContent = `${currentUser.name}님 환영합니다!`;
-        if (currentUser.neonCatalogManager) {
+        if (false) {
           headerActions.innerHTML = `<button class="auth-btn" data-click="handle-logout">로그아웃</button>`;
           adminContainer.innerHTML = `<button class="auth-btn primary" data-click="open-product-modal">+ 새 상품 등록</button>`;
           for (const id of ["bannerEditButton", "noticeBannerEditButton", "vatBannerEditButton"]) document.getElementById(id).hidden = true;
-        } else if (currentUser.id === "flowerday1585" && !window.hansolNeonManager) {
+        } else if (currentUser.id === "flowerday1585") {
           headerActions.innerHTML = `
             <button class="auth-btn primary" data-click="open-admin-modal">관리자설정</button>
             <button type="button" class="auth-btn" data-click="open-stock-manager">재고 관리</button>
@@ -2315,13 +2313,6 @@ window.hansolCatalogConfig = {
     }
 
     function handleLogout() {
-      if (currentUser?.neonCatalogManager) {
-        void window.hansolNeonManager.logout().then(() => {
-          history.replaceState(null, "", location.pathname);
-          clearSignedInUI();
-        }).catch(() => alert("로그아웃에 실패했습니다. 다시 시도해 주세요."));
-        return;
-      }
       catalogApi.logout();
       clearSignedInUI();
     }
@@ -3197,7 +3188,6 @@ window.hansolCatalogConfig = {
     let checkout = null;
     let checkoutBusy = false;
     async function startCheckout(productId) {
-      if (window.hansolNeonManager) { alert("온라인 주문 접수를 준비 중입니다."); return; }
       if (checkoutBusy) return;
       const selected = productId ? [{id: productId, qty: cardQuantities[productId] || 1}] : cart;
       if (!selected.length) { alert("장바구니에 상품을 담아 주세요."); return; }
@@ -4587,7 +4577,7 @@ window.hansolCatalogConfig = {
       const container = document.getElementById("productSectionsContainer");
       document.getElementById("productCount").textContent = `총 ${list.length}개 상품`;
 
-      const isAdmin = !catalogPreview && currentUser?.neonCatalogManager === true;
+      const isAdmin = !catalogPreview && currentUser?.id === "flowerday1585";
       const visibleCategories = currentCategory === "all"
         ? categories : categories.filter(category => category.key === currentCategory);
       container.innerHTML = visibleCategories.map(category => {
@@ -4616,7 +4606,7 @@ window.hansolCatalogConfig = {
       }
 
       async function moveProduct(from, to, after) {
-        if (!currentUser?.neonCatalogManager || !catalogRow || catalogWriting || from === to) return;
+        if (currentUser?.id !== "flowerday1585" || !catalogRow || catalogWriting || from === to) return;
         const source = products.find(product => product.id === from);
         const target = products.find(product => product.id === to);
         if (!source || !target || source.category !== target.category) return;
@@ -4646,7 +4636,7 @@ window.hansolCatalogConfig = {
 
       container.addEventListener("dragstart", event => {
         const handle = event.target.closest("[data-sort-product]");
-        if (!handle || !currentUser?.neonCatalogManager || catalogWriting) return;
+        if (!handle || currentUser?.id !== "flowerday1585" || catalogWriting) return;
         moving = {id: Number(handle.dataset.sortProduct), category: handle.closest(".product-card").dataset.category};
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", String(moving.id));
@@ -4699,7 +4689,7 @@ window.hansolCatalogConfig = {
       let arrowsHtml = "";
 
       if (validImgs.length > 0) {
-        imgHtml = validImgs.map((url, idx) => `<img ${window.hansolNeonManager.isStoredPhoto(url) ? "data-neon-photo" : "src"}="${escapeCatalogHtml(url)}" class="${idx === 0 ? 'active' : ''}" loading="lazy" alt="상품이미지" />`).join("");
+        imgHtml = validImgs.map((url, idx) => `<img ${"src"}="${escapeCatalogHtml(url)}" class="${idx === 0 ? 'active' : ''}" loading="lazy" alt="상품이미지" />`).join("");
         if (validImgs.length > 1) {
           arrowsHtml = `
             <button class="thumb-arrow prev" type="button" aria-label="이전 상품 사진" data-click="previous-thumb" data-product-id="${item.id}">‹</button>
@@ -4770,7 +4760,7 @@ window.hansolCatalogConfig = {
       const item = products.find(product => product.id === itemId);
       if (!item) return;
       const thumbnails = [...document.querySelectorAll(`#card-${itemId} .product-thumb img`)];
-      detailPhotos = thumbnails.map(image => image.dataset.neonPhoto || image.src);
+      detailPhotos = thumbnails.map(image => image.src);
       detailIndex = Math.max(0, thumbnails.findIndex(image => image.classList.contains("active")));
       detailTouchStart = null;
       detailLastSwipe = -Infinity;
@@ -4792,7 +4782,7 @@ window.hansolCatalogConfig = {
 
     function renderProductDetailPhoto() {
       const image = document.getElementById("detailImage");
-      void window.hansolNeonManager.showPhoto(image, detailPhotos[detailIndex]);
+      image.src = detailPhotos[detailIndex];
       image.alt = `${document.getElementById("detailTitle").textContent} 사진 ${detailIndex + 1}`;
       document.getElementById("detailCounter").textContent = `${detailIndex + 1} / ${detailPhotos.length}`;
     }
@@ -4885,7 +4875,7 @@ window.hansolCatalogConfig = {
 
     const productPriceInput = document.getElementById("prodPrice");
     function openProductModal(id = null, category = currentCategory) {
-      if (!currentUser?.neonCatalogManager || productPhotoSaving) return;
+      if (currentUser?.id !== "flowerday1585" || productPhotoSaving) return;
       if (!catalogRow) { alert("공용 상품 목록을 먼저 불러와 주세요."); return; }
       editingRevision = catalogRow.revision;
       const product = id ? products.find(item => item.id === id) : null;
@@ -4945,7 +4935,7 @@ window.hansolCatalogConfig = {
     }
 
     async function saveProduct() {
-      if (!currentUser?.neonCatalogManager || productPhotoSaving) return;
+      if (currentUser?.id !== "flowerday1585" || productPhotoSaving) return;
       const editId = document.getElementById("editProductIdx").value;
       const name = document.getElementById("prodName").value.trim();
       const category = document.getElementById("prodCategory").value;
@@ -5039,7 +5029,7 @@ window.hansolCatalogConfig = {
     }
 
     async function deleteProduct(id) {
-      if (!currentUser?.neonCatalogManager || catalogWriting || !catalogRow) return;
+      if (currentUser?.id !== "flowerday1585" || catalogWriting || !catalogRow) return;
       if (!confirm("이 상품을 공용 상품 목록에서 삭제하시겠습니까?")) return;
       try {
         await commitCatalog(catalogRow, products.filter(product => product.id !== id), nextCatalogId());
@@ -5361,16 +5351,7 @@ window.hansolCatalogConfig = {
     renderPolicyLinks();
     setupCustomerFeedback();
     updateUI();
-    if (new URLSearchParams(location.search).get("catalog-admin") === "1") {
-      void window.hansolNeonManager.restore().then(account => {
-        if (!account) { location.replace("/neon-admin.html"); return; }
-        currentUser = account;
-        updateUI();
-        void refreshCatalog();
-      }).catch(() => showCatalogStatus("Neon 상품 관리자 권한을 확인하지 못했습니다."));
-    } else {
-      void restoreSignedInUI().then(() => { openOrderManagementFromLink(); openInquiryInboxFromLink(); });
-    }
+    void restoreSignedInUI().then(() => { openOrderManagementFromLink(); openInquiryInboxFromLink(); });
     window.addEventListener("hansol-session-ended", clearSignedInUI);
     window.addEventListener("focus", restoreSignedInUI);
     window.addEventListener("online", restoreSignedInUI);
