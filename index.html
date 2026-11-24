@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-+rghXIS9P6CJ0Y3KoAUid3gdfC9tPvjoU4zczAZYV3k=' 'sha256-thKODfFahZNW5FBDK3iOxDq5q2Dr7YD8fZi1sngMzyE=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-ani8aszQl+OAxKBRcCw8G2/fAqj+peXYJAAbCDJPA38=' 'sha256-F9jKDBJReVb+JZVlK2u8WcaeIOEAFqUp1ksKXhmoewQ=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -221,8 +221,10 @@
     .product-drag-handle:active {cursor:grabbing;}
     .product-card[data-drop="before"] {box-shadow:-4px 0 #2563eb;}
     .product-card[data-drop="after"] {box-shadow:4px 0 #2563eb;}
-    .admin-controls { display: flex; gap: 6px; margin-top: 6px; }
-    .admin-btn { flex: 1; padding: 6px; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; background: #f3f4f6; }
+    .admin-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
+    .admin-btn { min-width: 0; padding: 6px 3px; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; background: #f3f4f6; }
+    .admin-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .product-drag-handle { grid-column: span 2; }
     .admin-btn.delete { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
     
     .footer { background:#171512; color:#aa9d8d; padding:24px 0 22px; font-size:12px; margin-top:40px; text-align:center; border-top:1px solid #504437; }
@@ -578,7 +580,7 @@
       <nav id="footerPolicies" class="footer-policies" aria-label="쇼핑몰 정보"></nav>
       <p class="footer-business">상호: 한솔에너지 · 대표자: 조영래 · 사업자등록번호: 170-22-01601</p>
       <p class="footer-business">통신판매업 신고번호: 2026-부산북구-0592 · 사업장 주소: 부산광역시 북구 효열로220번길 23 · 호스팅 서비스 제공자: GitHub, Inc. (GitHub Pages) · 가격: 부가세 포함 · <a href="https://www.ftc.go.kr/bizCommPop.do?wrkr_no=1702201601" target="_blank" rel="noopener noreferrer">사업자 정보 확인</a></p>
-      <p class="footer-contact">고객센터 <a href="tel:010-2820-9250">010-2820-9250</a> · 이메일 <a href="mailto:flowerday1585@naver.com">flowerday1585@naver.com</a></p>
+      <p class="footer-contact">사업자 전화 <a href="tel:010-7734-1585">010-7734-1585</a> · 고객센터 <a href="tel:010-2820-9250">010-2820-9250</a> · 이메일 <a href="mailto:flowerday1585@naver.com">flowerday1585@naver.com</a></p>
       <p class="footer-copyright">© 2026 HANSOL ARCHIVE. All rights reserved.</p>
     </div>
   </footer>
@@ -1113,7 +1115,7 @@ window.hansolCatalogConfig = {
       // Give sessions created before this update a first activity timestamp.
       saved.lastActiveAt = now;
       storeSession(saved);
-    } else if (now - saved.lastActiveAt >= sessionIdleMs) {
+    } else if (!saved.isAdmin && now - saved.lastActiveAt >= sessionIdleMs) {
       endSession(saved);
       window.dispatchEvent(new Event("hansol-session-ended"));
       return null;
@@ -1123,7 +1125,7 @@ window.hansolCatalogConfig = {
 
   function scheduleSessionExpiry(saved) {
     clearTimeout(sessionIdleTimer);
-    if (saved) {
+    if (saved && !saved.isAdmin) {
       sessionIdleTimer = setTimeout(checkSessionExpiry,
         Math.max(0, saved.lastActiveAt + sessionIdleMs - Date.now()));
     }
@@ -1176,6 +1178,7 @@ window.hansolCatalogConfig = {
       // A tab may have signed out or changed accounts while the request was running.
       if (latest?.refreshToken !== saved.refreshToken) return latest;
       const next = sessionFromResponse(refreshed, saved.userId, latest.lastActiveAt);
+      next.isAdmin = latest.isAdmin === true;
       storeSession(next);
       return next;
     } catch (error) {
@@ -1240,7 +1243,10 @@ window.hansolCatalogConfig = {
         return null;
       }
       const profile = await readProfile(user, saved.accessToken);
-      return readActiveSession()?.userId === user.id ? profile : null;
+      const active = readActiveSession();
+      if (active?.userId !== user.id) return null;
+      storeSession({...active, isAdmin: profile.id === "flowerday1585"});
+      return profile;
     },
     async login(email, password) {
       const account = await request("/auth/v1/token?grant_type=password", {
@@ -1250,7 +1256,7 @@ window.hansolCatalogConfig = {
       if (!account.user.email_confirmed_at) throw Object.assign(new Error("이메일 인증이 필요합니다."), {code:"EMAIL_REQUIRED"});
       if (account.user.app_metadata?.hansol_signup_state === "pending") throw Object.assign(new Error("가입 완료가 필요합니다."), {code:"SIGNUP_PENDING"});
       const profile = await readProfile(account.user, account.access_token);
-      storeSession(sessionFromResponse(account));
+      storeSession({...sessionFromResponse(account), isAdmin: profile.id === "flowerday1585"});
       return profile;
     },
     async signupReady() {
@@ -4822,14 +4828,52 @@ window.hansolCatalogConfig = {
         container.querySelector('[data-sort-product="' + from + '"]')?.focus({preventScroll:true});
       }
 
-      function dropTarget(event) {
-        const card = event.target.closest(".product-card");
-        if (!moving || !card || card.dataset.category !== moving.category) return null;
+      function targetAtPoint(x, y, sourceId, category) {
+        const card = document.elementFromPoint(x, y)?.closest(".product-card");
+        if (!card || card.dataset.category !== category) return null;
         const id = Number(card.id.slice(5));
-        if (id === moving.id) return null;
-        const bounds = card.getBoundingClientRect();
-        return {card, id, after: event.clientX >= bounds.left + bounds.width / 2};
+        if (!Number.isSafeInteger(id) || id === sourceId) return null;
+        const box = card.getBoundingClientRect();
+        const columns = getComputedStyle(card.parentElement).gridTemplateColumns.split(" ").filter(Boolean).length;
+        return {card, id, after: columns > 1 ? x >= box.left + box.width / 2 : y >= box.top + box.height / 2};
       }
+      function dropTarget(event) { return moving ? targetAtPoint(event.clientX, event.clientY, moving.id, moving.category) : null; }
+      function moveAdjacent(from, direction) {
+        if (currentUser?.id !== "flowerday1585" || catalogWriting) return;
+        const source = products.find(item => item.id === from);
+        if (!source) return;
+        const siblings = products.filter(item => item.category === source.category);
+        const target = siblings[siblings.findIndex(item => item.id === from) + direction];
+        if (target) void moveProduct(from, target.id, direction > 0);
+      }
+      container.addEventListener("click", event => {
+        const button = event.target.closest("[data-sort-direction][data-sort-product]");
+        if (!button) return;
+        event.preventDefault();
+        moveAdjacent(Number(button.dataset.sortProduct), button.dataset.sortDirection === "up" ? -1 : 1);
+      });
+      let touchDrag = null;
+      container.addEventListener("pointerdown", event => {
+        const handle = event.target.closest("[data-sort-product]");
+        if (event.pointerType !== "touch" || !handle || currentUser?.id !== "flowerday1585" || catalogWriting) return;
+        const card = handle.closest(".product-card");
+        touchDrag = {id:Number(handle.dataset.sortProduct),category:card?.dataset.category,pointerId:event.pointerId,x:event.clientX,y:event.clientY,active:false};
+      });
+      container.addEventListener("pointermove", event => {
+        if (!touchDrag || touchDrag.pointerId !== event.pointerId) return;
+        if (!touchDrag.active && Math.hypot(event.clientX-touchDrag.x,event.clientY-touchDrag.y)<8) return;
+        touchDrag.active = true; moving = {id:touchDrag.id,category:touchDrag.category}; event.preventDefault(); clearIndicator();
+        const target = dropTarget(event);
+        if (target) {indicated=target.card;indicated.dataset.drop=target.after?"after":"before";}
+      });
+      function finishTouchDrag(event) {
+        if (!touchDrag || touchDrag.pointerId !== event.pointerId) return;
+        const drag=touchDrag;touchDrag=null;if(!drag.active)return;
+        const target=targetAtPoint(event.clientX,event.clientY,drag.id,drag.category);moving=null;clearIndicator();
+        if(target)void moveProduct(drag.id,target.id,target.after);
+      }
+      container.addEventListener("pointerup",finishTouchDrag);
+      container.addEventListener("pointercancel",event=>{if(touchDrag?.pointerId===event.pointerId)touchDrag=null;moving=null;clearIndicator();});
 
       container.addEventListener("dragstart", event => {
         const handle = event.target.closest("[data-sort-product]");
@@ -4938,7 +4982,9 @@ window.hansolCatalogConfig = {
 
             ${isAdmin ? `
               <div class="admin-controls">
-                <button class="admin-btn product-drag-handle" type="button" draggable="true" data-sort-product="${item.id}" aria-label="상품 순서 이동. 방향키로도 이동할 수 있습니다.">↔ 순서 이동</button>
+                <button class="admin-btn product-drag-handle" type="button" draggable="true" data-sort-product="${item.id}" aria-label="상품 순서 이동. 방향키와 위로·아래로 버튼으로도 이동할 수 있습니다.">끌어서 이동</button>
+                <button class="admin-btn product-sort-button" type="button" data-sort-direction="up" data-sort-product="${item.id}" aria-label="${escapeCatalogHtml(item.name)} 위로 이동" ${products.filter(product => product.category === item.category).findIndex(product => product.id === item.id) === 0 ? "disabled" : ""}>위로</button>
+                <button class="admin-btn product-sort-button" type="button" data-sort-direction="down" data-sort-product="${item.id}" aria-label="${escapeCatalogHtml(item.name)} 아래로 이동" ${products.filter(product => product.category === item.category).findIndex(product => product.id === item.id) === products.filter(product => product.category === item.category).length - 1 ? "disabled" : ""}>아래로</button>
                 <button class="admin-btn" data-click="edit-product" data-product-id="${item.id}">수정</button>
                 <button class="admin-btn delete" data-click="delete-product" data-product-id="${item.id}">삭제</button>
               </div>
