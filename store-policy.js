@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const pausedMessage = "현재 결제 계약 심사와 주문 전 배송비 표시를 준비 중입니다. 주문은 일시 중지 상태이며 개인 계좌로 송금하지 마세요.";
+  const pausedMessage = "현재 결제 계약과 국내 배송 안내를 정비 중이어서 주문이 일시 중지되었습니다.";
   const controls = '[data-click="checkout-product"], [data-click="start-checkout"], #detailOrder';
   const lockPurchases = () => {
     document.querySelectorAll(controls).forEach(button => {
@@ -14,6 +14,37 @@
     document.querySelectorAll('[data-click="open-bank-settings"]').forEach(button => button.remove());
     const bankModal = document.getElementById("bankModal");
     if (bankModal) bankModal.hidden = true;
+    ["orderCustoms", "signupCustoms"].forEach(id => {
+      const input = document.getElementById(id);
+      if (!input) return;
+      input.value = "";
+      input.disabled = true;
+      input.closest(".form-group")?.setAttribute("hidden", "");
+    });
+    const checkoutTitle = document.getElementById("checkoutTitle");
+    if (checkoutTitle) checkoutTitle.textContent = "주문 안내";
+    const checkoutNotice = document.querySelector("#checkoutForm .order-message");
+    if (checkoutNotice) checkoutNotice.textContent = pausedMessage;
+    const checkoutBank = document.getElementById("checkoutBank");
+    if (checkoutBank) {
+      checkoutBank.textContent = "";
+      checkoutBank.hidden = true;
+    }
+    document.querySelectorAll("#footerPolicies button").forEach(button => {
+      const title = button.textContent.replace(/\\s/g, "");
+      if (title === "관세및수입세" || title === "결제방법") button.remove();
+    });
+    const bannerDescription = document.getElementById("bannerDescription");
+    if (bannerDescription) bannerDescription.textContent = "일본에서 직접 수입·통관한 정품 카드 상품을 국내에서 안전하게 발송합니다.";
+    const vatDescription = document.getElementById("vatDescription");
+    if (vatDescription) vatDescription.textContent = "모든 표시 가격은 부가가치세가 포함된 최종 소비자 가격입니다.";
+    const checkoutItems = document.getElementById("checkoutItems");
+    const cleanVatSummary = () => {
+      if (!checkoutItems || !checkoutItems.textContent.includes("VAT 별도")) return;
+      checkoutItems.textContent = checkoutItems.textContent.replace(/VAT 별도[^·\\n]+ · 부가세 [^\\n]+/g, "부가세 포함");
+    };
+    cleanVatSummary();
+    if (checkoutItems) new MutationObserver(cleanVatSummary).observe(checkoutItems, {childList:true,subtree:true,characterData:true});
   };
   document.addEventListener("click", event => {
     const button = event.target.closest?.(controls);
@@ -27,6 +58,10 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     window.alert(pausedMessage);
+  }, true);
+  document.addEventListener("input", event => {
+    if (!["orderCustoms", "signupCustoms"].includes(event.target?.id)) return;
+    event.target.value = "";
   }, true);
   lockPurchases();
   new MutationObserver(lockPurchases).observe(document.documentElement, {childList:true,subtree:true});
@@ -56,7 +91,8 @@
           terms_agreed_at: agreedAt,
           privacy_agreed_at: agreedAt,
           marketing_agreed: Boolean(marketing?.checked),
-          marketing_agreed_at: marketing?.checked ? agreedAt : null
+          marketing_agreed_at: marketing?.checked ? agreedAt : null,
+          shop_customs: ""
         });
       };
     }
