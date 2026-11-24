@@ -22,22 +22,22 @@
       input.closest(".form-group")?.setAttribute("hidden", "");
     });
     const checkoutTitle = document.getElementById("checkoutTitle");
-    if (checkoutTitle) checkoutTitle.textContent = "주문 안내";
+    if (checkoutTitle && checkoutTitle.textContent !== "주문 안내") checkoutTitle.textContent = "주문 안내";
     const checkoutNotice = document.querySelector("#checkoutForm .order-message");
-    if (checkoutNotice) checkoutNotice.textContent = pausedMessage;
+    if (checkoutNotice && checkoutNotice.textContent !== pausedMessage) checkoutNotice.textContent = pausedMessage;
     const checkoutBank = document.getElementById("checkoutBank");
     if (checkoutBank) {
-      checkoutBank.textContent = "";
-      checkoutBank.hidden = true;
+      if (checkoutBank.textContent) checkoutBank.textContent = "";
+      if (!checkoutBank.hidden) checkoutBank.hidden = true;
     }
     document.querySelectorAll("#footerPolicies button").forEach(button => {
       const title = button.textContent.replace(/\s/g, "");
       if (title === "관세및수입세" || title === "결제방법") button.remove();
     });
     const bannerDescription = document.getElementById("bannerDescription");
-    if (bannerDescription) bannerDescription.textContent = "일본에서 직접 수입·통관한 정품 카드 상품을 국내에서 안전하게 발송합니다.";
+    if (bannerDescription && bannerDescription.textContent !== "일본에서 직접 수입·통관한 정품 카드 상품을 국내에서 안전하게 발송합니다.") bannerDescription.textContent = "일본에서 직접 수입·통관한 정품 카드 상품을 국내에서 안전하게 발송합니다.";
     const vatDescription = document.getElementById("vatDescription");
-    if (vatDescription) vatDescription.textContent = "모든 표시 가격은 부가가치세가 포함된 최종 소비자 가격입니다.";
+    if (vatDescription && vatDescription.textContent !== "모든 표시 가격은 부가가치세가 포함된 최종 소비자 가격입니다.") vatDescription.textContent = "모든 표시 가격은 부가가치세가 포함된 최종 소비자 가격입니다.";
     const checkoutItems = document.getElementById("checkoutItems");
     const cleanVatSummary = () => {
       if (!checkoutItems || !checkoutItems.textContent.includes("VAT 별도")) return;
