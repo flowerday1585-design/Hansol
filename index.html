@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-GCBVgJ9ITPUcOjcGMkkOQEgWMgUoVOABWTX/VGGiYTY=' https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-aLGSoZ9XSkTM+AP5L1zZndZXzTSHBx9rDSpHAt4hvAs=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -379,6 +379,16 @@
       .header-actions {flex-wrap:wrap; justify-content:flex-end; max-width:160px;}
     }
   </style>
+
+<style>
+.order-status-history{margin-top:14px;padding:12px 14px;border:1px solid #dbe3ee;border-radius:10px;background:#f8fafc;color:#17253e}
+.order-status-history summary{font-weight:700;cursor:pointer}
+.order-history-list{display:grid;gap:8px;margin:12px 0 0 18px}
+.order-history-list li{display:grid;grid-template-columns:minmax(150px,auto) 1fr;gap:4px 12px;align-items:start}
+.order-history-list time{font-size:.875rem;color:#475569}
+.order-history-list li span:last-child:not(:first-child){grid-column:2;color:#475569;font-size:.875rem}
+@media(max-width:560px){.order-history-list li{grid-template-columns:1fr;gap:2px}.order-history-list li span:last-child:not(:first-child){grid-column:1}}
+</style>
 </head>
 <body>
   <section class="ticker-bar" aria-label="환율과 가상화폐 시장 시세">
@@ -3557,7 +3567,7 @@ window.hansolCatalogConfig = {
       }
     }
 
-    const orderStages = [["received","주문 접수"],["paid","입금 확인"],["preparing","발송 준비"],["shipped","발송 완료"],["delivered","배송 완료"]];
+    const orderStages = [["received","주문 접수"],["received","입금 대기"],["paid","입금 확인"],["preparing","배송 준비"],["shipped","배송 중"],["delivered","배송 완료"]];
     const carriers = {
       "CJ대한통운": ["https://www.cjlogistics.com/ko/tool/parcel/tracking"],
       "우체국택배": ["https://trace.epost.go.kr/xtts/tt/epost/mobile/Trace.jsp"],
@@ -3758,6 +3768,7 @@ window.hansolCatalogConfig = {
 
     function renderOrderCard(card, row, customer, generation, selectedOrder) {
       card.className = "order-card";
+      card.dataset.orderId = row.id;
       const date = shopDate.format(new Date(row.created_at));
       const heading = orderElement("header",undefined,"order-heading");
       const badge = orderElement("strong",orderStatusLabel(row),"order-badge");
@@ -3770,7 +3781,7 @@ window.hansolCatalogConfig = {
       if (row.payment_expired_at) card.append(orderElement("p","입금 확인 기한이 지나 자동 취소되었습니다. 구매를 원하시면 다시 주문해 주세요.","order-message"));
       if (customer && row.status !== "canceled") {
         const steps = orderElement("ol",undefined,"order-progress");
-        const position = orderStages.findIndex(([key]) => key === row.status);
+        const position = row.status === "received" ? 1 : orderStages.findIndex(([key],index) => index > 1 && key === row.status);
         orderStages.forEach(([,label],index) => {
           const step = orderElement("li",label);
           if (index <= position) step.classList.add("order-complete");
@@ -3814,7 +3825,7 @@ window.hansolCatalogConfig = {
       if (currentUser.id === "flowerday1585") void showShopManagement("orders",0,target === "1" ? null : target);
     }
     let managementGeneration = 0;
-    const orderLabels = {received:"입금 대기",paid:"입금 확인",preparing:"발송 준비",shipped:"발송 완료",delivered:"배송 완료",canceled:"주문 취소"};
+    const orderLabels = {received:"입금 대기",paid:"입금 확인",preparing:"배송 준비",shipped:"배송 중",delivered:"배송 완료",canceled:"주문 취소"};
     let myOrderPage = 0;
     let memberPage = 0;
     let orderPage = 0;
@@ -5395,4 +5406,5 @@ window.hansolCatalogConfig = {
       refreshVisitorsOnReturn();
       updateMobileCoinQuotes();
     });
-  </script></body></html>
+  </script>  <script type="module" src="/order-live.js"></script>
+</body></html>
