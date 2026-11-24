@@ -82,8 +82,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
       panel.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0 14px";
       const search = document.createElement("input");
       search.type = "search";
-      search.placeholder = "주문번호·회원명·수령인 검색";
-      search.setAttribute("aria-label", "주문번호, 회원명, 수령인 검색");
+      search.placeholder = "주문번호·회원 이메일·수령인·연락처 검색";
+      search.setAttribute("aria-label", "전체 주문번호, 회원 이메일, 수령인, 연락처 검색");
       search.style.cssText = "flex:1 1 220px;min-width:0;padding:10px 12px;border:1px solid #b8c4d4;border-radius:8px;font:inherit";
       const status = document.createElement("select");
       status.setAttribute("aria-label", "주문 상태별 검색");
@@ -94,35 +94,24 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
         option.textContent = label;
         status.append(option);
       }
-      const apply = () => {
-        const term = search.value.trim().toLocaleLowerCase("ko-KR");
-        for (const row of list.querySelectorAll(".shop-admin-row")) {
-          const card = row.querySelector(".order-card");
-          if (!card) continue;
-          const state = card.querySelector(".order-badge")?.dataset.state || "";
-          const haystack = (card.dataset.orderId + " " + card.dataset.memberName + " " + card.textContent)
-            .toLocaleLowerCase("ko-KR");
-          row.hidden = Boolean((term && !haystack.includes(term)) || (status.value && state !== status.value));
-        }
-      };
-      search.addEventListener("input", apply);
-      status.addEventListener("change", apply);
       panel.append(search, status);
       list.before(panel);
     }
+    const isSelectedOrder = [...(document.getElementById("orderOverview")?.querySelectorAll("button") || [])]
+      .some(button => button.textContent.trim() === "전체 주문");
+    panel.style.display = isSelectedOrder ? "none" : "flex";
+    if (isSelectedOrder || panel.dataset.globalSearchBound === "true") return;
+    panel.dataset.globalSearchBound = "true";
     const search = panel.querySelector("input");
     const status = panel.querySelector("select");
-    if (search && status) {
-      const term = search.value.trim().toLocaleLowerCase("ko-KR");
-      for (const row of list.querySelectorAll(".shop-admin-row")) {
-        const card = row.querySelector(".order-card");
-        if (!card) continue;
-        const state = card.querySelector(".order-badge")?.dataset.state || "";
-        const haystack = (card.dataset.orderId + " " + card.dataset.memberName + " " + card.textContent)
-          .toLocaleLowerCase("ko-KR");
-        row.hidden = Boolean((term && !haystack.includes(term)) || (status.value && state !== status.value));
-      }
-    }
+    let searchTimer = null;
+    const scheduleGlobalSearch = () => {
+      if (searchTimer) clearTimeout(searchTimer);
+      list.textContent = "전체 주문에서 검색 중…";
+      searchTimer = window.setTimeout(refreshVisibleOrders, 350);
+    };
+    search.addEventListener("input", scheduleGlobalSearch);
+    status.addEventListener("change", scheduleGlobalSearch);
   }
 
   function addHistory(card) {
