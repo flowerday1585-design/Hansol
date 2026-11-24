@@ -34,7 +34,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
   let currentUserId = null;
   let currentToken = null;
   let refreshTimer = null;
+  let orderRefreshTimer;
   let refreshPending = false;
+  let reconnecting = false;
   const displayedHistory = new WeakSet();
 
   function isOrderDialogOpen() {
@@ -49,29 +51,60 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
     }
     const button = [...document.querySelectorAll("#orderOverview button")]
       .find((candidate) => candidate.textContent.trim() === "새로고침");
-    if (button && !button.disabled) button.click();
-    refreshPending = false;
+    if (button && !button.disabled) {
+      refreshPending = false;
+      button.click();
+    } else {
+      refreshPending = true;
+    }
   }
 
+  function queueOrderRefresh() {
+    clearTimeout(orderRefreshTimer);
+    orderRefreshTimer = setTimeout(refreshVisibleOrders, 200);
+  }
+
+  const cartChanged = () => window.dispatchEvent(new Event("hansol-cart-changed"));
+
   async function reconnect() {
-    let session = null;
-    try { session = JSON.parse(localStorage.getItem("hansol_auth_session_v1")); } catch {}
-    if (!session?.userId || !session?.accessToken) {
-      if (channel) await client.removeChannel(channel);
-      channel = null;
-      currentUserId = currentToken = null;
-      return;
+    if (reconnecting) return;
+    reconnecting = true;
+    try {
+      let session = null;
+      try { session = JSON.parse(localStorage.getItem(api.sessionKey)); } catch {}
+      if (!session?.userId || !session?.accessToken || currentUserId !== session.userId) {
+        if (channel) await client.removeChannel(channel);
+        channel = null;
+        currentUserId = currentToken = null;
+        refreshPending = false;
+      }
+      if (!session?.userId || !session?.accessToken) return;
+      if (session.accessToken !== currentToken) {
+        await client.realtime.setAuth(session.accessToken);
+        currentToken = session.accessToken;
+      }
+      if (channel) return;
+      currentUserId = session.userId;
+      const cartChanges = {
+        schema: "public", table: "hansol_cart_live_updates", filter: "customer_id=eq." + session.userId,
+      };
+      channel = client.channel("hansol-account-updates")
+        .on("postgres_changes", {
+          event: "*", schema: "public", table: "hansol_order_live_updates",
+        }, queueOrderRefresh)
+        .on("postgres_changes", {event: "INSERT", ...cartChanges}, cartChanged)
+        .on("postgres_changes", {event: "UPDATE", ...cartChanges}, cartChanged)
+        .subscribe(status => {
+          if (status === "SUBSCRIBED") {
+            cartChanged();
+            queueOrderRefresh();
+          }
+        });
+    } catch {
+      // Session checks and the Realtime client retry transient connection failures.
+    } finally {
+      reconnecting = false;
     }
-    if (session.userId === currentUserId && session.accessToken === currentToken) return;
-    if (channel) await client.removeChannel(channel);
-    currentUserId = session.userId;
-    currentToken = session.accessToken;
-    await client.realtime.setAuth(session.accessToken);
-    channel = client.channel("hansol-order-status")
-      .on("postgres_changes", {
-        event: "*", schema: "public", table: "hansol_order_live_updates",
-      }, () => refreshVisibleOrders())
-      .subscribe();
   }
 
   function setupOrderSearch() {
@@ -170,7 +203,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
         changed = true;
       }
     }
-    if (changed) setupOrderSearch();
+    if (changed) {
+      setupOrderSearch();
+      if (refreshPending && document.querySelector("#orderOverview button")) queueOrderRefresh();
+    }
   });
   const list = document.getElementById("shopAdminList");
   if (list) observer.observe(list, { childList: true, subtree: true });
@@ -182,13 +218,21 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
     }).observe(dialog, { attributes: true, attributeFilter: ["style"] });
   }
 
-  void reconnect();
-  refreshTimer = window.setInterval(() => void reconnect(), 2500);
+  function monitorSession() {
+    void reconnect();
+    if (refreshTimer === null) refreshTimer = window.setInterval(() => void reconnect(), 2500);
+  }
+  monitorSession();
   window.addEventListener("storage", (event) => {
-    if (event.key === "hansol_auth_session_v1") void reconnect();
+    if (event.key === api.sessionKey || event.key === null) void reconnect();
   });
+  window.addEventListener("pageshow", monitorSession);
+  window.addEventListener("hansol-session-ended", () => void reconnect());
   window.addEventListener("pagehide", () => {
-    if (refreshTimer) clearInterval(refreshTimer);
-    if (channel) void client.removeChannel(channel);
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+    const previous = channel;
+    channel = null;
+    if (previous) void client.removeChannel(previous);
   });
 })();
