@@ -12,6 +12,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
     shipped: "배송 중",
     delivered: "배송 완료",
     canceled: "주문 취소",
+    refund_requested: "환불 요청",
+    refund_processing: "환불 처리중",
+    refunded: "환불 완료",
   };
   const dateFormat = new Intl.DateTimeFormat("ko-KR", {
     year: "numeric", month: "2-digit", day: "2-digit",
