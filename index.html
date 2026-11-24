@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-2USlWUk/vFaGseVq62kpzmnATsSw/ONTp5+CUnd4U38=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-TC7OR0yMJo7A1ujxdquKnU6EtEhc9hWwbib3T1DkbeI=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -3600,6 +3600,12 @@ window.hansolCatalogConfig = {
     const orderStatusLabel = row => row.status === "received" && row.reviewed_at === null ? "신규 주문" : orderLabels[row.status];
 
     function orderTracking(row) {
+      const tracking = String(row.tracking ?? "").replace(/[\s-]+/g,"");
+      if (row.carrier === "우체국택배" && /^\d{13}$/.test(tracking)) {
+        const url = new URL("https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm");
+        url.searchParams.set("sid1",tracking);
+        return url.href;
+      }
       const known = Object.hasOwn(carriers,row.carrier) ? carriers[row.carrier] : null;
       if (known) {
         const [address, parameter] = known;
