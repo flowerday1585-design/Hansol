@@ -71,6 +71,60 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
       .subscribe();
   }
 
+  function setupOrderSearch() {
+    const title = document.getElementById("shopAdminTitle");
+    const list = document.getElementById("shopAdminList");
+    if (!title || !list || title.textContent.trim() !== "주문 관리") return;
+    let panel = document.getElementById("orderAdminFilter");
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "orderAdminFilter";
+      panel.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0 14px";
+      const search = document.createElement("input");
+      search.type = "search";
+      search.placeholder = "주문번호·회원명·수령인 검색";
+      search.setAttribute("aria-label", "주문번호, 회원명, 수령인 검색");
+      search.style.cssText = "flex:1 1 220px;min-width:0;padding:10px 12px;border:1px solid #b8c4d4;border-radius:8px;font:inherit";
+      const status = document.createElement("select");
+      status.setAttribute("aria-label", "주문 상태별 검색");
+      status.style.cssText = "flex:0 1 190px;padding:10px 12px;border:1px solid #b8c4d4;border-radius:8px;background:white;font:inherit";
+      for (const [value, label] of [["", "모든 주문 상태"], ...Object.entries(labels)]) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        status.append(option);
+      }
+      const apply = () => {
+        const term = search.value.trim().toLocaleLowerCase("ko-KR");
+        for (const row of list.querySelectorAll(".shop-admin-row")) {
+          const card = row.querySelector(".order-card");
+          if (!card) continue;
+          const state = card.querySelector(".order-badge")?.dataset.state || "";
+          const haystack = (card.dataset.orderId + " " + card.dataset.memberName + " " + card.textContent)
+            .toLocaleLowerCase("ko-KR");
+          row.hidden = Boolean((term && !haystack.includes(term)) || (status.value && state !== status.value));
+        }
+      };
+      search.addEventListener("input", apply);
+      status.addEventListener("change", apply);
+      panel.append(search, status);
+      list.before(panel);
+    }
+    const search = panel.querySelector("input");
+    const status = panel.querySelector("select");
+    if (search && status) {
+      const term = search.value.trim().toLocaleLowerCase("ko-KR");
+      for (const row of list.querySelectorAll(".shop-admin-row")) {
+        const card = row.querySelector(".order-card");
+        if (!card) continue;
+        const state = card.querySelector(".order-badge")?.dataset.state || "";
+        const haystack = (card.dataset.orderId + " " + card.dataset.memberName + " " + card.textContent)
+          .toLocaleLowerCase("ko-KR");
+        row.hidden = Boolean((term && !haystack.includes(term)) || (status.value && state !== status.value));
+      }
+    }
+  }
+
   function addHistory(card) {
     if (displayedHistory.has(card) || !card.dataset.orderId) return;
     displayedHistory.add(card);
@@ -115,13 +169,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
   }
 
   const observer = new MutationObserver((records) => {
+    let changed = false;
     for (const record of records) {
       for (const node of record.addedNodes) {
         if (!(node instanceof Element)) continue;
         if (node.matches(".order-card")) addHistory(node);
         node.querySelectorAll?.(".order-card").forEach(addHistory);
+        changed = true;
       }
     }
+    if (changed) setupOrderSearch();
   });
   const list = document.getElementById("shopAdminList");
   if (list) observer.observe(list, { childList: true, subtree: true });
