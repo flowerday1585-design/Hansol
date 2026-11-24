@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-TC7OR0yMJo7A1ujxdquKnU6EtEhc9hWwbib3T1DkbeI=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-pU22lGbl7+pqw/R1GT3q5FnHle0z3g0WFKAE0ZcOiDQ=' 'sha256-cQ2rwmY7q6RjxEUghRlsDC8ZbKL8PYf+8DZ9vlfjpIE=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -1316,6 +1316,10 @@ window.hansolCatalogConfig = {
     async cartSnapshot(accountId) {
       const token = accountId ? await requireAccessToken() : undefined;
       return request("/rest/v1/rpc/hansol_cart_snapshot", {method:"POST", body:{}, token});
+    },
+    async trackEpostOrder(orderId) {
+      const token = await requireAccessToken();
+      return request("/functions/v1/epost-tracking", {method:"POST",body:{orderId},token});
     },
     async shopRpc(name, body) {
       const token = await requireAccessToken();
@@ -3853,11 +3857,50 @@ window.hansolCatalogConfig = {
         const url = orderTracking(row);
         if (url) { const link = orderElement("a","배송조회","auth-btn"); link.href=url; link.target="_blank"; link.rel="noopener noreferrer"; tracking.append(link); }
         card.append(tracking);
+        if (customer) epostOrderTracking(row,tracking,card);
       }
       if (customer) card.append(orderButton("문의하기",() => { closeShopManagement(); openInquiry(); }));
       else { orderControls(card,row,generation,selectedOrder); orderNotificationTools(card,row); }
     }
 
+
+    function epostOrderTracking(row, actions, card) {
+      if (row.carrier !== "우체국택배" || !/^\d{13}$/.test(String(row.tracking ?? "").replace(/[\s-]+/g,""))) return;
+      const panel = orderElement("div",undefined,"order-message");
+      const status = orderElement("p","");
+      status.setAttribute("role","status");
+      panel.append(status);
+      panel.hidden = true;
+      const button = orderButton("실시간 배송조회",async () => {
+        if (button.disabled) return;
+        const owner = currentUser;
+        button.disabled = true;
+        panel.hidden = false;
+        panel.replaceChildren(status);
+        status.textContent = "우체국 배송 정보를 조회하는 중입니다…";
+        try {
+          const result = await catalogApi.trackEpostOrder(row.id);
+          if (!card.isConnected || owner !== currentUser) return;
+          status.textContent = result.status || (result.events.length ? "우체국 배송 이력" : "우체국에 등록된 배송 이력이 없습니다.");
+          if (result.events.length) {
+            const items = orderElement("ul");
+            for (const event of result.events) {
+              items.append(orderElement("li",[event.date,event.time,event.location,event.status].filter(Boolean).join(" · ")));
+            }
+            panel.append(items);
+          }
+          panel.append(orderElement("small","출처  공공데이터포털 · 우정사업본부"));
+        } catch (error) {
+          if (!card.isConnected || owner !== currentUser) return;
+          status.textContent = error.status === 401 ? "다시 로그인해 주세요."
+            : "실시간 배송 정보를 불러오지 못했습니다. 배송조회 버튼에서 우체국 조회 화면을 열 수 있습니다.";
+        } finally {
+          button.disabled = false;
+        }
+      });
+      actions.append(button);
+      card.append(panel);
+    }
 
     function openOrderManagementFromLink() {
       const link = new URL(location.href);
