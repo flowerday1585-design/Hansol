@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-ani8aszQl+OAxKBRcCw8G2/fAqj+peXYJAAbCDJPA38=' 'sha256-iIDORA6w2LnGagGIXUqci4oLPoOTTf6QW4zL8/Y3dks=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-ani8aszQl+OAxKBRcCw8G2/fAqj+peXYJAAbCDJPA38=' 'sha256-iIDORA6w2LnGagGIXUqci4oLPoOTTf6QW4zL8/Y3dks=' 'sha256-kPUoq4PujXltw7E/FUFnoDJ00iwdIU5ypTtRX+mAKiY=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -217,15 +217,28 @@
     .cart-button-icon { display: none; }
     .btn-card-add { flex: 1; padding: 8px; background: var(--bg-dark); color: #fff; border: none; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; }
     
-    .product-drag-handle {cursor:grab; touch-action:none;}
-    .product-drag-handle:active {cursor:grabbing;}
-    .product-card[data-drop="before"] {box-shadow:-4px 0 #2563eb;}
-    .product-card[data-drop="after"] {box-shadow:4px 0 #2563eb;}
-    .admin-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
-    .admin-btn { min-width: 0; padding: 6px 3px; font-size: 11px; font-weight: bold; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; background: #f3f4f6; }
-    .admin-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .product-drag-handle { grid-column: span 2; }
+    .product-drag-handle { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+    .product-drag-handle:active { cursor: grabbing; }
+    .product-card[data-drop] { outline: 3px solid #2563eb; outline-offset: 2px; position: relative; z-index: 1; }
+    .product-card[data-drop="before"]::before,
+    .product-card[data-drop="after"]::after { content: ""; position: absolute; z-index: 2; pointer-events: none; background: #2563eb; border-radius: 3px; }
+    .product-card[data-drop="before"]::before,
+    .product-card[data-drop="after"]::after { inset-block: 8px; width: 5px; }
+    .product-card[data-drop="before"]::before { inset-inline-start: -4px; }
+    .product-card[data-drop="after"]::after { inset-inline-end: -4px; }
+    .admin-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+    .admin-btn { min-width: 0; min-height: 40px; padding: 8px 4px; font-size: 13px; line-height: 1.2; font-weight: 700; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; background: #f3f4f6; }
+    .admin-btn:disabled { opacity: .45; cursor: not-allowed; }
+    .product-drag-handle { grid-column: 1 / -1; }
+    .product-sort-controls { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .product-sort-button { font-size: 17px; font-weight: 800; }
+    .admin-controls > [data-click="edit-product"],
+    .admin-controls > [data-click="delete-product"] { grid-column: span 2; }
     .admin-btn.delete { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+    @media (max-width: 480px) {
+      .admin-controls, .product-sort-controls { gap: 6px; }
+      .admin-btn { min-height: 42px; padding: 8px 2px; }
+    }
     
     .footer { background:#171512; color:#aa9d8d; padding:24px 0 22px; font-size:12px; margin-top:40px; text-align:center; border-top:1px solid #504437; }
     .footer-inner { max-width:1040px; }
@@ -4818,6 +4831,7 @@ window.hansolCatalogConfig = {
       const container = document.getElementById("productSectionsContainer");
       let moving;
       let indicated;
+      let touchDrag = null;
 
       function clearIndicator() {
         indicated?.removeAttribute("data-drop");
@@ -4831,7 +4845,7 @@ window.hansolCatalogConfig = {
         if (!source || !target || source.category !== target.category) return;
         const categoryItems = products.filter(product => product.category === source.category);
         const reordered = categoryItems.filter(product => product.id !== from);
-        reordered.splice(reordered.indexOf(target) + (after ? 1 : 0), 0, source);
+        reordered.splice(reordered.findIndex(product => product.id === to) + (after ? 1 : 0), 0, source);
         if (reordered.every((product, index) => product === categoryItems[index])) return;
         let offset = 0;
         const items = products.map(product => product.category === source.category ? reordered[offset++] : product);
@@ -4844,6 +4858,37 @@ window.hansolCatalogConfig = {
         container.querySelector('[data-sort-product="' + from + '"]')?.focus({preventScroll:true});
       }
 
+      function categoryCards(category) {
+        return Array.from(container.querySelectorAll(".product-card"))
+          .filter(card => card.dataset.category === category);
+      }
+
+      function spatialNeighbor(card, direction) {
+        if (!card) return null;
+        const origin = card.getBoundingClientRect();
+        const ox = origin.left + origin.width / 2;
+        const oy = origin.top + origin.height / 2;
+        const axis = direction === "left" || direction === "right" ? "x" : "y";
+        const sign = direction === "left" || direction === "up" ? -1 : 1;
+        let best = null;
+        let bestScore = Infinity;
+        for (const candidate of categoryCards(card.dataset.category)) {
+          if (candidate === card) continue;
+          const rect = candidate.getBoundingClientRect();
+          const dx = rect.left + rect.width / 2 - ox;
+          const dy = rect.top + rect.height / 2 - oy;
+          const primary = axis === "x" ? dx : dy;
+          if (primary * sign <= 2) continue;
+          const cross = axis === "x" ? Math.abs(dy) : Math.abs(dx);
+          const score = Math.abs(primary) + cross * 1.35;
+          if (score < bestScore) {
+            best = candidate;
+            bestScore = score;
+          }
+        }
+        return best;
+      }
+
       function targetAtPoint(x, y, sourceId, category) {
         const card = document.elementFromPoint(x, y)?.closest(".product-card");
         if (!card || card.dataset.category !== category) return null;
@@ -4851,62 +4896,93 @@ window.hansolCatalogConfig = {
         if (!Number.isSafeInteger(id) || id === sourceId) return null;
         const box = card.getBoundingClientRect();
         const columns = getComputedStyle(card.parentElement).gridTemplateColumns.split(" ").filter(Boolean).length;
-        return {card, id, after: columns > 1 ? x >= box.left + box.width / 2 : y >= box.top + box.height / 2};
+        const after = columns > 1 ? x >= box.left + box.width / 2 : y >= box.top + box.height / 2;
+        return {card, id, after};
       }
-      function dropTarget(event) { return moving ? targetAtPoint(event.clientX, event.clientY, moving.id, moving.category) : null; }
+
+      function dropTarget(event) {
+        return moving ? targetAtPoint(event.clientX, event.clientY, moving.id, moving.category) : null;
+      }
+
       function moveAdjacent(from, direction) {
         if (currentUser?.id !== "flowerday1585" || catalogWriting) return;
         const source = products.find(item => item.id === from);
         if (!source) return;
-        const siblings = products.filter(item => item.category === source.category);
-        const target = siblings[siblings.findIndex(item => item.id === from) + direction];
-        if (target) void moveProduct(from, target.id, direction > 0);
+        const card = container.querySelector("#card-" + from);
+        const targetCard = spatialNeighbor(card, direction);
+        if (!targetCard) return;
+        const target = products.find(item => item.id === Number(targetCard.id.slice(5)));
+        if (!target) return;
+        const sourceIndex = products.filter(item => item.category === source.category).findIndex(item => item.id === source.id);
+        const targetIndex = products.filter(item => item.category === source.category).findIndex(item => item.id === target.id);
+        void moveProduct(from, target.id, targetIndex > sourceIndex);
       }
+
       container.addEventListener("click", event => {
         const button = event.target.closest("[data-sort-direction][data-sort-product]");
         if (!button) return;
         event.preventDefault();
-        moveAdjacent(Number(button.dataset.sortProduct), button.dataset.sortDirection === "up" ? -1 : 1);
+        moveAdjacent(Number(button.dataset.sortProduct), button.dataset.sortDirection);
       });
-      let touchDrag = null;
+
       container.addEventListener("pointerdown", event => {
-        const handle = event.target.closest("[data-sort-product]");
+        const handle = event.target.closest(".product-drag-handle[data-sort-product]");
         if (event.pointerType !== "touch" || !handle || currentUser?.id !== "flowerday1585" || catalogWriting) return;
         const card = handle.closest(".product-card");
         touchDrag = {id:Number(handle.dataset.sortProduct),category:card?.dataset.category,pointerId:event.pointerId,x:event.clientX,y:event.clientY,active:false};
+        try { handle.setPointerCapture(event.pointerId); } catch {}
       });
+
       container.addEventListener("pointermove", event => {
         if (!touchDrag || touchDrag.pointerId !== event.pointerId) return;
         if (!touchDrag.active && Math.hypot(event.clientX-touchDrag.x,event.clientY-touchDrag.y)<8) return;
-        touchDrag.active = true; moving = {id:touchDrag.id,category:touchDrag.category}; event.preventDefault(); clearIndicator();
+        touchDrag.active = true;
+        moving = {id:touchDrag.id,category:touchDrag.category};
+        event.preventDefault();
+        clearIndicator();
         const target = dropTarget(event);
-        if (target) {indicated=target.card;indicated.dataset.drop=target.after?"after":"before";}
+        if (target) { indicated=target.card; indicated.dataset.drop=target.after?"after":"before"; }
       });
+
       function finishTouchDrag(event) {
         if (!touchDrag || touchDrag.pointerId !== event.pointerId) return;
-        const drag=touchDrag;touchDrag=null;if(!drag.active)return;
-        const target=targetAtPoint(event.clientX,event.clientY,drag.id,drag.category);moving=null;clearIndicator();
-        if(target)void moveProduct(drag.id,target.id,target.after);
+        const drag=touchDrag;
+        touchDrag=null;
+        if (!drag.active) return;
+        const target=targetAtPoint(event.clientX,event.clientY,drag.id,drag.category);
+        moving=null;
+        clearIndicator();
+        if(target) void moveProduct(drag.id,target.id,target.after);
       }
+
       container.addEventListener("pointerup",finishTouchDrag);
-      container.addEventListener("pointercancel",event=>{if(touchDrag?.pointerId===event.pointerId)touchDrag=null;moving=null;clearIndicator();});
+      container.addEventListener("pointercancel",event=>{
+        if(touchDrag?.pointerId===event.pointerId) touchDrag=null;
+        moving=null;
+        clearIndicator();
+      });
 
       container.addEventListener("dragstart", event => {
-        const handle = event.target.closest("[data-sort-product]");
-        if (!handle || currentUser?.id !== "flowerday1585" || catalogWriting) return;
-        moving = {id: Number(handle.dataset.sortProduct), category: handle.closest(".product-card").dataset.category};
+        const handle = event.target.closest(".product-drag-handle[data-sort-product]");
+        if (!handle || currentUser?.id !== "flowerday1585" || catalogWriting) {
+          event.preventDefault();
+          return;
+        }
+        moving = {id:Number(handle.dataset.sortProduct),category:handle.closest(".product-card").dataset.category};
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", String(moving.id));
       });
+
       container.addEventListener("dragover", event => {
-        clearIndicator();
         const target = dropTarget(event);
+        clearIndicator();
         if (!target) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
         indicated = target.card;
         indicated.dataset.drop = target.after ? "after" : "before";
       });
+
       container.addEventListener("drop", event => {
         const target = dropTarget(event);
         clearIndicator();
@@ -4916,19 +4992,26 @@ window.hansolCatalogConfig = {
         moving = null;
         void moveProduct(from, target.id, target.after);
       });
+
       container.addEventListener("dragend", () => {
         moving = null;
         clearIndicator();
       });
+
       container.addEventListener("keydown", event => {
         const handle = event.target.closest("[data-sort-product]");
-        const direction = {ArrowLeft:-1, ArrowUp:-1, ArrowRight:1, ArrowDown:1}[event.key];
+        const direction = {ArrowLeft:"left",ArrowUp:"up",ArrowRight:"right",ArrowDown:"down"}[event.key];
         if (!handle || !direction) return;
         const card = handle.closest(".product-card");
-        const target = direction < 0 ? card.previousElementSibling : card.nextElementSibling;
-        if (!target) return;
+        const targetCard = spatialNeighbor(card, direction);
+        if (!targetCard) return;
+        const from = Number(handle.dataset.sortProduct);
+        const to = Number(targetCard.id.slice(5));
+        const siblings = products.filter(item => item.category === card.dataset.category);
+        const sourceIndex = siblings.findIndex(item => item.id === from);
+        const targetIndex = siblings.findIndex(item => item.id === to);
         event.preventDefault();
-        void moveProduct(Number(handle.dataset.sortProduct), Number(target.id.slice(5)), direction > 0);
+        void moveProduct(from, to, targetIndex > sourceIndex);
       });
     }
 
@@ -4998,9 +5081,13 @@ window.hansolCatalogConfig = {
 
             ${isAdmin ? `
               <div class="admin-controls">
-                <button class="admin-btn product-drag-handle" type="button" draggable="true" data-sort-product="${item.id}" aria-label="상품 순서 이동. 방향키와 위로·아래로 버튼으로도 이동할 수 있습니다.">끌어서 이동</button>
-                <button class="admin-btn product-sort-button" type="button" data-sort-direction="up" data-sort-product="${item.id}" aria-label="${escapeCatalogHtml(item.name)} 위로 이동" ${products.filter(product => product.category === item.category).findIndex(product => product.id === item.id) === 0 ? "disabled" : ""}>위로</button>
-                <button class="admin-btn product-sort-button" type="button" data-sort-direction="down" data-sort-product="${item.id}" aria-label="${escapeCatalogHtml(item.name)} 아래로 이동" ${products.filter(product => product.category === item.category).findIndex(product => product.id === item.id) === products.filter(product => product.category === item.category).length - 1 ? "disabled" : ""}>아래로</button>
+                <button class="admin-btn product-drag-handle" type="button" draggable="true" data-sort-product="${item.id}" aria-label="상품 순서 이동. 끌어서 이동하거나 화살표 버튼을 사용하세요.">끌어서 이동</button>
+                <div class="product-sort-controls" role="group" aria-label="상품 배치 이동">
+                  <button class="admin-btn product-sort-button" type="button" data-sort-direction="left" data-sort-product="${item.id}" aria-label="${escapeCatalogHtml(item.name)} 왼쪽으로 이동">←</button>
+                  <button class="admin-btn product-sort-button" type="button" data-sort-direction="up" data-sort-product="${item.id}" aria-label="${escapeCatalogHtml(item.name)} 위쪽으로 이동">↑</button>
+                  <button class="admin-btn product-sort-button" type="button" data-sort-direction="down" data-sort-product="${item.id}" aria-label="${escapeCatalogHtml(item.name)} 아래쪽으로 이동">↓</button>
+                  <button class="admin-btn product-sort-button" type="button" data-sort-direction="right" data-sort-product="${item.id}" aria-label="${escapeCatalogHtml(item.name)} 오른쪽으로 이동">→</button>
+                </div>
                 <button class="admin-btn" data-click="edit-product" data-product-id="${item.id}">수정</button>
                 <button class="admin-btn delete" data-click="delete-product" data-product-id="${item.id}">삭제</button>
               </div>
