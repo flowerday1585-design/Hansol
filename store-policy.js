@@ -32,20 +32,26 @@
     }
     document.querySelectorAll("#footerPolicies button").forEach(button => {
       const title = button.textContent.replace(/\s/g, "");
-      if (title === "관세및수입세" || title === "결제방법") button.remove();
+      if (title === "관세및수입세" || title === "결제방법") {
+        button.remove();
+      } else if (["개인정보보호관련선택사항", "서비스약관", "반품및환불정책", "개인정보보호정책", "법적고지", "배송정책"].includes(title)) {
+        button.hidden = document.getElementById("bannerEditButton")?.hidden !== false;
+      }
     });
     const bannerDescription = document.getElementById("bannerDescription");
     if (bannerDescription && bannerDescription.textContent !== "일본에서 직접 수입·통관한 정품 카드 상품을 국내에서 안전하게 발송합니다.") bannerDescription.textContent = "일본에서 직접 수입·통관한 정품 카드 상품을 국내에서 안전하게 발송합니다.";
     const vatDescription = document.getElementById("vatDescription");
     if (vatDescription && vatDescription.textContent !== "모든 표시 가격은 부가가치세가 포함된 최종 소비자 가격입니다.") vatDescription.textContent = "모든 표시 가격은 부가가치세가 포함된 최종 소비자 가격입니다.";
-    const checkoutItems = document.getElementById("checkoutItems");
+  };
+  const checkoutItems = document.getElementById("checkoutItems");
+  if (checkoutItems) {
     const cleanVatSummary = () => {
-      if (!checkoutItems || !checkoutItems.textContent.includes("VAT 별도")) return;
+      if (!checkoutItems.textContent.includes("VAT 별도")) return;
       checkoutItems.textContent = checkoutItems.textContent.split("\n").map(line => line.startsWith("VAT 별도") ? "부가세 포함" : line).join("\n");
     };
     cleanVatSummary();
-    if (checkoutItems) new MutationObserver(cleanVatSummary).observe(checkoutItems, {childList:true,subtree:true,characterData:true});
-  };
+    new MutationObserver(cleanVatSummary).observe(checkoutItems, {childList:true,subtree:true,characterData:true});
+  }
   document.addEventListener("click", event => {
     const button = event.target.closest?.(controls);
     if (!button) return;
@@ -73,7 +79,11 @@
     terms.required = true;
     privacy.required = true;
     document.addEventListener("click", event => {
-      const action = event.target.closest?.('[data-click="handle-signup"], [data-click="handle-signup-true"]');
+      if (event.target.closest?.('[data-click="close-modal-signup-modal"]')) {
+        terms.checked = privacy.checked = marketing.checked = false;
+        return;
+      }
+      const action = event.target.closest?.('[data-click="handle-signup"]');
       if (!action || (terms.checked && privacy.checked)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -83,17 +93,20 @@
     }, true);
     const originalSignup = window.hansolCatalog?.signup;
     if (typeof originalSignup === "function") {
-      window.hansolCatalog.signup = function(email, password, profile) {
+      window.hansolCatalog.signup = async function(email, password, profile) {
         if (!terms.checked || !privacy.checked) throw new Error("필수 동의가 필요합니다.");
         const agreedAt = new Date().toISOString();
-        return originalSignup.call(this, email, password, {
+        const account = await originalSignup.call(this, email, password, {
           ...profile,
+          agreement_version: "2026-11-24",
           terms_agreed_at: agreedAt,
           privacy_agreed_at: agreedAt,
           marketing_agreed: Boolean(marketing?.checked),
           marketing_agreed_at: marketing?.checked ? agreedAt : null,
           shop_customs: ""
         });
+        terms.checked = privacy.checked = marketing.checked = false;
+        return account;
       };
     }
   }
