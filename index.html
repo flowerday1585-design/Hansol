@@ -1060,10 +1060,12 @@ window.hansolCatalogConfig = {
       signal: controller.signal
     });
     if (!response.ok) {
-      const error = new Error("상품 서버 요청에 실패했습니다.");
       const failure = await response.json().catch(() => ({}));
+      const error = new Error(failure.message || "상품 서버 요청에 실패했습니다.");
       error.code = failure.message;
       error.authCode = failure.error_code || failure.code;
+      error.serverCode = failure.error_code || failure.code || "";
+      error.serverMessage = String(failure.message || failure.error_description || "");
       error.status = response.status;
       throw error;
     }
@@ -1681,10 +1683,24 @@ window.hansolCatalogConfig = {
 
     function catalogWriteError(error) {
       if (error.code === "CATALOG_TIMEOUT") return error.message;
-      if ([401, 403].includes(error.status)) return "관리자 권한을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.";
       if (error.conflict) refreshCatalog();
-      return error.status === 413 ? "사진 용량을 줄여 다시 시도해 주세요."
-        : error.conflict ? error.message : "상품 변경을 저장하지 못했습니다. 연결 상태를 확인해 주세요.";
+
+      const status = Number.isInteger(error.status) ? "HTTP " + error.status : "";
+      const code = String(error.serverCode || error.authCode || "");
+      let detail = String(error.serverMessage || error.message || "").replace(/\s+/g, " ").trim().slice(0, 180);
+      if (code === "22023" && detail === "Invalid photo") {
+        detail = "사진 주소 형식이 저장 규칙과 맞지 않습니다. 기존 사진 주소가 보존되도록 수정했으니 다시 저장해 주세요.";
+      } else if (code === "22023" && detail === "Invalid product data") {
+        detail = "상품 입력값 형식이 올바르지 않습니다. 가격, 재고, 분류와 상품명을 확인해 주세요.";
+      }
+      const context = [status, code ? "오류 " + code : ""].filter(Boolean).join(" / ");
+      if (error.status === 413) return "사진 용량을 줄여 다시 시도해 주세요." + (context ? " (" + context + ")" : "");
+      if ([401, 403].includes(error.status)) {
+        return "관리자 권한 또는 로그인 세션을 확인하지 못했습니다." + (context ? " (" + context + ")" : "");
+      }
+      if (error.conflict) return error.message;
+      return "상품 변경 저장 실패" + (context ? " (" + context + ")" : "")
+        + (detail ? ": " + detail : ". 연결 상태와 입력값을 확인해 주세요.");
     }
 
     let currentCategory = "all";
