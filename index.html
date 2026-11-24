@@ -3829,6 +3829,7 @@ window.hansolCatalogConfig = {
     let myOrderPage = 0;
     let memberPage = 0;
     let orderPage = 0;
+    let lastOrderFilterKey = null;
     function closeShopManagement() {
       managementGeneration++;
       document.getElementById("shopAdminList").replaceChildren();
@@ -3843,6 +3844,14 @@ window.hansolCatalogConfig = {
       if (!owner || (!customer && owner.id !== "flowerday1585")) return;
       const generation = ++managementGeneration;
       const members = tab === "members";
+      const isOrderList = !members && !customer && !selectedOrder;
+      const filterPanel = isOrderList ? document.getElementById("orderAdminFilter") : null;
+      const orderQuery = filterPanel?.querySelector("input")?.value.trim().toLocaleLowerCase("ko-KR") || "";
+      const orderStatus = filterPanel?.querySelector("select")?.value || "";
+      const orderFilterActive = isOrderList && Boolean(orderQuery || orderStatus);
+      const orderFilterKey = orderQuery + "\u0000" + orderStatus;
+      if (isOrderList && orderFilterActive && orderFilterKey !== lastOrderFilterKey) orderPage = 0;
+      lastOrderFilterKey = orderFilterActive ? orderFilterKey : null;
       if (members) memberPage = Math.max(0, memberPage + direction);
       else if (customer) myOrderPage = Math.max(0, myOrderPage + direction);
       else orderPage = Math.max(0, orderPage + direction);
@@ -3862,10 +3871,32 @@ window.hansolCatalogConfig = {
       if (selectedOrder) document.getElementById("testOrderTools").hidden = true;
       document.getElementById("shopAdminTitle").textContent = members ? "가입 회원" : customer ? "내 주문·배송 조회" : "주문 관리";
       openModal("shopAdminModal");
+      let searchResultCount = null;
       try {
         const [rows, canRemoveMember, overview] = await Promise.all([
           selectedOrder ? catalogApi.shopRpc("hansol_shop_order_by_id",{p_id:selectedOrder})
-            : catalogApi.shopRpc(members ? "hansol_verified_member_directory" : customer ? "hansol_my_orders_v2" : "hansol_shop_orders", {p_offset: page * size}),
+            : members ? catalogApi.shopRpc("hansol_verified_member_directory", {p_offset: page * size})
+            : customer ? catalogApi.shopRpc("hansol_my_orders_v2", {p_offset: page * size})
+            : orderFilterActive ? (async () => {
+              const allOrders = [];
+              for (let offset = 0; ; offset += 50) {
+                const batch = await catalogApi.shopRpc("hansol_shop_orders", {p_offset: offset});
+                allOrders.push(...batch);
+                if (batch.length < 50) break;
+              }
+              const matches = allOrders.filter(order => {
+                if (orderStatus && order.status !== orderStatus) return false;
+                const haystack = [
+                  order.id, order.email, order.recipient, order.phone, order.address, order.customs,
+                  order.status, order.carrier, order.tracking, order.created_at,
+                  ...(Array.isArray(order.lines) ? order.lines.flatMap(line => [line.name, line.id]) : [])
+                ].filter(Boolean).join(" ").toLocaleLowerCase("ko-KR");
+                return !orderQuery || haystack.includes(orderQuery);
+              });
+              searchResultCount = matches.length;
+              return matches.slice(page * size, (page + 1) * size);
+            })()
+            : catalogApi.shopRpc("hansol_shop_orders", {p_offset: page * size}),
           members ? catalogApi.shopRpc("hansol_admin_removal_available", {}).catch(() => false) : false,
           !members && !customer ? catalogApi.shopRpc("hansol_order_dashboard",{}).catch(() => null) : null
         ]);
@@ -3942,7 +3973,7 @@ window.hansolCatalogConfig = {
           list.append(item);
         }
         prev.hidden = !!selectedOrder || page === 0;
-        next.hidden = !!selectedOrder || rows.length < size;
+        next.hidden = !!selectedOrder || (orderFilterActive ? (page + 1) * size >= searchResultCount : rows.length < size);
         prev.onclick = () => showShopManagement(tab, -1);
         next.onclick = () => showShopManagement(tab, 1);
       } catch {
