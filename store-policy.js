@@ -162,7 +162,7 @@
     if (document.getElementById("hansolPolicyStyles")) return;
     const style = document.createElement("style");
     style.id = "hansolPolicyStyles";
-    style.textContent = "#policyModal .modal-content{width:min(94vw,820px);max-width:820px;max-height:94dvh;padding:24px}#policyText{max-height:calc(94dvh - 180px);overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.75;color:#111827}.footer-business,.footer-contact{line-height:1.7;overflow-wrap:anywhere}.footer-business a,.footer-contact a{color:#e7d8bc;text-decoration:underline;text-underline-offset:2px}@media(max-width:640px){#policyModal{align-items:flex-end;padding:8px}#policyModal .modal-content{width:100%;max-width:none;max-height:94dvh;padding:18px;border-radius:14px 14px 8px 8px}#policyText{max-height:calc(94dvh - 160px);font-size:15px;line-height:1.7}#footerPolicies{gap:2px 12px}#footerPolicies button{min-height:40px}}";
+    style.textContent = "#policyModal .modal-content{width:min(94vw,820px);max-width:820px;max-height:94dvh;padding:24px}#policyText{max-height:calc(94dvh - 180px);overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.75;color:#111827}.footer-business,.footer-contact{line-height:1.7;overflow-wrap:anywhere}.footer-business a,.footer-contact a{color:#e7d8bc;text-decoration:underline;text-underline-offset:2px}@media(max-width:640px){#policyModal{align-items:flex-end;padding:8px}#policyModal .modal-content{width:100%;max-width:none;max-height:94dvh;padding:18px;border-radius:14px 14px 8px 8px}#policyText{max-height:calc(94dvh - 160px);font-size:15px;line-height:1.7}#footerPolicies{gap:2px 12px}#footerPolicies button,#footerPolicies a{min-height:40px}#footerPolicies a{color:#d7cbbb;padding:7px 0;text-decoration:none;font:inherit}#footerPolicies a:hover,#footerPolicies a:focus-visible{text-decoration:underline}}";
     document.head.append(style);
   }
 
@@ -191,4 +191,22 @@
     openPage(page);
   }, true);
   addStyles();
-})();
+  if (nav) {
+    nav.setAttribute("aria-label","정책 및 이용 안내");
+    nav.replaceChildren();
+    [
+      ["이용약관","terms"],
+      ["개인정보 처리방침","privacy"],
+      ["반품·교환·환불 정책","returns"],
+      ["배송 정책","shipping"],
+      ["고객센터 및 사업자 정보","contact"],
+      ["법적 고지","legal"],
+      ["자주 묻는 질문","faq"],
+      ["회사 소개","about"]
+    ].forEach(([label,anchor]) => {
+      const link = document.createElement("a");
+      link.href = "/legal.html#" + anchor;
+      link.textContent = label;
+      nav.append(link);
+    });
+  }
