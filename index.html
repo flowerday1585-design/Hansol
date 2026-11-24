@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-TC7OR0yMJo7A1ujxdquKnU6EtEhc9hWwbib3T1DkbeI=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-oyJnrJK8uQB1yVU4DsAmajPlAJ8fpVQO75FOB/4GcTs=' 'sha256-VJCLNew/h52cQ3QUNWfGKlwV2VhIm3lQ7Yu+7hcyyWE=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -2360,6 +2360,32 @@ window.hansolCatalogConfig = {
       field.focus();
     }
 
+    function authEmailFailure(error, action) {
+      const code = error?.authCode;
+      if (error?.status === 429 || ["over_email_send_rate_limit", "over_request_rate_limit"].includes(code)) {
+        return "요청 횟수 제한에 걸렸습니다. 잠시 후 다시 시도해 주세요.";
+      }
+      if (["email_address_invalid", "validation_failed"].includes(code)) {
+        return action + " 요청을 확인할 수 없습니다. 입력 내용을 확인해 주세요.";
+      }
+      if (["user_already_exists", "email_exists", "email_not_confirmed", "user_not_found"].includes(code)) {
+        return action + " 요청을 완료하지 못했습니다. 이메일을 확인해 주세요. 이미 가입하셨다면 로그인 또는 비밀번호 찾기를 이용해 주세요.";
+      }
+      if (code === "weak_password") return "비밀번호가 보안 기준을 충족하지 않습니다. 더 긴 비밀번호를 사용해 주세요.";
+      if (["email_address_not_authorized", "email_provider_disabled", "signup_disabled"].includes(code)) {
+        return "현재 " + action + "을 처리할 수 없습니다. 한솔아카이브에 문의해 주세요.";
+      }
+      if (code === "email_send_failed" || error?.status >= 500) {
+        return action + " 요청을 서버에서 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+      }
+      if (error?.code === "CATALOG_TIMEOUT" || !error?.status) {
+        return action + " 요청 결과를 확인하지 못했습니다. 받은편지함을 확인한 뒤 다시 시도해 주세요.";
+      }
+      return action + " 요청이 거부됐습니다. 입력 내용을 확인하고 다시 시도해 주세요.";
+    }
+
+    const signupEmailRequested = "인증메일 요청이 접수됐습니다. 받은편지함과 스팸함을 확인해 주세요. 인증을 마친 회원은 로그인 또는 비밀번호 찾기를 이용해 주세요.";
+
     async function sendPasswordReset(event) {
       event.preventDefault();
       const button = event.currentTarget.querySelector('button[type="submit"]');
@@ -2372,9 +2398,7 @@ window.hansolCatalogConfig = {
         await catalogApi.requestPasswordReset(email);
         status.textContent = "가입된 이메일이라면 재설정 링크가 도착합니다. 받은편지함과 스팸함을 확인해 주세요.";
       } catch (error) {
-        status.textContent = (error.status === 429 || error.authCode === "over_email_send_rate_limit")
-          ? "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."
-          : "재설정 링크를 요청하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.";
+        status.textContent = authEmailFailure(error, "비밀번호 재설정 메일 발송");
       } finally { button.disabled = false; }
     }
 
@@ -2873,15 +2897,10 @@ window.hansolCatalogConfig = {
         signupPendingEmail = signupEmailKey(email);
         saveSignupDraft();
         startSignupResendCooldown();
-        notify("인증메일 재발송 요청이 접수됐습니다. 실제 도착 여부는 이메일함에서 확인해 주세요. 메일이 오지 않으면 발송 로그를 확인해야 합니다.", true);
+        notify(signupEmailRequested, true);
       } catch (error) {
         if (attempt !== signupAttempt) return;
-        const detail = String(error?.message || "");
-        notify(error?.status === 429
-          ? "이메일 발송 횟수 제한에 걸렸습니다. 잠시 후 다시 요청해 주세요."
-          : error?.status === 400 || error?.status === 422
-            ? `재발송이 거부됐습니다 (${error.status}${error.authCode ? ", " + String(error.authCode).slice(0, 50) : ""}). Supabase 인증 로그를 확인해 주세요.`
-            : `이메일 재발송 요청이 실패했습니다. ${error.status || "네트워크 오류"}${error.authCode ? " / " + String(error.authCode).slice(0, 60) : ""}`);
+        notify(authEmailFailure(error, "인증메일 재발송"));
       } finally {
         if (attempt === signupAttempt) { signupRequestActive = false; updateSignupButtons(); }
       }
@@ -2936,11 +2955,10 @@ window.hansolCatalogConfig = {
           await catalogApi.resendSignup(submittedEmail);
           if (attempt !== signupAttempt) return;
           startSignupResendCooldown();
-          message("새 인증메일 발송을 요청했습니다. 방금 도착한 메일의 인증 링크를 이용해 주세요. 메일이 안 보이면 스팸함·휴지통도 확인해 주세요.", true);
+          message(signupEmailRequested, true);
         } catch (error) {
           if (attempt !== signupAttempt) return;
-          message(error.status === 429 ? "발송 제한에 걸렸습니다. 잠시 후 다시 요청해 주세요."
-            : "새 인증메일을 요청하지 못했습니다. 잠시 후 다시 눌러 주세요. 입력하신 정보는 유지됩니다.");
+          message(authEmailFailure(error, "인증메일 재발송"));
         } finally {
           if (attempt === signupAttempt) { signupRequestActive = false; updateSignupButtons(); }
         }
@@ -2996,11 +3014,10 @@ window.hansolCatalogConfig = {
         signupPendingEmail = signupEmailKey(submittedEmail);
         saveSignupDraft();
         startSignupResendCooldown();
-        message("인증메일 발송을 요청했습니다. 새로 도착한 인증 링크를 열어 주세요. 못 받으셨다면 60초 후 '인증메일 재발송'를 누를 수 있습니다.", true);
+        message(signupEmailRequested, true);
       } catch (error) {
         if (attempt !== signupAttempt) return;
-        message(error.status === 429 ? "요청이 많습니다. 잠시 후 다시 시도해 주세요."
-          : "인증메일 요청에 실패했습니다. 이메일을 확인하거나 잠시 후 다시 시도해 주세요.");
+        message(authEmailFailure(error, "회원가입 인증메일 발송"));
       } finally {
         if (attempt === signupAttempt) { signupRequestActive = false; updateSignupButtons(); }
       }
