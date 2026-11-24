@@ -31,7 +31,7 @@
       checkoutBank.hidden = true;
     }
     document.querySelectorAll("#footerPolicies button").forEach(button => {
-      const title = button.textContent.replace(/\\s/g, "");
+      const title = button.textContent.replace(/\s/g, "");
       if (title === "관세및수입세" || title === "결제방법") button.remove();
     });
     const bannerDescription = document.getElementById("bannerDescription");
@@ -41,7 +41,7 @@
     const checkoutItems = document.getElementById("checkoutItems");
     const cleanVatSummary = () => {
       if (!checkoutItems || !checkoutItems.textContent.includes("VAT 별도")) return;
-      checkoutItems.textContent = checkoutItems.textContent.replace(/VAT 별도[^·\\n]+ · 부가세 [^\\n]+/g, "부가세 포함");
+      checkoutItems.textContent = checkoutItems.textContent.split("\n").map(line => line.startsWith("VAT 별도") ? "부가세 포함" : line).join("\n");
     };
     cleanVatSummary();
     if (checkoutItems) new MutationObserver(cleanVatSummary).observe(checkoutItems, {childList:true,subtree:true,characterData:true});
