@@ -3567,7 +3567,7 @@ window.hansolCatalogConfig = {
       }
     }
 
-    const orderStages = [["received","주문 접수"],["received","입금 대기"],["paid","입금 확인"],["preparing","배송 준비"],["shipped","배송 중"],["delivered","배송 완료"]];
+    const orderStages = [["received","주문 접수"],["received","입금 대기"],["paid","입금 확인"],["preparing","배송 준비"],["shipped","배송 중"],["delivered","배송 완료"],["refund_requested","환불 요청"],["refund_processing","환불 처리중"],["refunded","환불 완료"]];
     const carriers = {
       "CJ대한통운": ["https://www.cjlogistics.com/ko/tool/parcel/tracking"],
       "우체국택배": ["https://trace.epost.go.kr/xtts/tt/epost/mobile/Trace.jsp"],
@@ -3651,7 +3651,8 @@ window.hansolCatalogConfig = {
             PAYMENT_DEADLINE_PASSED:"입금 확인 기한이 지났습니다. 주문 목록을 새로고침해 주세요.",
             OUT_OF_STOCK:"판매 가능한 재고가 부족해 접수 단계로 되돌릴 수 없습니다.",
             INVALID_TRACKING:"택배사, 송장번호 및 홈페이지 주소를 확인해 주세요.",INVALID_CHARGES:"배송비와 할인액을 확인해 주세요.",
-            ORDER_REVIEW_REQUIRED:"주문 검토 후 배송비와 할인액을 먼저 저장해 주세요."})[error.code] || "저장에 실패했습니다. 입력값과 연결 상태를 확인해 주세요.";
+            ORDER_REVIEW_REQUIRED:"주문 검토 후 배송비와 할인액을 먼저 저장해 주세요.",
+            INVALID_REFUND_AMOUNT:"환불 금액은 총 결제금액 이내에서 1원 이상 입력해 주세요."})[error.code] || "저장에 실패했습니다. 입력값과 연결 상태를 확인해 주세요.";
         } finally { for (const control of actions.querySelectorAll("button")) control.disabled = false; }
       };
       const confirmed = (label, message, action, fields = {}) => orderButton(label, () => { if (confirm(message)) void execute(action,{...fields,p_confirmed:true}); });
@@ -3697,6 +3698,40 @@ window.hansolCatalogConfig = {
         actions.append(orderButton("송장 저장",() => save("tracking")));
         if (row.status === "preparing") actions.append(orderButton("발송 완료",() => save("shipped")));
         if (row.status === "shipped") actions.append(confirmed("배송 완료 확인","실제로 배송이 완료된 것을 확인하셨습니까?","delivered"));
+      }
+      const refundAction = async (action, amount) => {
+        for (const control of actions.querySelectorAll("button")) control.disabled = true;
+        errorBox.textContent = "환불 상태를 저장 중…";
+        try {
+          await catalogApi.shopRpc("hansol_refund_action", {
+            p_id:row.id,p_expected:row.status,p_action:action,p_refund_amount:amount ?? null
+          });
+          if (generation === managementGeneration) await showShopManagement("orders",0,selectedOrder);
+        } catch (error) {
+          errorBox.textContent = ({STATUS_CHANGED:"다른 관리자가 상태를 변경했습니다. 목록을 새로고침해 주세요.",
+            INVALID_REFUND_AMOUNT:"환불 금액은 총 결제금액 이내에서 1원 이상 입력해 주세요.",
+            ORDER_REVIEW_REQUIRED:"배송비와 할인액을 확인할 수 없어 환불 완료를 기록하지 못했습니다."})[error.code] || "환불 상태 저장에 실패했습니다. 입력값과 연결 상태를 확인해 주세요.";
+        } finally { for (const control of actions.querySelectorAll("button")) control.disabled = false; }
+      };
+      if (["paid","preparing","shipped","delivered"].includes(row.status)) {
+        actions.append(orderButton("환불 요청 등록",() => {
+          if (confirm("이 주문을 환불 요청 상태로 표시할까요? 이 기능은 송금이나 재고 변경을 하지 않습니다.")) {
+            void refundAction("refund_requested");
+          }
+        }));
+      }
+      if (row.status === "refund_requested") {
+        actions.append(orderButton("환불 처리중",() => void refundAction("refund_processing")));
+      }
+      if (row.status === "refund_processing") {
+        const amount = input("환불 금액 (원)","number",row.refund_amount ?? orderTotal(row));
+        amount.min = "1"; amount.max = String(orderTotal(row) ?? ""); amount.step = "1"; amount.required = true;
+        actions.append(orderButton("환불 완료 기록",() => {
+          if (!amount.reportValidity()) return;
+          if (confirm("환불이 실제로 완료되었는지 확인해 주세요. 이 버튼은 송금하지 않고 금액과 처리 시각만 기록합니다.")) {
+            void refundAction("refunded",Number(amount.value));
+          }
+        }));
       }
       if (["received","paid","preparing"].includes(row.status)) actions.append(confirmed("주문 취소",
         row.status === "received" ? "주문을 취소하고 재고를 복구하시겠습니까?" : "환불을 직접 완료하셨습니까? 주문을 취소하고 재고를 복구합니다.","canceled"));
@@ -3776,6 +3811,9 @@ window.hansolCatalogConfig = {
       heading.append(badge,orderElement("span",date),orderElement("small","주문번호 "+row.id));
       card.append(heading);
       if (!customer && row.reopened_at) card.append(orderElement("p",`접수 상태로 되돌린 시각 ${shopDate.format(new Date(row.reopened_at))}`,"order-message"));
+      if (row.status === "refunded" && row.refund_amount != null) {
+        card.append(orderElement("p",`환불 금액 ${won(Number(row.refund_amount))} · 처리 일시 ${row.refund_processed_at ? shopDate.format(new Date(row.refund_processed_at)) : "기록 없음"}`,"order-message"));
+      }
       if (row.status === "received" && row.payment_due_at) card.append(orderElement("p",
         `입금 마감 ${shopDate.format(new Date(row.payment_due_at))} (한국시간) · 마감까지 입금 확인이 없으면 자동 취소됩니다.`,"order-message"));
       if (row.payment_expired_at) card.append(orderElement("p","입금 확인 기한이 지나 자동 취소되었습니다. 구매를 원하시면 다시 주문해 주세요.","order-message"));
@@ -3825,7 +3863,7 @@ window.hansolCatalogConfig = {
       if (currentUser.id === "flowerday1585") void showShopManagement("orders",0,target === "1" ? null : target);
     }
     let managementGeneration = 0;
-    const orderLabels = {received:"입금 대기",paid:"입금 확인",preparing:"배송 준비",shipped:"배송 중",delivered:"배송 완료",canceled:"주문 취소"};
+    const orderLabels = {received:"입금 대기",paid:"입금 확인",preparing:"배송 준비",shipped:"배송 중",delivered:"배송 완료",canceled:"주문 취소",refund_requested:"환불 요청",refund_processing:"환불 처리중",refunded:"환불 완료"};
     let myOrderPage = 0;
     let memberPage = 0;
     let orderPage = 0;
