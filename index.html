@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-DTwhsBHZ4XU7hZufxBf+oyXG/wLaoNQ5RH1rAMhD/18=' 'sha256-wgWJuHGDNHvgXr2ERauocxuedzhObbIAKQAFwWIQ24s=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-v5addQlpvUseQB62sJPMyE5kiOp100WtVfwwuzKzFho=' 'sha256-kPUoq4PujXltw7E/FUFnoDJ00iwdIU5ypTtRX+mAKiY=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -218,9 +218,8 @@
     .btn-card-add { flex: 1; padding: 8px; background: var(--bg-dark); color: #fff; border: none; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; }
     
     .product-drag-handle { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
-    .product-drag-handle:active, .product-drag-handle[aria-pressed="true"] { cursor: grabbing; }
-    .product-card[data-dragging] { opacity:.58; }
-    .product-card[data-drop] { outline: 4px solid #2563eb; outline-offset: 2px; box-shadow:0 0 0 6px #2563eb33; position: relative; z-index: 1; }
+    .product-drag-handle:active { cursor: grabbing; }
+    .product-card[data-drop] { outline: 3px solid #2563eb; outline-offset: 2px; position: relative; z-index: 1; }
     .product-card[data-drop="before"]::before,
     .product-card[data-drop="after"]::after { content: ""; position: absolute; z-index: 2; pointer-events: none; background: #2563eb; border-radius: 3px; }
     .product-card[data-drop="before"]::before,
@@ -4928,51 +4927,76 @@ window.hansolCatalogConfig = {
 
       container.addEventListener("pointerdown", event => {
         const handle = event.target.closest(".product-drag-handle[data-sort-product]");
-        if (!handle || event.isPrimary === false || (event.pointerType === "mouse" && event.button !== 0) ||
-            currentUser?.id !== "flowerday1585" || catalogWriting) return;
+        if (event.pointerType !== "touch" || !handle || currentUser?.id !== "flowerday1585" || catalogWriting) return;
         const card = handle.closest(".product-card");
-        touchDrag = {id:Number(handle.dataset.sortProduct),category:card?.dataset.category,pointerId:event.pointerId,
-          x:event.clientX,y:event.clientY,active:false,handle};
-        handle.setAttribute("aria-pressed","true");
+        touchDrag = {id:Number(handle.dataset.sortProduct),category:card?.dataset.category,pointerId:event.pointerId,x:event.clientX,y:event.clientY,active:false};
         try { handle.setPointerCapture(event.pointerId); } catch {}
-        event.preventDefault();
       });
 
       container.addEventListener("pointermove", event => {
         if (!touchDrag || touchDrag.pointerId !== event.pointerId) return;
-        if (!touchDrag.active && Math.hypot(event.clientX-touchDrag.x,event.clientY-touchDrag.y)<6) return;
+        if (!touchDrag.active && Math.hypot(event.clientX-touchDrag.x,event.clientY-touchDrag.y)<8) return;
         touchDrag.active = true;
         moving = {id:touchDrag.id,category:touchDrag.category};
-        touchDrag.handle.closest(".product-card")?.setAttribute("data-dragging","");
         event.preventDefault();
         clearIndicator();
         const target = dropTarget(event);
-        if (target) {
-          indicated=target.card;
-          indicated.dataset.drop=target.after?"after":"before";
-        }
+        if (target) { indicated=target.card; indicated.dataset.drop=target.after?"after":"before"; }
       });
 
-      function finishPointerDrag(event, cancelled=false) {
+      function finishTouchDrag(event) {
         if (!touchDrag || touchDrag.pointerId !== event.pointerId) return;
         const drag=touchDrag;
         touchDrag=null;
-        drag.handle?.removeAttribute("aria-pressed");
-        drag.handle?.closest(".product-card")?.removeAttribute("data-dragging");
-        if (cancelled || !drag.active) {
-          moving=null;
-          clearIndicator();
-          return;
-        }
+        if (!drag.active) return;
         const target=targetAtPoint(event.clientX,event.clientY,drag.id,drag.category);
         moving=null;
         clearIndicator();
         if(target) void moveProduct(drag.id,target.id,target.after);
       }
 
-      container.addEventListener("pointerup",event=>finishPointerDrag(event));
-      container.addEventListener("pointercancel",event=>finishPointerDrag(event,true));
-      container.addEventListener("lostpointercapture",event=>finishPointerDrag(event,true));
+      container.addEventListener("pointerup",finishTouchDrag);
+      container.addEventListener("pointercancel",event=>{
+        if(touchDrag?.pointerId===event.pointerId) touchDrag=null;
+        moving=null;
+        clearIndicator();
+      });
+
+      container.addEventListener("dragstart", event => {
+        const handle = event.target.closest(".product-drag-handle[data-sort-product]");
+        if (!handle || currentUser?.id !== "flowerday1585" || catalogWriting) {
+          event.preventDefault();
+          return;
+        }
+        moving = {id:Number(handle.dataset.sortProduct),category:handle.closest(".product-card").dataset.category};
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", String(moving.id));
+      });
+
+      container.addEventListener("dragover", event => {
+        const target = dropTarget(event);
+        clearIndicator();
+        if (!target) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        indicated = target.card;
+        indicated.dataset.drop = target.after ? "after" : "before";
+      });
+
+      container.addEventListener("drop", event => {
+        const target = dropTarget(event);
+        clearIndicator();
+        if (!target) return;
+        event.preventDefault();
+        const from = moving.id;
+        moving = null;
+        void moveProduct(from, target.id, target.after);
+      });
+
+      container.addEventListener("dragend", () => {
+        moving = null;
+        clearIndicator();
+      });
 
       container.addEventListener("keydown", event => {
         const handle = event.target.closest("[data-sort-product]");
@@ -5057,7 +5081,7 @@ window.hansolCatalogConfig = {
 
             ${isAdmin ? `
               <div class="admin-controls">
-                <button class="admin-btn product-drag-handle" type="button" draggable="false" data-sort-product="${item.id}" aria-label="⠿ 손잡이를 길게 눌러 상품을 끌어 이동하세요.">⠿　끌어서 이동</button>
+                <button class="admin-btn product-drag-handle" type="button" draggable="true" data-sort-product="${item.id}" aria-label="상품 순서 이동. 끌어서 이동하거나 화살표 버튼을 사용하세요.">끌어서 이동</button>
                 <div class="product-sort-controls" role="group" aria-label="상품 배치 이동">
                   <button class="admin-btn product-sort-button" type="button" data-sort-direction="left" data-sort-product="${item.id}" aria-label="${escapeCatalogHtml(item.name)} 왼쪽으로 이동">←</button>
                   <button class="admin-btn product-sort-button" type="button" data-sort-direction="up" data-sort-product="${item.id}" aria-label="${escapeCatalogHtml(item.name)} 위쪽으로 이동">↑</button>
