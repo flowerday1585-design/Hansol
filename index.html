@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-v5addQlpvUseQB62sJPMyE5kiOp100WtVfwwuzKzFho=' 'sha256-kPUoq4PujXltw7E/FUFnoDJ00iwdIU5ypTtRX+mAKiY=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-v5addQlpvUseQB62sJPMyE5kiOp100WtVfwwuzKzFho=' 'sha256-uMOjFN2Ymq7/vYnXOZ5evh4/N9+MK8LtiRl3daPpZrM=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -1594,12 +1594,21 @@ window.hansolCatalogConfig = {
       finally { if (db) db.close(); }
     }
 
+    function updateCategoryTabs() {
+      const supplyTab = document.querySelector('#categoryTabs [data-category="supply"]');
+      if (!supplyTab) return;
+      const hasSupplyProducts = products.some(product => product.category === "supply");
+      supplyTab.closest("li").hidden = Boolean(catalogRow) &&
+        currentUser?.id !== "flowerday1585" && !hasSupplyProducts;
+    }
+
     function displayCatalog(row) {
       const changed = catalogRow?.revision !== row.revision;
       if (!Array.isArray(row.items)) throw new Error("서버 상품 목록을 읽을 수 없습니다.");
       catalogRow = row;
       catalogPreview = false;
       products = row.items;
+      updateCategoryTabs();
       // Keep a local copy so refreshes require only a tiny revision request.
       void cacheCatalog(row);
       if (changed) {
@@ -2231,6 +2240,7 @@ window.hansolCatalogConfig = {
         `;
         adminContainer.innerHTML = "";
       }
+      updateCategoryTabs();
       filterProducts();
       updateCartBadge();
     }
