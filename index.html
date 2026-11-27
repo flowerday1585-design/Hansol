@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-t3+0NOhwmOmiwaHCmEe2vYRXI9OEUv5157mI/kSM480=' 'sha256-TyesJxtWLM2bzQq5Dui2xtT4tZ7gf1+xmf6biwTfa44=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-t3+0NOhwmOmiwaHCmEe2vYRXI9OEUv5157mI/kSM480=' 'sha256-Gfj6ZizmutUklzIAviINJel+50lcoAbPcT+Ac1ji7XE=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -123,11 +123,17 @@
     .hero-main { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); color: #ffffff; border-radius: 14px; padding: 40px; box-shadow: var(--shadow-md); }
     .hero-content { display:flex; align-items:center; gap:28px; }
     .hero-copy { min-width:0; flex:1; overflow-wrap:anywhere; }
-    .hero-copy h1, .hero-copy h2, .hero-copy p { white-space:pre-line; }
+    .hero-copy h1, .hero-copy h2, .hero-copy p { white-space:pre-line; max-width:100%; overflow-wrap:anywhere; }
     .hero-photo { display:block; width:38%; max-width:440px; max-height:320px; object-fit:contain; border-radius:10px; }
     .hero-photo[hidden], .hero-edit[hidden] { display:none; }
     .hero-style-fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .hero-style-fields input[type="color"] { height:42px; padding:4px; }
+    .banner-preview-label { margin:0 0 6px; color:#475569; font-size:12px; font-weight:750; }
+    .banner-editor-preview { margin:0 0 16px; padding:18px; border-radius:10px; overflow:hidden; }
+    .banner-editor-preview .hero-content { min-width:0; gap:12px; }
+    .banner-editor-preview .hero-copy { min-width:0; flex:1; overflow-wrap:anywhere; }
+    .banner-editor-preview :is(h2,p) { max-width:100%; overflow-wrap:anywhere; word-break:normal; }
+    .banner-editor-preview .hero-photo { width:32%; max-width:180px; max-height:140px; }
     @media(max-width:600px) { .hero-content { flex-direction:column; align-items:stretch; } .hero-photo { width:100%; align-self:center; } }
     .hero-tag { display: inline-block; background: rgba(255, 255, 255, 0.15); color: #93c5fd; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 4px; margin-bottom: 14px; }
     .hero-main + .hero-main { margin-top: 16px; }
@@ -323,7 +329,7 @@
       .logo-sub { display: none; }
       .hero-section { padding-top: 14px; }
       .hero-main { padding: 19px 16px; }
-      .hero-main :is(h1, h2) { font-size: clamp(18px, var(--banner-title-size, 5.8vw), 34px); line-height: 1.3; letter-spacing: -0.035em; word-break: keep-all; margin-bottom: 8px; }
+      .hero-main :is(h1, h2) { font-size: var(--banner-title-size, clamp(18px, 5.8vw, 34px)); line-height: 1.3; letter-spacing: -0.035em; word-break: normal; overflow-wrap: anywhere; max-width: 100%; margin-bottom: 8px; }
       .hero-main p { font-size: 12px; line-height: 1.55; word-break: keep-all; margin-bottom: 0; }
       .hero-tag { margin-bottom: 9px; font-size: 10px; }
       .catalog-section { padding-top: 15px; }
@@ -1016,6 +1022,17 @@
   <div class="modal" id="bannerModal" role="dialog" aria-modal="true" aria-labelledby="bannerEditorTitle">
     <form class="modal-content" id="bannerForm">
       <h3 id="bannerEditorTitle">홈 배너 편집</h3>
+      <p class="banner-preview-label">실시간 미리보기</p>
+      <div class="hero-main banner-editor-preview" id="bannerEditorPreview" aria-label="배너 실시간 미리보기">
+        <div class="hero-content">
+          <div class="hero-copy">
+            <span class="hero-tag" id="bannerPreviewTag"></span>
+            <h2 id="bannerPreviewTitle"></h2>
+            <p id="bannerPreviewDescription"></p>
+          </div>
+          <img class="hero-photo" id="bannerPreviewPhoto" alt="배너 사진 미리보기" hidden>
+        </div>
+      </div>
       <div class="form-group"><label for="editBannerTag">상단 라벨</label><input id="editBannerTag" maxlength="60"></div>
       <div class="form-group"><label for="editBannerTitle">제목</label><textarea id="editBannerTitle" maxlength="160"></textarea></div>
       <div class="form-group"><label for="editBannerDescription">설명</label><textarea id="editBannerDescription" maxlength="350"></textarea></div>
@@ -2308,12 +2325,63 @@ window.hansolCatalogConfig = {
       else image.removeAttribute("src");
     }
 
+    let bannerPreviewFile = null;
+    let bannerPreviewObjectUrl = "";
+    function releaseBannerPreviewImage() {
+      if (bannerPreviewObjectUrl) URL.revokeObjectURL(bannerPreviewObjectUrl);
+      bannerPreviewFile = null;
+      bannerPreviewObjectUrl = "";
+    }
+    function editorSizeValue(key, raw) {
+      if (!raw) return "";
+      const number = Number(raw);
+      const [min, max] = key === "titleSize" ? [12, 72] : [10, 40];
+      return Number.isInteger(number) && number >= min && number <= max ? String(number) : "";
+    }
+    function renderBannerEditorPreview() {
+      if (!editingBanner) return;
+      const values = {...editingBanner.settings};
+      for (const [key, id] of Object.entries(bannerFields)) {
+        values[key] = document.getElementById(id).value.trim();
+      }
+      values.titleSize = editorSizeValue("titleSize", values.titleSize);
+      values.descriptionSize = editorSizeValue("descriptionSize", values.descriptionSize);
+      const preview = document.getElementById("bannerEditorPreview");
+      const tag = document.getElementById("bannerPreviewTag");
+      const title = document.getElementById("bannerPreviewTitle");
+      const description = document.getElementById("bannerPreviewDescription");
+      const photo = document.getElementById("bannerPreviewPhoto");
+      tag.textContent = values.tag || "";
+      tag.hidden = !values.tag;
+      title.textContent = values.title || "";
+      title.hidden = !values.title;
+      description.textContent = values.description || "";
+      description.hidden = !values.description;
+      preview.style.background = values.background || "";
+      for (const element of [tag, title, description]) element.style.color = values.color || "";
+      preview.style.setProperty("--banner-title-size", values.titleSize ? values.titleSize + "px" : "");
+      description.style.fontSize = values.descriptionSize ? values.descriptionSize + "px" : "";
+      const file = document.getElementById("editBannerPhoto").files[0] || null;
+      if (file !== bannerPreviewFile) {
+        releaseBannerPreviewImage();
+        bannerPreviewFile = file;
+        if (file) bannerPreviewObjectUrl = URL.createObjectURL(file);
+      }
+      const photoUrl = document.getElementById("removeBannerPhoto").checked
+        ? "" : (file ? bannerPreviewObjectUrl : (values.photo || ""));
+      photo.hidden = !photoUrl;
+      photo.alt = (values.title || "배너") + " 사진 미리보기";
+      if (photoUrl) photo.src = photoUrl;
+      else photo.removeAttribute("src");
+    }
+
     async function openBannerEditor(key = "home") {
       const form = document.getElementById("bannerForm");
       if (currentUser?.id !== "flowerday1585" || form.querySelector('[type="submit"]').disabled) return;
       await refreshBanners();
       editingBanner = banners[key];
       editingBannerRevision = (key === "vat" ? banners.home : editingBanner).revision;
+      releaseBannerPreviewImage();
       form.reset();
       document.getElementById("bannerEditorTitle").textContent = editingBanner.editorTitle;
       const values = { color: "#ffffff", background: "#1e3a8a", ...editingBanner.settings };
@@ -2321,6 +2389,7 @@ window.hansolCatalogConfig = {
         document.getElementById(id).value = values[key] ?? "";
       }
       document.getElementById("bannerEditorStatus").textContent = bannerServerReady ? "저장하면 방문자 화면에도 반영됩니다." : "배너 서버에 연결하지 못했습니다. 입력 내용은 서버에 저장되지 않습니다. 초기 설정 또는 연결을 확인해 주세요.";
+      renderBannerEditorPreview();
       openModal("bannerModal");
       document.getElementById("editBannerTitle").focus();
     }
@@ -2334,8 +2403,19 @@ window.hansolCatalogConfig = {
       const entry = editingBanner;
       const settings = { ...entry.settings };
       const file = document.getElementById("editBannerPhoto").files[0];
+      const sizeRanges = {titleSize:[12,72], descriptionSize:[10,40]};
       for (const [key, id] of Object.entries(bannerFields)) {
         const value = document.getElementById(id).value.trim();
+        if (sizeRanges[key] && value) {
+          const number = Number(value);
+          const [min, max] = sizeRanges[key];
+          if (!Number.isInteger(number) || number < min || number > max) {
+            status.textContent = key === "titleSize" ? "제목 크기는 12~72px 정수로 입력해 주세요." : "설명 크기는 10~40px 정수로 입력해 주세요.";
+            return;
+          }
+          settings[key] = String(number);
+          continue;
+        }
         const initialColor = key === "color" ? "#ffffff" : "#1e3a8a";
         if (["color", "background"].includes(key) && !settings[key] && value === initialColor) continue;
         settings[key] = value;
@@ -2375,7 +2455,9 @@ window.hansolCatalogConfig = {
         renderBanner(entry);
         document.getElementById("editBannerPhoto").value = "";
         document.getElementById("removeBannerPhoto").checked = false;
-        status.textContent = "서버에 저장했습니다. 다른 기기에서는 새로고침하거나 약 15초 기다리면 반영됩니다.";
+        releaseBannerPreviewImage();
+        renderBannerEditorPreview();
+        status.textContent = "서버에 저장했습니다. 다른 기기에서는 새로고침하면 반영됩니다.";
       } catch (error) {
         status.textContent = (error.message || '서버 저장에 실패했습니다.') + ' 입력 내용은 유지됩니다.';
       } finally {
@@ -5682,7 +5764,7 @@ window.hansolCatalogConfig = {
       "update-sales-ledger-file": (event, element) => saveSalesLedger(element, true),
       "stop-sales-ledger": () => stopSalesLedger(),
       "close-modal-sales-ledger-modal": () => closeModal('salesLedgerModal'),
-      "close-modal-banner-modal": () => closeModal('bannerModal'),
+      "close-modal-banner-modal": () => { releaseBannerPreviewImage(); closeModal('bannerModal'); },
       "download-banner-site": () => downloadBannerSite(),
       "cart-decrease": (event, element, {index}) => changeCartQty(index, cart[index].qty - 1),
       "cart-increase": (event, element, {index}) => changeCartQty(index, cart[index].qty + 1),
@@ -5748,6 +5830,12 @@ window.hansolCatalogConfig = {
 
     setupSignupDraft();
     document.getElementById("bannerForm").addEventListener("submit", saveBanner);
+    for (const id of Object.values(bannerFields)) {
+      document.getElementById(id).addEventListener("input", renderBannerEditorPreview);
+      document.getElementById(id).addEventListener("change", renderBannerEditorPreview);
+    }
+    document.getElementById("editBannerPhoto").addEventListener("change", renderBannerEditorPreview);
+    document.getElementById("removeBannerPhoto").addEventListener("change", renderBannerEditorPreview);
     Object.values(banners).forEach(renderBanner);
     // Keep a single request per refresh window even when pageshow/focus both fire.
     function throttledVisibleRefresh(fn, cooldownMs) {
