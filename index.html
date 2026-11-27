@@ -2,7 +2,7 @@
 <html lang="ko"><head>
   <meta charset="UTF-8">
   <!-- Recalculate the two inline JavaScript hashes whenever either script changes. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-v5addQlpvUseQB62sJPMyE5kiOp100WtVfwwuzKzFho=' 'sha256-kPUoq4PujXltw7E/FUFnoDJ00iwdIU5ypTtRX+mAKiY=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; form-action 'self'; script-src 'sha256-IBkn9jUAUPjjiNtgxRfhe1gnsQBEA+UbqqU9OGKx79E=' 'sha256-Zr3bt2+4dY43PeVCgRe0GwM86D87NiIahq1pRoay1J0=' 'self' https://esm.sh https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src   https://bmrtppizatuahnpjuren.supabase.co wss://bmrtppizatuahnpjuren.supabase.co https://api.upbit.com https://api.manana.kr; frame-src https://www.tradingview-widget.com https://postcode.map.kakao.com">
   <meta name="referrer" content="strict-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>한솔아카이브 | TCG 카드 · 포켓몬스터 카드 · 원피스 카드 · 트레이딩 카드 전문샵</title>
@@ -639,6 +639,7 @@
       </div>
       <div style="display:grid; gap:4px; margin-top:12px;">
         <span>상품 합계 <strong id="cartSubtotal">0원</strong></span>
+        <p id="cartShippingNotice" role="status">배송 설정을 불러오는 중입니다.</p>
         <span hidden=""><strong id="cartShipping">0원</strong><strong id="cartFee">0원</strong></span>
       </div>
       <div class="cart-total-box">
@@ -647,6 +648,7 @@
       </div>
       <div class="modal-btns">
         <button class="btn-submit" data-click="start-checkout" hidden disabled>주문하기</button>
+        <button type="button" class="auth-btn" data-click="open-review-preview">심사용 주문·테스트 결제 미리보기</button>
         <button type="button" class="btn-cancel" id="clearCartButton" data-click="clear-cart" disabled>전체 비우기</button>
         <button class="btn-cancel" data-click="close-modal-cart-modal">닫기</button>
       </div>
@@ -687,6 +689,19 @@
       </div>
     </form>
   </div>
+  <div class="modal" id="reviewPreviewModal" role="dialog" aria-modal="true" aria-labelledby="reviewPreviewTitle">
+    <div class="modal-content">
+      <h3 id="reviewPreviewTitle">심사용 주문·테스트 결제 미리보기</h3>
+      <p>실제 주문 접수 및 카드 승인은 비활성화되어 있습니다. 이 모의 화면은 카드정보를 입력하거나 전송하지 않습니다.</p>
+      <div id="reviewPreviewItems"></div><p id="reviewPreviewShipping"></p><p id="reviewPreviewTotal"></p>
+      <h4>주문서 미리보기</h4><p>받는 분 · 연락처 · 배송 주소 · 주문 약관 확인은 실제 주문을 열기 전에 준비되어 있습니다. 입력값을 수집하거나 저장하지 않는 심사 미리보기입니다.</p>
+      <p id="reviewPreviewDelivery">배송: CU 일반 국내택배 · 발송 예정일은 관리자 설정에 따라 표시됩니다.</p>
+      <button type="button" class="auth-btn" data-click="show-test-payment">테스트 결제 화면 보기</button>
+      <div id="testPaymentPanel" hidden><h4>토스페이먼츠 테스트 결제 화면</h4><p>심사용 경로 미리보기입니다. 실제 결제창 호출, 승인, 주문 생성, 재고 차감은 실행되지 않습니다.</p><button type="button" class="btn-cancel" disabled>테스트 결제 비활성</button></div>
+      <button type="button" class="btn-cancel" data-click="close-modal-review-preview-modal">닫기</button>
+    </div>
+  </div>
+
   <div class="modal" id="inquiryModal" role="dialog" aria-modal="true" aria-labelledby="inquiryTitle">
     <form class="modal-content" id="inquiryForm" data-submit="send-inquiry">
       <h3 id="inquiryTitle">문의하기</h3>
@@ -958,8 +973,12 @@
       <h3>관리자 설정</h3>
       <button class="auth-btn" type="button" data-click="open-alert-preferences">주문·가입 알림 설정</button>
       <button class="auth-btn" type="button" data-click="open-sales-ledger">회원·주문 엑셀 장부</button>
-      <div class="form-group"><label for="adminShipping">주문당 배송비 (원)</label><input type="number" id="adminShipping" min="0" step="1"></div>
-      <div class="form-group"><label for="adminFee">주문당 수수료 (원)</label><input type="number" id="adminFee" min="0" step="1"></div>
+      <p>배송 방식: <strong>CU 일반 국내택배</strong></p>
+      <div class="form-group"><label for="adminShipping">기본 배송비 (원)</label><input type="number" id="adminShipping" min="0" step="1" placeholder="사용자 결정 필요"></div>
+      <div class="form-group"><label for="adminFreeShippingThreshold">무료배송 기준 금액 (원)</label><input type="number" id="adminFreeShippingThreshold" min="0" step="1" placeholder="무료배송 미설정"></div>
+      <div class="form-group"><label for="adminCombineOrders">합배송 여부</label><select id="adminCombineOrders"><option value="">사용자 결정 필요</option><option value="true">합배송 가능</option><option value="false">합배송 불가</option></select></div>
+      <div class="form-group"><label for="adminDispatchDate">발송 예정일</label><input type="date" id="adminDispatchDate"></div>
+      <p id="shippingSettingsStatus" role="status" aria-live="polite"></p>
       <div class="modal-btns">
         <button class="btn-submit" data-click="save-admin-settings">변경하기</button>
         <button class="btn-cancel" data-click="close-modal-admin-modal">닫기</button>
@@ -1357,6 +1376,17 @@ window.hansolCatalogConfig = {
       try { return await request("/rest/v1/rpc/hansol_shop_ready", {method:"POST", body:{}}) === true; }
       catch { return false; }
     },
+    async readShippingSettings() {
+      return request("/rest/v1/rpc/hansol_shipping_settings_read", {method:"POST", body:{}});
+    },
+    async saveShippingSettings(settings, accountId) {
+      const token = await requireAccessToken(accountId);
+      return request("/rest/v1/rpc/hansol_shipping_settings_save", {method:"POST", token, body:{
+        p_revision:settings.revision, p_shipping_fee:settings.shipping_fee,
+        p_free_shipping_threshold:settings.free_shipping_threshold,
+        p_combine_orders:settings.combine_orders, p_dispatch_date:settings.dispatch_date
+      }});
+    },
     countVisitors(visitorId) {
       return request("/rest/v1/rpc/hansol_visit_today", {method:"POST", body:{p_visitor:visitorId}});
     },
@@ -1533,6 +1563,8 @@ window.hansolCatalogConfig = {
     let editingRevision = null;
     // The embedded snapshot is a preview until the shared catalog responds.
     let products = catalogApi.enabled ? [] : (publishedCatalog?.items || defaultProducts);
+    let shippingSettings = null;
+    let shippingSettingsLoading = false;
     let currentUser = null;
     let restoringLogin = false;
     let signingIn = false;
@@ -1600,6 +1632,7 @@ window.hansolCatalogConfig = {
       catalogRow = row;
       catalogPreview = false;
       products = row.items;
+      syncCategoryTabs();
       // Keep a local copy so refreshes require only a tiny revision request.
       void cacheCatalog(row);
       if (changed) {
@@ -1743,7 +1776,6 @@ window.hansolCatalogConfig = {
     let cartExpiryTimer;
     const memberHasHolds = () => currentUser?.emailConfirmed === true;
     let cardQuantities = {};
-    let cartCharges = JSON.parse(localStorage.getItem("hansol_cart_charges")) || {shipping: 0, fee: 0};
     const won = amount => amount.toLocaleString("ko-KR") + "원";
 
     const buyerVatPrice = amounts => amounts.total;
@@ -2033,11 +2065,13 @@ window.hansolCatalogConfig = {
       document.getElementById("clearCartButton").disabled = !cart.length || restoringLogin;
       const listContainer = document.getElementById("cartItemsList");
       const amounts = cartVatAmounts(cart);
-      const {shipping, fee} = {shipping: 0, fee: 0};
+      const threshold=shippingSettings?.free_shipping_threshold;
+      const shipping=Number.isFinite(shippingSettings?.shipping_fee) ? (Number.isFinite(threshold)&&amounts.total>=threshold ? 0 : shippingSettings.shipping_fee) : null;
       document.getElementById("cartSubtotal").textContent = won(buyerVatPrice(amounts));
-      document.getElementById("cartShipping").textContent = won(shipping);
-      document.getElementById("cartFee").textContent = won(fee);
-      document.getElementById("cartTotalPrice").textContent = won(amounts.total + shipping + fee);
+      document.getElementById("cartShipping").textContent = shipping===null ? "설정 필요" : won(shipping);
+      document.getElementById("cartFee").textContent = "0원";
+      document.getElementById("cartTotalPrice").textContent = shipping===null ? "배송비 설정 후 표시" : won(amounts.total+shipping);
+      document.getElementById("cartShippingNotice").textContent = "CU 일반 국내택배 · 배송비 "+(shipping===null?"설정 필요":won(shipping))+(Number.isFinite(threshold)?" · "+won(threshold)+" 이상 무료배송":" · 무료배송 기준 미설정")+(shippingSettings?.dispatch_date?" · 발송 예정일 "+shippingSettings.dispatch_date:" · 발송 예정일 설정 필요")+(shippingSettings?.combine_orders===true?" · 합배송 가능":shippingSettings?.combine_orders===false?" · 합배송 불가":" · 합배송 설정 필요");
 
       if(cart.length === 0) {
         listContainer.innerHTML = `<div style="text-align:center; padding:30px; color:#6b7280;">장바구니가 비어 있습니다.</div>`;
@@ -2173,6 +2207,7 @@ window.hansolCatalogConfig = {
     }
 
     function updateUI() {
+      syncCategoryTabs();
       const inquiryAllowed = canSendInquiry(currentUser);
       document.getElementById("memberInquiryButton").hidden = !inquiryAllowed;
       if (!inquiryAllowed) closeModal("inquiryModal");
@@ -2374,10 +2409,26 @@ window.hansolCatalogConfig = {
       setTimeout(() => URL.revokeObjectURL(href), 1000);
     }
 
-    function openAdminModal() {
-      document.getElementById("adminShipping").value = cartCharges.shipping;
-      document.getElementById("adminFee").value = cartCharges.fee;
-      openModal('adminModal');
+    async function refreshShippingSettings() {
+      if(shippingSettingsLoading)return;
+      shippingSettingsLoading=true;
+      try { shippingSettings=await catalogApi.readShippingSettings(); if(document.getElementById("cartModal").style.display==="flex")openCartModal(); }
+      catch { shippingSettings=null; }
+      finally { shippingSettingsLoading=false; }
+    }
+
+    async function openAdminModal() {
+      openModal("adminModal");
+      const status=document.getElementById("shippingSettingsStatus");
+      status.textContent="서버 설정을 불러오는 중입니다.";
+      try {
+        shippingSettings=await catalogApi.readShippingSettings();
+        document.getElementById("adminShipping").value=shippingSettings.shipping_fee ?? "";
+        document.getElementById("adminFreeShippingThreshold").value=shippingSettings.free_shipping_threshold ?? "";
+        document.getElementById("adminCombineOrders").value=shippingSettings.combine_orders===null ? "" : String(shippingSettings.combine_orders);
+        document.getElementById("adminDispatchDate").value=shippingSettings.dispatch_date ?? "";
+        status.textContent="서버 저장값입니다. 정하지 않은 항목은 비워 두세요.";
+      } catch { status.textContent="서버 연결을 확인하지 못해 설정을 수정할 수 없습니다."; }
     }
 
     async function handleLogin() {
@@ -5526,23 +5577,47 @@ window.hansolCatalogConfig = {
       })[alertCallbackStatus] || "카카오톡 연결 상태를 관리자 화면에서 확인해 주세요.";
     }
 
-    function saveAdminSettings() {
-      if (currentUser?.id !== "flowerday1585") return;
-      const shipping = document.getElementById("adminShipping").valueAsNumber;
-      const fee = document.getElementById("adminFee").valueAsNumber;
-      if (![shipping, fee].every(amount => Number.isSafeInteger(amount) && amount >= 0)) {
-        alert("배송비와 수수료를 0 이상의 정수로 입력해 주세요.");
-        return;
-      }
-      cartCharges = {shipping, fee};
-      localStorage.setItem("hansol_cart_charges", JSON.stringify(cartCharges));
-      closeModal('adminModal');
+    async function saveAdminSettings() {
+      if (currentUser?.id !== "flowerday1585" || !shippingSettings) return;
+      const amount=id=>{const el=document.getElementById(id); if(!el.value.trim())return null; const n=el.valueAsNumber; if(!Number.isSafeInteger(n)||n<0)throw new Error("배송비와 무료배송 기준은 0 이상의 정수로 입력해 주세요."); return n;};
+      const combine=document.getElementById("adminCombineOrders").value;
+      const dispatch=document.getElementById("adminDispatchDate").value || null;
+      if(!combine || !dispatch){alert("합배송 여부와 발송 예정일을 결정해 주세요.");return;}
+      let shipping,threshold; try {shipping=amount("adminShipping");threshold=amount("adminFreeShippingThreshold");} catch(error){alert(error.message);return;}
+      const status=document.getElementById("shippingSettingsStatus"); status.textContent="서버에 저장하는 중입니다.";
+      try {
+        shippingSettings=await catalogApi.saveShippingSettings({...shippingSettings,shipping_fee:shipping,free_shipping_threshold:threshold,combine_orders:combine==="true",dispatch_date:dispatch},currentUser.accountId);
+        status.textContent="서버에 저장했습니다. 모든 고객 화면에 동일하게 반영됩니다.";
+        void refreshShippingSettings();
+      } catch(error){status.textContent=(error.message||"서버 저장에 실패했습니다.")+" 입력값은 보존했습니다.";}
+    }
+
+    function openReviewPreview() {
+      const rows=cart.map(line=>{const p=products.find(item=>item.id===line.id);return p?{p,qty:line.qty}:null;}).filter(Boolean);
+      const total=rows.reduce((sum,row)=>sum+saleVatAmounts(row.p,row.p.price).total*row.qty,0);
+      document.getElementById("reviewPreviewItems").textContent=rows.length?rows.map(row=>row.p.name+" × "+row.qty+" · "+won(saleVatAmounts(row.p,row.p.price).total*row.qty)).join("\n"):"상품을 선택하고 장바구니에 담아 주세요.";
+      const threshold=shippingSettings?.free_shipping_threshold;
+      const shipping=Number.isFinite(shippingSettings?.shipping_fee)?(Number.isFinite(threshold)&&total>=threshold?0:shippingSettings.shipping_fee):null;
+      document.getElementById("reviewPreviewShipping").textContent="배송비: "+(shipping===null?"설정 필요":won(shipping));
+      document.getElementById("reviewPreviewTotal").textContent="예상 합계: "+(shipping===null?"배송 설정 후 표시":won(total+shipping));
+      document.getElementById("reviewPreviewDelivery").textContent="배송: CU 일반 국내택배 · 발송 예정일 "+(shippingSettings?.dispatch_date||"설정 필요")+" · 합배송 "+(shippingSettings?.combine_orders===true?"가능":shippingSettings?.combine_orders===false?"불가":"설정 필요");
+      document.getElementById("testPaymentPanel").hidden=true; openModal("reviewPreviewModal");
+    }
+    function syncCategoryTabs() {
+      const admin=currentUser?.id==="flowerday1585";
+      document.querySelectorAll("#categoryTabs [data-category]").forEach(button=>{
+        const empty=button.dataset.category!=="all" && !products.some(product=>product.category===button.dataset.category);
+        const item=button.closest("li"); if(item)item.hidden=!admin&&empty;
+      });
     }
 
     // Event handlers stay in trusted script so the CSP can block inline event code.
     const clickActions = Object.assign(Object.create(null), {
       "clear-shipping-address": clearShippingAddress,
       "open-inquiry": openInquiry,
+      "open-review-preview": openReviewPreview,
+      "show-test-payment": () => {document.getElementById("testPaymentPanel").hidden=false;},
+      "close-modal-review-preview-modal": () => closeModal("reviewPreviewModal"),
       "close-inquiry": () => closeModal("inquiryModal"),
       "open-inquiry-inbox": () => openInquiryInbox(),
     "open-my-inquiries": () => { closeModal("inquiryModal"); return openInquiryInbox(0,true); },
@@ -5717,6 +5792,7 @@ window.hansolCatalogConfig = {
     refreshCatalogOnReturn();
     refreshCartOnReturn();
     setInterval(refreshCartOnReturn, 60000);
+    void refreshShippingSettings();
     setInterval(refreshCatalogOnReturn, 120000);
     window.addEventListener("pageshow", refreshCatalogOnReturn);
     window.addEventListener("focus", refreshCatalogOnReturn);
